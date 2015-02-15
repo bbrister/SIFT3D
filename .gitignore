@@ -1,0 +1,12 @@
+*.o
+*.nii
+*.DS_Store
+*.png
+*conflicted*
+
+build
+build/*
+debug
+debug/*
+*YantaoNoemie*
+*DEBUG*
