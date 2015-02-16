@@ -16,4 +16,9 @@ if (UNIX)
     target_link_libraries (ransac_test PUBLIC m)
 endif ()
 
+install (TARGETS siftreg 
+	 RUNTIME DESTINATION bin 
+	 LIBRARY DESTINATION lib
+	 ARCHIVE DESTINATION lib)
+
 # TODO: refactor reg.c into imutil

@@ -8,3 +8,8 @@ target_include_directories (sift3D PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_executable (getSift3DFeatures driver.c)
 target_link_libraries (getSift3DFeatures PUBLIC imutil sift3D)
+
+install (TARGETS sift3D getSift3DFeatures 
+	 RUNTIME DESTINATION bin 
+	 LIBRARY DESTINATION lib
+	 ARCHIVE DESTINATION lib)
