@@ -1,0 +1,3 @@
+- Install headers in include/sift3d directory
+- Document the C API (maybe change the name of "Image" struct?)
+- Make a C++ API with ITK
