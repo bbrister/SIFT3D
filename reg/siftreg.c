@@ -17,7 +17,6 @@
 #include "macros.h"
 #include "imutil.h"
 #include "math.h"
-#include "reg.h"
 
 /* Parameters */
 #define NN_THRESH 0.8

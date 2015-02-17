@@ -15,7 +15,6 @@
 #include "sift.h"
 #include "macros.h"
 #include "imutil.h"
-#include "reg.h"
 
 int main(int argc, char *argv[]) {
 

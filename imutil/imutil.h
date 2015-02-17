@@ -14,9 +14,6 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-/* Use OpenCL acceleration? */
-//#define USE_OPENCL
-
 /* Vendor-specific info */
 #define PLATFORM_NAME_NVIDIA "NVIDIA CUDA"
 
@@ -25,6 +22,10 @@
 #define UTIL_PI_F 3.141592653589793f
 #define SQRT2 1.4142135623730950488
 #define SQRT2_F 1.4142135623730950488f
+
+/* Implementation parameters */
+//#define USE_OPENCL // Use OpenCL acceleration
+#define RANSAC_REFINE	// Use least-squares refinement in RANSAC
 
 /* Externally-visible routines */
 void clFinish_all();
@@ -196,5 +197,11 @@ int write_pyramid(const char *path, Pyramid *pyr);
 void err_exit(const char *str);
 
 int mkpath(const char *path, mode_t mode);
+
+int init_Ransac(Ransac *ran, double min_inliers, double err_thresh, 
+				 int num_iter);
+					  
+int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
+					  tform_type type, void* tform);
 
 #endif

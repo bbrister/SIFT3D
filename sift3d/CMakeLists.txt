@@ -11,5 +11,5 @@ target_link_libraries (getSift3DFeatures PUBLIC imutil sift3D)
 
 install (TARGETS sift3D getSift3DFeatures 
 	 RUNTIME DESTINATION bin 
-	 LIBRARY DESTINATION lib
-	 ARCHIVE DESTINATION lib)
+	 LIBRARY DESTINATION lib/sift3d
+	 ARCHIVE DESTINATION lib/sift3d)
