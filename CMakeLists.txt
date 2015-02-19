@@ -8,6 +8,9 @@ cmake_minimum_required (VERSION 2.8)
 # Project name
 project (SIFT3D)
 
+# Paths 
+list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
+
 # Output directories
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set (CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -24,7 +27,14 @@ if (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR
     set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_DEBUG} ${RELEASE_FLAGS}")
 endif ()
 
+# Find LAPACK
+find_package (LAPACK REQUIRED)
+
+# Try to find ITK
+find_package (ITK 4 QUIET)
+
 # Source subdirectories
 add_subdirectory (imutil)
 add_subdirectory (sift3d)
 add_subdirectory (reg)
+add_subdirectory (itkwrap)

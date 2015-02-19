@@ -4,16 +4,20 @@
 
 add_library (imutil SHARED imutil.c)
 target_include_directories (imutil PUBLIC $(CMAKE_CURRENT_SOURCE_DIR))
+target_link_libraries (imutil PUBLIC ${LAPACK_LIBRARIES})
 install (FILES types.h macros.h imutil.h kernels.cl DESTINATION include/sift3d)
 
-# Link to ITK if it is present
-find_package(ITK 4)
 if (ITK_FOUND)
+	message(STATUS "Linking to ITK")
+	target_link_libraries(imutil PUBLIC ${ITK_LIBRARIES})
+	target_include_directories(imutil PUBLIC ${ITK_INCLUDE_DIRS})
 
-# Otherwise link directly to liblapack and libniftiio
+# Otherwise link directly to libniftiio
 else ()
-	target_link_libraries (imutil PUBLIC lapack niftiio)
-	target_include_directories (imutil PUBLIC /usr/include/nifti)
+	message(STATUS "ITK not found. Linking to niftiio directly")
+	find_package (NIFTI REQUIRED)
+	target_link_libraries (imutil PUBLIC ${NIFTI_NIFTIIO_LIBRARY})
+	target_include_directories (imutil PUBLIC ${NIFTI_INCLUDE_DIR})
 endif ()
 
 install (TARGETS imutil 

@@ -13,7 +13,7 @@ and the following libraries:
 
 Documentation can be found at:
 
-See /examples for usage
+See /examples for sample programs using the C library and C++ wrappers.
 
 DEPENDENCIES
 
@@ -21,7 +21,7 @@ This code requires the following external libraries:
 - LAPACK (http://www.netlib.org/lapack/)
 - nifticlib (http://sourceforge.net/projects/niftilib/files/nifticlib/)
 
-If you are using ITK, both of these libraries are included.
+If you are using ITK, the build system will automatically find nifticlib there.
 - ITK (http://www.itk.org/)
 
 This code requires the following tools to compile:
@@ -40,6 +40,8 @@ On Unix-like systems, the following commands will generate Makefiles and use the
 	cd build
 	cmake ..
 	make
+
+If for some reason CMake cannot find the dependencies, you can specify the paths manually with "cmake -i .."
 
 Use the following command to install the files:
 
