@@ -21,7 +21,9 @@ This code requires the following external libraries:
 - LAPACK (http://www.netlib.org/lapack/)
 - nifticlib (http://sourceforge.net/projects/niftilib/files/nifticlib/)
 
-If you are using ITK, the build system will automatically find nifticlib there.
+If the build system cannot find LAPACK, it will try to download and compile the source.
+
+If you are using ITK, the build system will automatically find nifticlib there. Otherwise, you must install it yourself. (See the Ubuntu installation command below.)
 - ITK (http://www.itk.org/)
 
 This code requires the following tools to compile:

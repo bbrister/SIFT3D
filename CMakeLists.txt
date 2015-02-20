@@ -2,6 +2,8 @@
 # Top-level build file for 3D SIFT
 #######################################################################
 
+include (ExternalProject)
+
 # Minimum CMake version
 cmake_minimum_required (VERSION 2.8)
 
@@ -28,7 +30,20 @@ if (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR
 endif ()
 
 # Find LAPACK
-find_package (LAPACK REQUIRED)
+find_package (LAPACK QUIET)
+
+if (NOT LAPACK_FOUND)
+	message ("LAPACK was not found on your system. Attempting to install from source...")
+
+	ExternalProject_Add (
+		LAPACK	
+		CMAKE_ARGS -DBUILD_SHARED_LIBS=ON
+		GIT_REPOSITORY https://github.com/qsnake/lapack.git 
+		INSTALL_COMMAND sudo make install
+	)
+
+	set (LAPACK_LIBRARIES "-llapack -lblas")
+endif()
 
 # Try to find ITK
 find_package (ITK 4 QUIET)
