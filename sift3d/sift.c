@@ -1488,10 +1488,6 @@ static void normalize_desc(SIFT3D_Descriptor * const desc) {
 	double norm; 
 	int i, a, p;
 
-	// FIXME: Possible huge bug here--WHOLE desciptor must be L2 normalized,
-	// not each histogram
-#warning(fix bug in normalize_desc)
-	
 	norm = 0.0f;
 	for (i = 0; i < DESC_NUM_TOTAL_HIST; i++) { 
 		HIST_LOOP_START(a, p) 
