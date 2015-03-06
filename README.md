@@ -57,6 +57,10 @@ USAGE INSTRUCTIONS
 
 For instructions on using the CLI, type "sift3d -h".
 
+Here is an example of compiling a C program with the libraries:
+
+gcc helloWorld.c -o helloWorld -I/usr/local/include/sift3d -L/usr/local/lib/sift3d -litkwrap -lsift3d -limutil -llapack -lblas
+
 Linkage dependencies are as follows:
 	- libimutil - may be used as a standalone library
 	- libsift3d - requires linking to libimutil

@@ -1307,8 +1307,8 @@ int SIFT3D_detect_keypoints(SIFT3D_Detector *detector, Image *im,
 	// Detect extrema
 	if (detect_extrema(detector, kp))
 		return FAILURE;
-	
-	// TODO: refine keypoints -- this is a dummy implementation
+
+	// Refine keypoints	
 	if (refine_keypoints(detector, kp))
 		return FAILURE;
 
@@ -1485,18 +1485,25 @@ void SIFT3D_desc_acc_interp(const SIFT3D_Extractor * const extractor,
 /* Normalize a descriptor */
 static void normalize_desc(SIFT3D_Descriptor * const desc) {
 
-	float norm, norm_inv;
+	double norm; 
 	int i, a, p;
+
+	// FIXME: Possible huge bug here--WHOLE desciptor must be L2 normalized,
+	// not each histogram
+#warning(fix bug in normalize_desc)
 	
-	norm = 0.0f; \
+	norm = 0.0f;
 	for (i = 0; i < DESC_NUM_TOTAL_HIST; i++) { 
 		HIST_LOOP_START(a, p) 
 			const float el = HIST_GET(&desc->hists[i], a, p);
-			norm += el * el;
+			norm += (double) el * el;
 		HIST_LOOP_END 
+	}
 
-		norm = sqrt(norm); 
-		norm_inv = 1.0f / norm; 
+	norm = sqrt(norm); 
+
+	for (i = 0; i < DESC_NUM_TOTAL_HIST; i++) {
+		const float norm_inv = 1.0f / norm; 
 
 		HIST_LOOP_START(a, p) 
 			HIST_GET(&desc->hists[i], a, p) *= norm_inv; 
@@ -1630,8 +1637,9 @@ int SIFT3D_extract_descriptors(SIFT3D_Extractor *extractor, void *im,
 
 	// Resize the descriptor store
 	desc->num = kp->slab.num;
-	desc->buf = realloc(desc->buf, desc->num *
-						sizeof(SIFT3D_Descriptor));
+	if ((desc->buf = (SIFT3D_Descriptor *) realloc(desc->buf, desc->num * 
+				sizeof(SIFT3D_Descriptor))) == NULL)
+		return FAILURE;
 
 	// Initialize the image info
 	if (use_gpyr) {
@@ -1684,6 +1692,106 @@ int Keypoint_store_to_Mat_rm(const Keypoint_store *const kp, Mat_rm *const mat) 
     }
 
     return SUCCESS;
+}
+
+/* Convert SIFT3D descriptors to a matrix.
+ *
+ * Output format:
+ *  [x y z el0 el1 ... el767]
+ * Each row is a feature descriptor. [x y z] are the coordinates in image
+ * space, and [el0 el1 ... el767 are the 768 dimensions of the descriptor.
+ *
+ * mat must be initialized prior to calling this function. mat will be resized.
+ * The type of mat will be changed to float.
+ */
+int SIFT3D_Descriptor_store_to_Mat_rm(const SIFT3D_Descriptor_store *const store, 
+				      Mat_rm *const mat) {
+	int i, j, a, p;
+
+	const int num_rows = store->num;
+	const int num_cols = IM_NDIMS + DESC_NUMEL;
+
+	// Verify inputs
+	if (num_rows < 1) {
+		printf("SIFT3D_Descriptor_store_to_Mat_rm: invalid number of "
+		       "descriptors: %d \n", num_rows);
+		return FAILURE;
+	}
+
+	// Resize inputs
+	mat->type = FLOAT;
+	mat->num_rows = num_rows;
+	mat->num_cols = num_cols;
+	if (resize_Mat_rm(mat))
+		return FAILURE;
+
+	// Copy the data
+	for (i = 0; i < num_rows; i++) {
+
+		const SIFT3D_Descriptor *const desc = store->buf + i;
+
+		// Copy the coordinates
+		MAT_RM_GET(mat, i, 0, float) = (float) desc->xd;
+		MAT_RM_GET(mat, i, 1, float) = (float) desc->yd;
+		MAT_RM_GET(mat, i, 2, float) = (float) desc->zd;
+
+		// Copy the feature vector
+		for (j = 0; j < DESC_NUM_TOTAL_HIST; j++) {
+			Hist *const hist = desc->hists + j;
+			HIST_LOOP_START(a, p)
+				MAT_RM_GET(mat, i, j + IM_NDIMS, float) = 
+					HIST_GET(hist, a, p);
+			HIST_LOOP_END
+		}
+	}
+
+	return SUCCESS;
+}
+
+/* Convert a Mat_rm to a descriptor store. See 
+ * SIFT3D_Descriptor_store_to_Mat_rm for the input format. */
+int Mat_rm_to_SIFT3D_Descriptor_store(const Mat_rm *const mat, 
+				      SIFT3D_Descriptor_store *const store) {
+
+	int i, j, a, p;
+
+	const int num_rows = mat->num_rows;
+	const int num_cols = mat->num_cols;
+
+	// Verify inputs
+	if (num_rows < 1 || num_cols != IM_NDIMS + DESC_NUMEL) {
+		printf("Mat_rm_to_SIFT3D_Descriptor_store: invalid matrix "
+		       "dimensions: [%d X %d] \n", num_rows, num_cols);
+		return FAILURE;
+	}
+
+	// Resize the descriptor store
+	store->num = num_rows;
+	if ((store->buf = (SIFT3D_Descriptor *) realloc(store->buf, store->num * 
+				sizeof(SIFT3D_Descriptor))) == NULL)
+		return FAILURE;
+
+	// Copy the data
+	for (i = 0; i < num_rows; i++) {
+
+		SIFT3D_Descriptor *const desc = store->buf + i;
+
+		// Copy the coordinates
+		desc->xd = MAT_RM_GET(mat, i, 0, float);
+		desc->yd = MAT_RM_GET(mat, i, 1, float);
+		desc->zd = MAT_RM_GET(mat, i, 2, float);
+
+		// Copy the feature vector
+		for (j = 0; j < DESC_NUM_TOTAL_HIST; j++) {
+			Hist *const hist = desc->hists + j;
+			HIST_LOOP_START(a, p)
+				HIST_GET(hist, a, p) = MAT_RM_GET(mat, i, 
+					j + IM_NDIMS, float);
+			HIST_LOOP_END
+		}
+	}
+	
+	return SUCCESS;
 }
 
 /* Convert a list of matches to matrices of point coordinates.
