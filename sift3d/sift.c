@@ -1733,7 +1733,7 @@ int SIFT3D_Descriptor_store_to_Mat_rm(const SIFT3D_Descriptor_store *const store
 
 		// Copy the feature vector
 		for (j = 0; j < DESC_NUM_TOTAL_HIST; j++) {
-			Hist *const hist = desc->hists + j;
+			const Hist *const hist = desc->hists + j;
 			HIST_LOOP_START(a, p)
 				MAT_RM_GET(mat, i, j + IM_NDIMS, float) = 
 					HIST_GET(hist, a, p);
