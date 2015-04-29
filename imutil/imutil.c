@@ -695,19 +695,13 @@ int draw_points(const Mat_rm *const in, int nx, int ny, int nz, int radius, Imag
 		const int x_start = MAX(cx - radius, 0);
 		const int y_start = MAX(cy - radius, 0);
 		const int z_start = MAX(cz - radius, 0);
-		const int x_end = MAX(cx + radius, nx - 1);
-		const int y_end = MAX(cy + radius, ny - 1);
-		const int z_end = MAX(cz + radius, nz - 1);
-
-		// Check the bounds
-		if (x_start < 0 || x_end < 0 || y_start < 0 || y_end < 0 || z_start < 0 || 
-		    z_end < 0 || x_start > nx - 1 || x_end > nx - 1 || y_start > ny - 1 ||
-		    y_end > ny - 1 || z_start > nz - 1 || z_end > nz - 1)
-			continue;
+		const int x_end = MIN(cx + radius, nx - 1);
+		const int y_end = MIN(cy + radius, ny - 1);
+		const int z_end = MIN(cz + radius, nz - 1);
 
 		// Draw the point
-		IM_LOOP_LIMITED_START(out, x, y, z, x_start, y_start, z_start,
-				      x_end, y_end, z_end)
+		IM_LOOP_LIMITED_START(out, x, y, z, x_start, x_end, y_start, 
+				      y_end, z_start, z_end)
 			IM_GET_VOX(out, x, y, z) = 1.0f;
 		IM_LOOP_END
 	}
