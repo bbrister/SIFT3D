@@ -112,10 +112,7 @@ static int init_geometry(SIFT3D_Extractor *extractor) {
 
 	Mesh * const mesh = &extractor->mesh;
 
-	/* Thanks to Peter Kovesi, 
-	   http://www.csse.uwa.edu.au/~pk/research/matlabfns/Shapes/icosahedron.m */
-
-	/* Verices of a regular icosahedron inscribed in a sphere. */
+	/* Verices of a regular icosahedron inscribed in the unit sphere. */
 	const float vert[] = {  0,  1,  GR,
 			        0, -1,  GR,
 			        0,  1, -GR,
@@ -206,8 +203,10 @@ static int init_geometry(SIFT3D_Extractor *extractor) {
 
 		// Ensure the triangle is equilateral
 		CVEC_OP(v + 2, v, -, &temp3);
-		assert(fabsf(CVEC_L2_NORM(&temp1) - CVEC_L2_NORM(&temp2)) < 1E-10);
-		assert(fabsf(CVEC_L2_NORM(&temp1) - CVEC_L2_NORM(&temp3)) < 1E-10);
+		assert(fabsf(CVEC_L2_NORM(&temp1) - CVEC_L2_NORM(&temp2)) < 
+			1E-10);
+		assert(fabsf(CVEC_L2_NORM(&temp1) - CVEC_L2_NORM(&temp3)) < 
+			1E-10);
 	}	
 	
 	return SUCCESS;
@@ -1652,8 +1651,7 @@ int SIFT3D_extract_descriptors(SIFT3D_Extractor *extractor, void *im,
 		key = kp->buf + i;
 		descrip = desc->buf + i;
 		level = PYR_IM_GET((Pyramid *) im, key->o, key->s);
-		if (SIFT3D_extract_descrip(extractor, level, key,
-								   descrip))
+		if (SIFT3D_extract_descrip(extractor, level, key, descrip))
 			return FAILURE;	
 	}	
 
