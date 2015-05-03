@@ -8,5 +8,6 @@ build
 build/*
 debug
 debug/*
-*YantaoNoemie*
+scripts
+scripts/*
 *DEBUG*

@@ -10,8 +10,9 @@
  */
 
 #include <stdio.h>
-#include <time.h>
+#include <stdlib.h>
 #include <float.h>
+#include <unistd.h>
 #include "types.h"
 #include "sift.h"
 #include "macros.h"
@@ -19,7 +20,7 @@
 #include "math.h"
 
 /* Parameters */
-#define NN_THRESH 0.8
+#define NN_THRESH_DEFAULT 0.8
 #define MIN_INLIER_RATIO 0.001
 #define ERR_THRESH 5.0
 #define NUM_ITER 500
@@ -46,27 +47,57 @@ int main(int argc, char *argv[]) {
 	Affine aff_syn, aff_reg;
 	int *matches;
 	char *ref_path, *src_path;
+	double nn_thresh;
 	struct timespec reg_start, reg_end, diff;
 	long elapsed_ms;
-	int syn_mode, nx, ny, nz;
+	int i, c, syn_mode, nx, ny, nz;
 
-	// Parse the arguments	
-	if (argc < 2) {
+	// Default parameters
+	nn_thresh = NN_THRESH_DEFAULT;
+	syn_mode = 0;
+
+	// Parse the options	
+	while ((c = getopt(argc, argv, "sn:")) != -1)
+		switch (c) {
+		case 'n':
+			nn_thresh = atof(optarg);
+			break;
+		case 's':
+			syn_mode = 1;
+			break;
+	        case '?':
+			if (optopt == 'n')
+			  fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+			else if (isprint (optopt))
+			  fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+			else
+			  fprintf (stderr,
+				   "Unknown option character `\\x%x'.\n",
+				   optopt);
+			return 1;
+	      	default:
+			return 1;
+	}
+
+	// Parse the required arguments
+	switch (argc - optind)  {
+	case 1:
+		puts("Registering synthetic data \n"); 
+		ref_path = argv[optind];
+		src_path = NULL;
+		syn_mode = 1;
+		break;
+	case 2:
+		puts("Registering real data \n"); 
+		ref_path = argv[optind];
+		src_path = argv[optind + 1];
+		break;
+      	default:
 		puts("Usage: siftreg [source image] [reference image] \n" 
 			 "Only use im1 for synthetic \n");
 		return 1;
-	} else if (argc < 3) {
-		puts("Registering synthetic data \n"); 
-		ref_path = argv[1];
-		syn_mode = 1;
-	} else {
-		puts("Registering real data \n"); 
-		ref_path = argv[1];
-		src_path = argv[2];
-		syn_mode = 0;
 	}
-
-	ref_path = argv[1];
+	printf("nn_thresh: %f \n syn_mode: %d \n", nn_thresh, syn_mode);
 
 	// Initialize data
 	matches = NULL;
@@ -92,8 +123,22 @@ int main(int argc, char *argv[]) {
 		err_exit("load ref image");
 
 	if (syn_mode) {
+
+		// Temporary source image
+		Image src_temp;	
+		init_im(&src_temp);
+		if (src_path == NULL) {
+			// Copy from the reference
+			if (im_copy_data(&ref, &src_temp))
+				err_exit("copy reference image\n");
+		} else {
+			// Load the specified source
+			if (read_nii(src_path, &src_temp))
+				err_exit("load source image\n");
+		}
+
 		// Apply an affine transformation to the reference image
-		double ang_deg = 5.0;
+		double ang_deg = 10.0;
 		double ang_rad = ang_deg * UTIL_PI / 180.0;
 		MAT_RM_GET(&A, 0, 0, double) = cos(ang_rad);
 		MAT_RM_GET(&A, 0, 1, double) = -sin(ang_rad);
@@ -102,7 +147,7 @@ int main(int argc, char *argv[]) {
 		MAT_RM_GET(&A, 2, 2, double) = 1.0;
 		if (Affine_set_mat(&A, &aff_syn))
 			err_exit("set affine matrix\n");
-		if (im_inv_transform(&ref, &src, AFFINE, &aff_syn))
+		if (im_inv_transform(&src_temp, &src, AFFINE, &aff_syn))
 			err_exit("apply image transform\n");		
 
 #ifdef VERBOSE
@@ -113,10 +158,13 @@ int main(int argc, char *argv[]) {
 		if (print_Mat_rm(&aff_syn.A))
 		    err_exit("print input matrix");
 #endif
+
+		// Clean up
+		im_free(&src_temp);
 	} else {
 		// Load the source image
 		if (read_nii(src_path, &src))
-			err_exit("load src image");
+			err_exit("load source image");
 	}
 
 	// Zero-pad the images to have the same size
@@ -223,7 +271,7 @@ int main(int argc, char *argv[]) {
 #endif
 
 	// Match features
-	if (SIFT3D_nn_match_fb(&desc_src, &desc_ref, NN_THRESH, &matches)) 
+	if (SIFT3D_nn_match_fb(&desc_src, &desc_ref, nn_thresh, &matches)) 
 		err_exit("match keypoints\n");
 
 	if (SIFT3D_matches_to_Mat_rm(&desc_src, &desc_ref, matches,
