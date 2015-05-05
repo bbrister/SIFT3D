@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
 	im_free(&ref);
 
 	// Initialize the SIFT detector
-	if (init_SIFT3D_Detector(&detector, 0))
+	if (init_SIFT3D_Detector(&detector))
 		err_exit("init sift detector\n");
 
 	// Initialize the SIFT descriptor extractor 

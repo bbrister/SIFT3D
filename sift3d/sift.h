@@ -50,7 +50,28 @@ void init_Keypoint_store(Keypoint_store *kp);
 
 void init_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *desc);
 
-int init_SIFT3D_Detector(SIFT3D_Detector *detector, int argc, ...);
+void set_first_octave_SIFT3D_Detector(SIFT3D_Detector *const detector, 
+                                const int first_octave);
+
+void set_peak_thresh_SIFT3D_Detector(SIFT3D_Detector *const detector,
+                                const double peak_thresh);
+
+void set_corner_thresh_SIFT3D_Detector(SIFT3D_Detector *const detector,
+                                const double corner_thresh);
+
+void set_num_octaves_SIFT3D_Detector(SIFT3D_Detector *const detector,
+                                const int num_octaves);
+
+void set_num_kp_levels_SIFT3D_Detector(SIFT3D_Detector *const detector,
+                                const int num_kp_levels);
+
+void set_sigma_n_SIFT3D_Detector(SIFT3D_Detector *const detector,
+                                const double sigma_n);
+
+void set_sigma0_SIFT3D_Detector(SIFT3D_Detector *const detector,
+                                const double sigma_n);
+
+int init_SIFT3D_Detector(SIFT3D_Detector *detector);
 
 int SIFT3D_detect_keypoints(SIFT3D_Detector *detector, Image *im, 
 							Keypoint_store *kp);

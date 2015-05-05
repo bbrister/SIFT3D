@@ -15,6 +15,7 @@
 #include <math.h>
 #include <assert.h>
 #include <float.h>
+#include <getopt.h>
 #include "types.h"
 #include "macros.h"
 #include "imutil.h"
@@ -294,7 +295,8 @@ static int init_cl_SIFT3D_Detector(SIFT3D_Detector *detector) {
 	image_format.image_channel_order = CL_R;
 	image_format.image_channel_data_type = CL_FLOAT;
 	if (init_cl(&cl_data, PLATFORM_NAME_NVIDIA, CL_DEVICE_TYPE_GPU,
- 				CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, image_format))
+ 		    CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, 
+                    image_format))
 		return FAILURE;
 
 	// Load and compile the downsampling kernel
@@ -303,98 +305,64 @@ static int init_cl_SIFT3D_Detector(SIFT3D_Detector *detector) {
 	return SUCCESS;
 }
 
-/* Initialize a SIFT3D_Detector struct according to the 
- * given parameters. Variable-length input arguments: 
- * 1. SIFT3D_Detector - struct to initialize (mandatory) 
- * 2. argc			  - number of arguments in list (Mandatory) 
- *						For the default SIFT detector, use 0.
- * 3. first_octave	  - the first octave 
- *    (int)				(Use -1000 for default)
- * 4. peak_thresh	  - threshold on DoG extrema magnitude
- *	  (double)			(Use -1.0 for default)
- * 5. corner_thresh	  - threshold on edge score 
- *	  (double)			(Use -1.0 for default)
- * 6. num_octaves	  - total number of octaves (default: process
- *	  (int)				until one dimension is less than 8, use 
- *						-1 for default)
- * 7. num_kp_levels	  - number of levels per octave for keypoint
- *    (int)				candidates (Use -1 for default)
- * 8. sigma_n		  - base level of blurring assumed in data
- *	  (double)			(Use -1.0 for default)
- * 9. sigma0		  - level to blur base of pyramid
- *	  (double)			(Use -1.0 for default)
- */
-int init_SIFT3D_Detector(SIFT3D_Detector *detector, int argc, 
-						 ...) {
-	va_list ap;
-	double peak_thresh, corner_thresh, sigma_n, sigma0;
-	int num_processed, first_octave, num_octaves, 
-		num_dog_levels, num_gpyr_levels, num_kp_levels;
+void set_first_octave_SIFT3D_Detector(SIFT3D_Detector *const detector, 
+                                const int first_octave) {
+	detector->dog.first_octave = detector->gpyr.first_octave = first_octave;
+}
+
+void set_peak_thresh_SIFT3D_Detector(SIFT3D_Detector *const detector,
+                                const double peak_thresh) {
+        detector->peak_thresh = peak_thresh;
+}
+
+void set_corner_thresh_SIFT3D_Detector(SIFT3D_Detector *const detector,
+                                const double corner_thresh) {
+        detector->corner_thresh = corner_thresh;
+}
+
+void set_num_octaves_SIFT3D_Detector(SIFT3D_Detector *const detector,
+                                const int num_octaves) {
+	detector->dog.num_octaves = detector->gpyr.num_octaves = num_octaves;
+}
+
+void set_num_kp_levels_SIFT3D_Detector(SIFT3D_Detector *const detector,
+                                const int num_kp_levels) {
+
+	const int num_dog_levels = num_kp_levels + 2;
+	const int num_gpyr_levels = num_dog_levels + 1;
+
+	detector->dog.num_kp_levels = detector->gpyr.num_kp_levels = 
+                num_kp_levels;
+	detector->dog.num_levels = num_dog_levels;
+	detector->gpyr.num_levels = num_gpyr_levels;
+}
+
+void set_sigma_n_SIFT3D_Detector(SIFT3D_Detector *const detector,
+                                const double sigma_n) {
+	detector->dog.sigma_n = detector->gpyr.sigma_n = sigma_n;
+}
+
+void set_sigma0_SIFT3D_Detector(SIFT3D_Detector *const detector,
+                                const double sigma0) {
+	detector->dog.sigma0 = detector->gpyr.sigma0 = sigma0;
+}
+
+/* Initialize a SIFT3D_Detector struct with the default parameters. */
+int init_SIFT3D_Detector(SIFT3D_Detector *detector) {
+
+	int num_dog_levels, num_gpyr_levels;
 
 	// Initialize to defaults
-	first_octave = DEFAULT_FIRST_OCTAVE;
-	peak_thresh = DEFAULT_PEAK_THRESH;
-	corner_thresh = DEFAULT_CORNER_THRESH;
-	num_octaves = -1;
-	num_kp_levels = DEFAULT_NUM_KP_LEVELS;
-	sigma_n = DEFAULT_SIGMA_N;
-	sigma0 = DEFAULT_SIGMA0;
-
-	// Process variable argument list
-	va_start(ap, argc);
-	num_processed = 0;
-	while (num_processed < argc) {
-		switch (num_processed) {
-		case 0:
-			first_octave = va_arg(ap, int);
-			break;
-		case 1: 
-			peak_thresh = va_arg(ap, double);
-			break;
-		case 2:
-			corner_thresh = va_arg(ap, double);
-			break;
-		case 3:
-			num_octaves = va_arg(ap, int);
-			break;
-		case 4:
-			num_kp_levels = va_arg(ap, int);
-			break;
-		case 5:
-			sigma0 = va_arg(ap, double);
-			break;
-		case 6:
-			sigma_n = va_arg(ap, double);
-			break;
-		}
-		num_processed++;
-	}
-	va_end(ap);
-
-	// Fill in remaining defaults
-	if (first_octave == -1000)
-		first_octave = DEFAULT_FIRST_OCTAVE;
-	if (peak_thresh == -1.0)
-		peak_thresh = DEFAULT_PEAK_THRESH;
-	if (corner_thresh == -1.0)
-		corner_thresh = DEFAULT_CORNER_THRESH;
-
-	// Defer processing of num_octaves to detect_keypoints function		
-	if (num_kp_levels == -1)
-		num_kp_levels = DEFAULT_NUM_KP_LEVELS;
-	if (sigma_n == -1.0)
-		sigma_n = DEFAULT_SIGMA_N;
-	if (sigma0 == -1.0)
-		sigma0 = DEFAULT_SIGMA0;
+	const int first_octave = DEFAULT_FIRST_OCTAVE;
+	const double peak_thresh = DEFAULT_PEAK_THRESH;
+	const double corner_thresh = DEFAULT_CORNER_THRESH;
+	const int num_octaves = -1;
+	const int num_kp_levels = DEFAULT_NUM_KP_LEVELS;
+	const double sigma_n = DEFAULT_SIGMA_N;
+	const double sigma0 = DEFAULT_SIGMA0;
 
 	// First-time pyramid initialization
 	detector->dog.levels = detector->gpyr.levels = NULL;
-
-	// Derive pyramid data
-	num_dog_levels = num_kp_levels + 2;
-	num_gpyr_levels = num_dog_levels + 1;
-
-	// TODO: init math tables
 
 	// init static OpenCL programs and contexts, if support is enabled
 	if (init_cl_SIFT3D_Detector(detector))
@@ -403,22 +371,124 @@ int init_SIFT3D_Detector(SIFT3D_Detector *detector, int argc,
 	// Initialize image to null, to mark for resizing
 	detector->im = NULL;
 
-	// Declare pyramid memory null, to mark for initialization (see init_pyramid)
+	// Declare pyramid memory null, to mark for initialization 
+        // (see init_pyramid)
 	detector->gpyr.levels = detector->dog.levels = NULL;
 
 	// Save data
-	detector->dog.first_level   = detector->gpyr.first_level = -1;
-	detector->dog.first_octave  = detector->gpyr.first_octave = first_octave;
-	detector->dog.num_octaves   = detector->gpyr.num_octaves = num_octaves;
-	detector->dog.num_kp_levels = detector->gpyr.num_kp_levels = num_kp_levels;
-	detector->dog.num_levels    = num_dog_levels;
-	detector->gpyr.num_levels   = num_gpyr_levels;
-	detector->dog.sigma_n       = detector->gpyr.sigma_n = sigma_n;
-	detector->dog.sigma0        = detector->gpyr.sigma0 = sigma0;
-	detector->peak_thresh       = peak_thresh;
-	detector->corner_thresh       = corner_thresh;
+	detector->dog.first_level = detector->gpyr.first_level = -1;
+        set_first_octave_SIFT3D_Detector(detector, first_octave);
+        set_num_octaves_SIFT3D_Detector(detector, num_octaves);
+        set_num_kp_levels_SIFT3D_Detector(detector, num_kp_levels);
+        set_sigma_n_SIFT3D_Detector(detector, sigma_n);
+        set_sigma0_SIFT3D_Detector(detector, sigma0);
+        set_peak_thresh_SIFT3D_Detector(detector, peak_thresh);
+        set_corner_thresh_SIFT3D_Detector(detector, corner_thresh);
 
 	return SUCCESS;
+}
+
+/* Set the parameters of a SIFT3D detector from the given command line 
+ * arguments. The argument detector must be initialized with
+ * init_SIFT3D_Detector prior to calling this function. All options not
+ * specified in argv will remain at their previous values.
+ *
+ * Options:
+ * --first_octave	 - the first octave (int)
+ * --peak_thresh	 - threshold on DoG extrema magnitude (double)
+ * --corner_thresh - threshold on edge score (double)
+ * --num_octaves	 - total number of octaves (default: process
+ *	  		until one dimension is less than 8, use 
+ *			-1 for default) (int)
+ * --num_kp_levels - number of levels per octave for keypoint
+ *    			candidates (int)
+ * --sigma_n - base level of blurring assumed in data (double)
+ * --sigma0 - level to blur base of pyramid (double)
+ *
+ * Parameters:
+ *      argc - The number of arguments
+ *      argv - An array of strings of arguments
+ *      detector - The detector to be initialized
+ *      optind_ret - If NULL, does nothing. Otherwise, an index to the remaining
+ *             options is written to this address, as in GNU getopt.
+ *      check_err - If nonzero, report unrecognized options as errors
+ * Return value: 
+ *      0 on success, -1 on error. */
+int parse_args_SIFT3D_Detector(SIFT3D_Detector *const detector,
+        const int argc, char *const *argv, int *optind_ret, 
+        const int check_err) {
+
+        int c, idx, err;
+
+        // Options
+        const struct option longopts[] = {
+                {"first_octave", required_argument, NULL, 'a'},
+                {"peak_thresh", required_argument, NULL, 'b'},
+                {"corner_thresh", required_argument, NULL, 'c'},
+                {"num_octaves", required_argument, NULL, 'd'},
+                {"num_kp_levels", required_argument, NULL, 'e'},
+                {"sigma_n", required_argument, NULL, 'f'},
+                {"sigma0", required_argument, NULL, 'g'}
+        };
+
+        // Set the error checking behavior
+        opterr = check_err;
+
+        // Process the arguments
+        err = FALSE;
+        while ((c = getopt_long(argc, argv, "", longopts, &idx)) != -1) {
+
+                // Convert the value to double and integer
+                const double dval = atof(optarg);
+                const int ival = atoi(optarg);
+
+                switch (c) {
+                        case 0:
+                                // Flag options with no return values 
+                                break;
+                        case 'a':
+                                set_first_octave_SIFT3D_Detector(detector, 
+                                        ival);
+                                break;
+                        case 'b':
+                                set_peak_thresh_SIFT3D_Detector(detector, 
+                                        dval);
+                                break;
+                        case 'c':
+                                set_corner_thresh_SIFT3D_Detector(detector, 
+                                        dval);
+                                break;
+                        case 'd':
+                                set_num_octaves_SIFT3D_Detector(detector, 
+                                        ival);
+                                break;
+                        case 'e':
+                                set_num_kp_levels_SIFT3D_Detector(detector, 
+                                        ival);
+                                break;
+                        case 'f':
+                                set_sigma_n_SIFT3D_Detector(detector, 
+                                        dval);
+                                break;
+                        case 'g':
+                                set_sigma0_SIFT3D_Detector(detector, 
+                                        dval);
+                                break;
+                        case '?':
+                        default:
+                                err = TRUE;
+                }
+        }
+
+        // Return optind
+        if (optind_ret != NULL)
+                *optind_ret = optind;
+
+        // Return the error condition, if error checking is enabled
+        if (check_err && err)
+                return FAILURE;
+
+        return SUCCESS;
 }
 
 /* Helper routine to resize a detector and recompile filters, 
