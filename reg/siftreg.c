@@ -56,8 +56,19 @@ int main(int argc, char *argv[]) {
 	nn_thresh = NN_THRESH_DEFAULT;
 	syn_mode = 0;
 
+	// Initialize the SIFT detector
+	if (init_SIFT3D_Detector(&detector))
+		err_exit("init sift detector\n");
+
+	// Initialize the SIFT descriptor extractor 
+	if (init_SIFT3D_Extractor(&extractor))
+		err_exit("init sift extractor\n");
+
+        // Parse the SIFT3D options and increment the argument list
+        parse_args_SIFT3D_Detector(&detector, argc, argv, &optind, 0);
+
 	// Parse the options	
-	while ((c = getopt(argc, argv, "sn:")) != -1)
+	while ((c = getopt(argc, argv, "+sn:")) != -1)
 		switch (c) {
 		case 'n':
 			nn_thresh = atof(optarg);
@@ -68,13 +79,14 @@ int main(int argc, char *argv[]) {
 	        case '?':
 			if (optopt == 'n')
 			  fprintf (stderr, "Option -%c requires an argument.\n", optopt);
-			else if (isprint (optopt))
+			else if (isprint(optopt))
 			  fprintf (stderr, "Unknown option `-%c'.\n", optopt);
 			else
 			  fprintf (stderr,
 				   "Unknown option character `\\x%x'.\n",
 				   optopt);
 			return 1;
+                        break;
 	      	default:
 			return 1;
 	}
@@ -180,14 +192,6 @@ int main(int argc, char *argv[]) {
 	// Release the original images
 	im_free(&src);
 	im_free(&ref);
-
-	// Initialize the SIFT detector
-	if (init_SIFT3D_Detector(&detector))
-		err_exit("init sift detector\n");
-
-	// Initialize the SIFT descriptor extractor 
-	if (init_SIFT3D_Extractor(&extractor))
-		err_exit("init sift extractor\n");
 
 	// Extract features from reference image
 	if (SIFT3D_detect_keypoints(&detector, &refp, &kp_ref))

@@ -73,6 +73,10 @@ void set_sigma0_SIFT3D_Detector(SIFT3D_Detector *const detector,
 
 int init_SIFT3D_Detector(SIFT3D_Detector *detector);
 
+int parse_args_SIFT3D_Detector(SIFT3D_Detector *const detector,
+        const int argc, char *const *argv, int *optind_ret, 
+        const int check_err);
+
 int SIFT3D_detect_keypoints(SIFT3D_Detector *detector, Image *im, 
 							Keypoint_store *kp);
 

@@ -10,6 +10,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <math.h>
@@ -102,6 +103,9 @@ static void SIFT3D_desc_acc_interp(const SIFT3D_Extractor * const extractor,
 				   const Cvec * const vbins, 
 				   const Cvec * const grad,
 				   SIFT3D_Descriptor * const desc);
+static int argv_permute(const int argc, char *const *argv, 
+                        const unsigned char *processed, 
+                        const int optind_start);
 
 /* Initialize geometry tables. */
 static int init_geometry(SIFT3D_Extractor *extractor) {
@@ -388,10 +392,72 @@ int init_SIFT3D_Detector(SIFT3D_Detector *detector) {
 	return SUCCESS;
 }
 
+/* Helper function to permute the arguments so that all unprocessed arguments
+ * are at the end of the array. This function only processes the closed 
+ * interval [optind_start, infinity]. The variable optind is reset to the
+ * first unprocessed argument in this interval, in the final argv array. */
+static int argv_permute(const int argc, char *const *argv, 
+                        const unsigned char *processed, 
+                        const int optind_start) {
+
+        char **next_processed, **next_unprocessed;
+        char **argv_in;
+        int i, num_processed;
+
+        const size_t argv_size = argc * sizeof(char *);
+
+        // Allocate memory
+        if ((argv_in = (char **) malloc(argv_size)) == NULL) {
+                fprintf(stderr, "argv_permute: out of memory \n");
+                return FAILURE;
+        }
+
+        // Copy the input argv array 
+        memcpy(argv_in, argv, argv_size);
+
+        // Get the number of processed arguments
+        num_processed = 0;
+        for (i = optind_start; i < argc; i++) {
+                if (!processed[i])
+                        continue;
+                num_processed++;
+        }
+
+        // Get the starting locations for each section of argv
+        next_processed = (char **) argv + optind_start;
+        next_unprocessed = next_processed + num_processed;
+
+        // Build the permuted argv in the place of the original 
+        for (i = optind_start; i < argc; i++) {
+                
+                char *const arg = argv_in[i];
+
+                if (processed[i]) {
+                        *next_processed++ = arg;
+                } else {
+                        *next_unprocessed++ = arg;
+                } 
+        }
+
+        // Clean up
+        free(argv_in);
+
+        // Reset optind
+        optind = optind_start + num_processed;
+
+        return SUCCESS;
+}
+
 /* Set the parameters of a SIFT3D detector from the given command line 
  * arguments. The argument detector must be initialized with
  * init_SIFT3D_Detector prior to calling this function. All options not
  * specified in argv will remain at their previous values.
+ *
+ * NOTE: This function uses the POSIX convention for getopt, i.e. processing 
+ * stops at the first non-option argument. Due to a bug in some getopt
+ * implementations, any subsequent calls to getopt or getopt_long will
+ * follow the POSIX convention, regardless of the arguments you provide. 
+ * Thus, any process calling this funciton must adopt the POSIX convention.
  *
  * Options:
  * --first_octave	 - the first octave (int)
@@ -407,7 +473,8 @@ int init_SIFT3D_Detector(SIFT3D_Detector *detector) {
  *
  * Parameters:
  *      argc - The number of arguments
- *      argv - An array of strings of arguments
+ *      argv - An array of strings of arguments. All unproccesed arguments are
+ *              permuted to the end.
  *      detector - The detector to be initialized
  *      optind_ret - If NULL, does nothing. Otherwise, an index to the remaining
  *             options is written to this address, as in GNU getopt.
@@ -418,7 +485,9 @@ int parse_args_SIFT3D_Detector(SIFT3D_Detector *const detector,
         const int argc, char *const *argv, int *optind_ret, 
         const int check_err) {
 
-        int c, idx, err;
+        unsigned char *processed;
+        double dval;
+        int c, err, ival;
 
         // Options
         const struct option longopts[] = {
@@ -431,64 +500,103 @@ int parse_args_SIFT3D_Detector(SIFT3D_Detector *const detector,
                 {"sigma0", required_argument, NULL, 'g'}
         };
 
+        // Starting getopt variables 
+        const int optind_start = optind;
+        const int opterr_start = opterr;
+
         // Set the error checking behavior
         opterr = check_err;
 
-        // Process the arguments
+        // Intialize intermediate data
+        if ((processed = calloc(argc, sizeof(char *))) == NULL) {
+                fprintf(stderr, "parse_args_SIFT3D_Detector: out of memory\n");
+                return FAILURE;
+        }
         err = FALSE;
-        while ((c = getopt_long(argc, argv, "", longopts, &idx)) != -1) {
+
+        // Process the arguments
+        while ((c = getopt_long(argc, argv, "+", longopts, NULL)) != -1) {
+
+                const int idx = optind - 1;
 
                 // Convert the value to double and integer
-                const double dval = atof(optarg);
-                const int ival = atoi(optarg);
+                if (optarg != NULL) {
+                        dval = atof(optarg);
+                        ival = atoi(optarg);
+                }
 
                 switch (c) {
-                        case 0:
-                                // Flag options with no return values 
-                                break;
                         case 'a':
                                 set_first_octave_SIFT3D_Detector(detector, 
                                         ival);
+                                processed[idx - 1] = TRUE;
+                                processed[idx] = TRUE;
                                 break;
                         case 'b':
                                 set_peak_thresh_SIFT3D_Detector(detector, 
                                         dval);
+                                processed[idx - 1] = TRUE;
+                                processed[idx] = TRUE;
                                 break;
                         case 'c':
                                 set_corner_thresh_SIFT3D_Detector(detector, 
                                         dval);
+                                processed[idx - 1] = TRUE;
+                                processed[idx] = TRUE;
                                 break;
                         case 'd':
                                 set_num_octaves_SIFT3D_Detector(detector, 
                                         ival);
+                                processed[idx - 1] = TRUE;
+                                processed[idx] = TRUE;
                                 break;
                         case 'e':
                                 set_num_kp_levels_SIFT3D_Detector(detector, 
                                         ival);
+                                processed[idx - 1] = TRUE;
+                                processed[idx] = TRUE;
                                 break;
                         case 'f':
-                                set_sigma_n_SIFT3D_Detector(detector, 
-                                        dval);
+                                set_sigma_n_SIFT3D_Detector(detector, dval);
+                                processed[idx - 1] = TRUE;
+                                processed[idx] = TRUE;
                                 break;
                         case 'g':
-                                set_sigma0_SIFT3D_Detector(detector, 
-                                        dval);
+                                set_sigma0_SIFT3D_Detector(detector, dval);
+                                processed[idx - 1] = TRUE;
+                                processed[idx] = TRUE;
                                 break;
                         case '?':
                         default:
+                                if (!check_err)
+                                        break;
                                 err = TRUE;
                 }
         }
 
+        // Put all unprocessed options at the end
+        if (argv_permute(argc, argv, processed, optind_start))
+                goto parse_args_quit;
+
+        // Return to the default settings
+        opterr = opterr_start;
+
         // Return optind
         if (optind_ret != NULL)
                 *optind_ret = optind;
+
+        // Clean up
+        free(processed);
 
         // Return the error condition, if error checking is enabled
         if (check_err && err)
                 return FAILURE;
 
         return SUCCESS;
+
+parse_args_quit:
+        free(processed);
+        return FAILURE;
 }
 
 /* Helper routine to resize a detector and recompile filters, 
