@@ -27,6 +27,11 @@
 //#define USE_OPENCL // Use OpenCL acceleration
 #define RANSAC_REFINE	// Use least-squares refinement in RANSAC
 
+/* Default parameters */
+#define MIN_INLIERS_DEFAULT 0.01;
+#define ERR_THRESH_DEFAULT 5.0;
+#define NUM_ITER_DEFAULT 500;
+
 /* Externally-visible routines */
 void clFinish_all();
 
@@ -198,9 +203,14 @@ void err_exit(const char *str);
 
 int mkpath(const char *path, mode_t mode);
 
-int init_Ransac(Ransac *ran, double min_inliers, double err_thresh, 
-				 int num_iter);
+int init_Ransac(Ransac *ran); 
 					  
+int set_min_inliers_Ransac(Ransac *ran, double min_inliers);
+
+int set_err_thresh_Ransac(Ransac *ran, double err_thresh);
+
+void set_num_iter_Ransac(Ransac *ran, unsigned int num_iter);
+
 int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
 					  tform_type type, void* tform);
 

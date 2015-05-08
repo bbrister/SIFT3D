@@ -21,7 +21,7 @@
 
 /* Parameters */
 #define NN_THRESH_DEFAULT 0.8
-#define MIN_INLIER_RATIO 0.001
+#define MIN_INLIERS 0.001
 #define ERR_THRESH 5.0
 #define NUM_ITER 500
 
@@ -124,11 +124,16 @@ int main(int argc, char *argv[]) {
 	init_im(&srcp_reg);
 	init_Affine(&aff_syn, 3);
 	init_Affine(&aff_reg, 3);
-	init_Ransac(&ran, MIN_INLIER_RATIO, ERR_THRESH, NUM_ITER);
+	init_Ransac(&ran);
 	if (init_Mat_rm(&match_src, 0, 0, DOUBLE, FALSE) ||
 		init_Mat_rm(&match_ref, 0, 0, DOUBLE, FALSE) ||
 		init_Mat_rm(&A, 3, 4, DOUBLE, TRUE))
 		err_exit("init data");
+
+        // Set the RANSAC parameters
+        set_min_inliers_Ransac(&ran, MIN_INLIERS);
+        set_err_thresh_Ransac(&ran, ERR_THRESH);
+        set_num_iter_Ransac(&ran, NUM_ITER);
 
 	// Load the reference image
 	if (read_nii(ref_path, &ref))
@@ -311,17 +316,6 @@ int main(int argc, char *argv[]) {
 	im_free(&background);
 	im_free(&overlay);
 }
-#endif
-
-#if 0
-#ifdef VERBOSE
-	printf("reference points:\n");	   
-	if (print_Mat_rm(&match_ref))
-	    err_exit("print reference matches \n");
-	printf("source points:\n");	   
-	if (print_Mat_rm(&match_src))
-	    err_exit("print source matches \n");
-#endif
 #endif
 	
 	// Find the transformation 

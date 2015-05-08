@@ -3153,13 +3153,44 @@ int init_Tps(Tps *tps, int dim, int terms) {
 }
 
 /* Initialize a RANSAC struct with the given parameters */
-int init_Ransac(Ransac *ran, double min_inliers, double err_thresh, 
-				 int num_iter) {
-	ran->min_inliers = min_inliers; //ratio of inliers threshold for RANSAC concensus sets
- 	ran->err_thresh = err_thresh; //error threshold for RANSAC inliers
-	ran->num_iter = num_iter; //number of RANSAC iterations
+int init_Ransac(Ransac *ran) { 
+
+        /* Set the default parameters */
+	ran->min_inliers = MIN_INLIERS_DEFAULT; 
+ 	ran->err_thresh = ERR_THRESH_DEFAULT;
+	ran->num_iter = NUM_ITER_DEFAULT;
 
 	return SUCCESS;
+}
+
+int set_min_inliers_Ransac(Ransac *ran, double min_inliers) {
+
+        if (min_inliers < 0.0) {
+                fprintf(stderr, "set_min_inliers_Ransac: invalid minimum "
+                        "inlier ratio: %f", min_inliers);
+                return FAILURE;
+        }
+
+        ran->min_inliers = min_inliers;
+
+        return SUCCESS;
+}
+
+int set_err_thresh_Ransac(Ransac *ran, double err_thresh) {
+
+        if (err_thresh < 0.0) {
+                fprintf(stderr, "set_err_thresh_Ransac: invalid error "
+                        "threshold: %f", err_thresh);
+                return FAILURE;
+        }
+
+        ran->err_thresh = err_thresh;
+
+        return SUCCESS;
+}
+
+void set_num_iter_Ransac(Ransac *ran, unsigned int num_iter) {
+        ran->num_iter = (int) num_iter;
 }
 
 /* Select a random subset of rows, length "num_rows".
