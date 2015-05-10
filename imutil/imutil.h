@@ -135,7 +135,8 @@ int write_Keypoint_store(const char *path, Keypoint_store *kp);
 
 int write_Mat_rm(const char *path, Mat_rm *mat);
 
-int init_im_first_time(Image *im, const int nx, const int ny, const int nz);
+int init_im_first_time(Image *im, const int nx, const int ny, const int nz,
+                        const int nc);
 
 int im_load_cl(Image *im, int blocking);
 

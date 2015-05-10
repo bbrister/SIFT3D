@@ -753,34 +753,34 @@ static int detect_extrema(SIFT3D_Detector *detector, Keypoint_store *kp) {
 	kp->nz = cur->nz;
 
 #define CMP_NEIGHBORS(im, x, y, z, CMP, IGNORESELF, val) ( \
-	(val) CMP IM_GET_VOX( (im), (x),     (y),    (z) - 1) && \
-	(val) CMP IM_GET_VOX( (im), (x) - 1, (y),    (z) - 1) && \
-	(val) CMP IM_GET_VOX( (im), (x) + 1, (y),    (z) - 1) && \
-	(val) CMP IM_GET_VOX( (im), (x),     (y) - 1,(z) - 1) && \
-	(val) CMP IM_GET_VOX( (im), (x),     (y) + 1,(z) - 1) && \
-	(val) CMP IM_GET_VOX( (im), (x) - 1, (y) - 1,(z) - 1) && \
-	(val) CMP IM_GET_VOX( (im), (x) + 1, (y) - 1,(z) - 1) && \
-	(val) CMP IM_GET_VOX( (im), (x) - 1, (y) + 1,(z) - 1) && \
-	(val) CMP IM_GET_VOX( (im), (x) + 1, (y) + 1,(z) - 1) && \
-	((val) CMP IM_GET_VOX( (im), (x),     (y),    (z)    ) || \
+	(val) CMP IM_GET_VOX( (im), (x),     (y),    (z) - 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x) - 1, (y),    (z) - 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x) + 1, (y),    (z) - 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x),     (y) - 1,(z) - 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x),     (y) + 1,(z) - 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x) - 1, (y) - 1,(z) - 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x) + 1, (y) - 1,(z) - 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x) - 1, (y) + 1,(z) - 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x) + 1, (y) + 1,(z) - 1, 0) && \
+	((val) CMP IM_GET_VOX( (im), (x),     (y),    (z), 0   ) || \
 	    IGNORESELF) && \
-	(val) CMP IM_GET_VOX( (im), (x) - 1, (y),    (z)    ) && \
-	(val) CMP IM_GET_VOX( (im), (x) + 1, (y),    (z)    ) && \
-	(val) CMP IM_GET_VOX( (im), (x),     (y) - 1,(z)    ) && \
-	(val) CMP IM_GET_VOX( (im), (x),     (y) + 1,(z)    ) && \
-	(val) CMP IM_GET_VOX( (im), (x) - 1, (y) - 1,(z)    ) && \
-	(val) CMP IM_GET_VOX( (im), (x) + 1, (y) - 1,(z)    ) && \
-	(val) CMP IM_GET_VOX( (im), (x) - 1, (y) + 1,(z)    ) && \
-	(val) CMP IM_GET_VOX( (im), (x) + 1, (y) + 1,(z)    ) && \
-	(val) CMP IM_GET_VOX( (im), (x),     (y),    (z) + 1) && \
-	(val) CMP IM_GET_VOX( (im), (x) - 1, (y),    (z) + 1) && \
-	(val) CMP IM_GET_VOX( (im), (x) + 1, (y),    (z) + 1) && \
-	(val) CMP IM_GET_VOX( (im), (x),     (y) - 1,(z) + 1) && \
-	(val) CMP IM_GET_VOX( (im), (x),     (y) + 1,(z) + 1) && \
-	(val) CMP IM_GET_VOX( (im), (x) - 1, (y) - 1,(z) + 1) && \
-	(val) CMP IM_GET_VOX( (im), (x) + 1, (y) - 1,(z) + 1) && \
-	(val) CMP IM_GET_VOX( (im), (x) - 1, (y) + 1,(z) + 1) && \
-	(val) CMP IM_GET_VOX( (im), (x) + 1, (y) + 1,(z) + 1) )
+	(val) CMP IM_GET_VOX( (im), (x) - 1, (y),    (z), 0    ) && \
+	(val) CMP IM_GET_VOX( (im), (x) + 1, (y),    (z), 0    ) && \
+	(val) CMP IM_GET_VOX( (im), (x),     (y) - 1,(z), 0    ) && \
+	(val) CMP IM_GET_VOX( (im), (x),     (y) + 1,(z), 0    ) && \
+	(val) CMP IM_GET_VOX( (im), (x) - 1, (y) - 1,(z), 0    ) && \
+	(val) CMP IM_GET_VOX( (im), (x) + 1, (y) - 1,(z), 0    ) && \
+	(val) CMP IM_GET_VOX( (im), (x) - 1, (y) + 1,(z), 0    ) && \
+	(val) CMP IM_GET_VOX( (im), (x) + 1, (y) + 1,(z), 0    ) && \
+	(val) CMP IM_GET_VOX( (im), (x),     (y),    (z) + 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x) - 1, (y),    (z) + 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x) + 1, (y),    (z) + 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x),     (y) - 1,(z) + 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x),     (y) + 1,(z) + 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x) - 1, (y) - 1,(z) + 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x) + 1, (y) - 1,(z) + 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x) - 1, (y) + 1,(z) + 1, 0) && \
+	(val) CMP IM_GET_VOX( (im), (x) + 1, (y) + 1,(z) + 1, 0) )
 
 	num = 0;
 	PYR_LOOP_LIMITED_START(o, s, o_start, o_end, s_start, s_end)  
@@ -794,7 +794,7 @@ static int detect_extrema(SIFT3D_Detector *detector, Keypoint_store *kp) {
 		dogmax = 0.0f;
 		IM_LOOP_START(cur, x, y, z)
 			dogmax = MAX(dogmax, 
-						 fabsf(IM_GET_VOX(cur, x, y, z))); 	
+                                fabsf(IM_GET_VOX(cur, x, y, z, 0)));
 		IM_LOOP_END
 		// Adjust threshold
 		peak_thresh = detector->peak_thresh * dogmax;
@@ -807,7 +807,7 @@ static int detect_extrema(SIFT3D_Detector *detector, Keypoint_store *kp) {
 		IM_LOOP_LIMITED_START(cur, x, y, z, x_start, x_end, y_start,
 							  y_end, z_start, z_end)
 			// Sample the center value
-			pcur = IM_GET_VOX(cur, x, y, z);
+			pcur = IM_GET_VOX(cur, x, y, z, 0);
 
 			// Apply the peak threshold
 			if ((pcur > peak_thresh || pcur < -peak_thresh) && ((
@@ -847,7 +847,7 @@ IGNORE_UNUSED
 	double xd, yd, zd, sd;
 //XXX
 IGNORE_UNUSED
-	int x, y, z, xnew, ynew, znew, i, j, k, l;
+	int x, y, z, c, xnew, ynew, znew, i, j, k, l;
 
 	// Initialize data 
 	init_Mat_rm(&B, 4, 1, DOUBLE, FALSE);
@@ -895,18 +895,18 @@ IGNORE_UNUSED
 #define PARABOLA
 #ifndef PARABOLA 
 		// Form the gradient
-		IM_GET_GRAD(cur, x, y, z, &vd);
+		IM_GET_GRAD(cur, x, y, z, 0, &vd);
 
 		// Form the response vector as the negative gradient
 		MAT_RM_GET(&B, 0, 0, double) = (double) -vd.x;
 		MAT_RM_GET(&B, 1, 0, double) = (double) -vd.y;
 		MAT_RM_GET(&B, 2, 0, double) = (double) -vd.z;
 		MAT_RM_GET(&B, 3, 0, double) = 
-		   (double) - 0.5 * (IM_GET_VOX(next, x, y, z) - 
-			      IM_GET_VOX(prev, x, y, z));
+		   (double) - 0.5 * (IM_GET_VOX(next, x, y, z, 0) - 
+			      IM_GET_VOX(prev, x, y, z, 0));
 
 		// Form the Hessian
-		IM_GET_HESSIAN(cur, x, y, z, &Hi, double);
+		IM_GET_HESSIAN(cur, x, y, z, c, 0, &Hi, double);
 		MAT_RM_LOOP_START(&Hi, i, j)
 			MAT_RM_GET(&Hs, i, j, double) = 
 				MAT_RM_GET(&Hi, i, j, double);
@@ -915,18 +915,18 @@ IGNORE_UNUSED
 		// Dsx
 		MAT_RM_GET(&Hs, 0, 3, double) = 
 		MAT_RM_GET(&Hs, 3, 0, double) =
-			(double) 0.25 * (IM_GET_VOX(next, x + 1, y, z) -
-			 IM_GET_VOX(prev, x + 1, y, z) + 
-			 IM_GET_VOX(prev, x - 1, y, z) - 
-			 IM_GET_VOX(next, x - 1, y, z)); 
+			(double) 0.25 * (IM_GET_VOX(next, x + 1, y, z, 0) -
+			 IM_GET_VOX(prev, x + 1, y, z, 0) + 
+			 IM_GET_VOX(prev, x - 1, y, z, 0) - 
+			 IM_GET_VOX(next, x - 1, y, z, 0)); 
 
 		// Dsy 
 		MAT_RM_GET(&Hs, 1, 3, double) = 
 		MAT_RM_GET(&Hs, 3, 1, double) = 
-			(double) 0.25 * (IM_GET_VOX(next, x, y + 1, z) -
-			 IM_GET_VOX(prev, x, y + 1, z) + 
-			 IM_GET_VOX(prev, x, y - 1, z) - 
-			 IM_GET_VOX(next, x, y - 1, z)); 
+			(double) 0.25 * (IM_GET_VOX(next, x, y + 1, z, 0) -
+			 IM_GET_VOX(prev, x, y + 1, z, 0) + 
+			 IM_GET_VOX(prev, x, y - 1, z, 0) - 
+			 IM_GET_VOX(next, x, y - 1, z, 0)); 
 
 		// Dsz 
 		MAT_RM_GET(&Hs, 2, 3, double) = 
@@ -938,9 +938,9 @@ IGNORE_UNUSED
 
 		// Dss  
 		MAT_RM_GET(&Hs, 3, 3, double) = 
-			(double) 0.25 * (IM_GET_VOX(next, x, y, z) -
-			2 * IM_GET_VOX(cur, x, y, z) +
-			IM_GET_VOX(prev, x, y, z));
+			(double) 0.25 * (IM_GET_VOX(next, x, y, z, 0) -
+			2 * IM_GET_VOX(cur, x, y, z, 0) +
+			IM_GET_VOX(prev, x, y, z, 0));
 
 		// Solve the system
 		switch(solve_Mat_rm(&Hs, &B, -1.0, &X)) {
@@ -957,29 +957,29 @@ IGNORE_UNUSED
 #else
 		// Parabolic interpolation
 		MAT_RM_GET(&X, 0, 0, double) = -0.5 * ( 
-		    IM_GET_VOX(cur, x + 1, y, z) -
-		    IM_GET_VOX(cur, x - 1, y, z)) / (
-		    IM_GET_VOX(cur, x + 1, y, z) -
-		    IM_GET_VOX(cur, x - 1, y, z) +
-		    2 * IM_GET_VOX(cur, x, y, z));
+		    IM_GET_VOX(cur, x + 1, y, z, 0) -
+		    IM_GET_VOX(cur, x - 1, y, z, 0)) / (
+		    IM_GET_VOX(cur, x + 1, y, z, 0) -
+		    IM_GET_VOX(cur, x - 1, y, z, 0) +
+		    2 * IM_GET_VOX(cur, x, y, z, 0));
 		MAT_RM_GET(&X, 1, 0, double) = -0.5 * ( 
-		    IM_GET_VOX(cur, x, y + 1, z) -
-		    IM_GET_VOX(cur, x, y - 1, z)) / (
-		    IM_GET_VOX(cur, x, y + 1, z) -
-		    IM_GET_VOX(cur, x, y - 1, z) +
-		    2 * IM_GET_VOX(cur, x, y, z));
+		    IM_GET_VOX(cur, x, y + 1, z, 0) -
+		    IM_GET_VOX(cur, x, y - 1, z, 0)) / (
+		    IM_GET_VOX(cur, x, y + 1, z, 0) -
+		    IM_GET_VOX(cur, x, y - 1, z, 0) +
+		    2 * IM_GET_VOX(cur, x, y, z, 0));
 		MAT_RM_GET(&X, 2, 0, double) = -0.5 * ( 
-		    IM_GET_VOX(cur, x, y, z + 1) -
-		    IM_GET_VOX(cur, x, y, z - 1)) / (
-		    IM_GET_VOX(cur, x, y, z + 1) -
-		    IM_GET_VOX(cur, x, y, z - 1) +
-		    2 * IM_GET_VOX(cur, x, y, z));
+		    IM_GET_VOX(cur, x, y, z + 1, 0) -
+		    IM_GET_VOX(cur, x, y, z - 1, 0)) / (
+		    IM_GET_VOX(cur, x, y, z + 1, 0) -
+		    IM_GET_VOX(cur, x, y, z - 1, 0) +
+		    2 * IM_GET_VOX(cur, x, y, z, 0));
 		MAT_RM_GET(&X, 3, 0, double) = -0.5 * ( 
-		    IM_GET_VOX(next, x, y, z) -
-		    IM_GET_VOX(prev, x, y, z)) / (
-		    IM_GET_VOX(next, x, y, z) -
-		    IM_GET_VOX(prev, x, y, z) +
-		    2 * IM_GET_VOX(cur, x, y, z));
+		    IM_GET_VOX(next, x, y, z, 0) -
+		    IM_GET_VOX(prev, x, y, z, 0)) / (
+		    IM_GET_VOX(next, x, y, z, 0) -
+		    IM_GET_VOX(prev, x, y, z, 0) +
+		    2 * IM_GET_VOX(cur, x, y, z, 0));
 #endif
 			// Update the coordinates
 			xd = MAX(MIN(xd + MAT_RM_GET(&X, 0, 0, double), 
@@ -1112,7 +1112,7 @@ static int assign_hist_ori(Keypoint *key, Image *im) {
 		weight = expf(-0.5 * sq_dist / (sigma * sigma));    	
     
 		// Get the gradient and convert to bins
-		IM_GET_GRAD(im, x, y, z, &vd);
+		IM_GET_GRAD(im, x, y, z, 0, &vd);
 		if (Cvec_to_sbins(&vd, &bins))
 			continue;
 
@@ -1289,7 +1289,7 @@ static int assign_eig_ori(Keypoint *key, Image *im) {
 	weight = expf(-0.5 * sq_dist / (sigma * sigma));		
 
 	// Get the gradient	
-	IM_GET_GRAD(im, x, y, z, &vd);
+	IM_GET_GRAD(im, x, y, z, 0, &vd);
 
 	// Update the structure tensor
 	MAT_RM_GET(&A, 0, 0, double) += (double) vd.x * vd.x * weight;
@@ -1453,10 +1453,18 @@ static int assign_orientations(SIFT3D_Detector *detector,
 /* Detect keypoint locations and orientations. You must initialize
  * the detector, image, and keypoint store with the appropriate
  * functions prior to calling this function. */
-int SIFT3D_detect_keypoints(SIFT3D_Detector *detector, Image *im, 
-							Keypoint_store *kp) {
+int SIFT3D_detect_keypoints(SIFT3D_Detector *const detector, Image *const im, 
+			    Keypoint_store *const kp) {
 
 	Image im_old; 
+
+        // Verify inputs
+        if (im->nc != 1) {
+                fprintf(stderr, "SIFT3D_detect_keypoints: invalid number "
+                        "of image channels: %d -- only single-channel images "
+                        "are supported \n", im->nc);
+                return FAILURE;
+        }
 
 	// Copy the last image and load the new one
 	if (detector->im == NULL)
@@ -1738,7 +1746,7 @@ int SIFT3D_extract_descrip(SIFT3D_Extractor *extractor, Image *im,
 			continue;
 
 		// Take gradient and rotate to Keypoint space
-		IM_GET_GRAD(im, x, y, z, &vd);
+		IM_GET_GRAD(im, x, y, z, 0, &vd);
 		MUL_MAT_RM_CVEC(&key->R, &vd, &vd_rot);
 
 		// Apply a Gaussian window
@@ -1834,6 +1842,22 @@ int SIFT3D_extract_descriptors(SIFT3D_Extractor *extractor, void *im,
 	}	
 
 	return SUCCESS;
+}
+
+/* Get a descriptor with a single histogram at each voxel of an image.
+ * The result is an image with HIST_NUMEL channels, where each channel is a
+ * bin of the histogram. 
+ * Parameters:
+ * -extractor The descriptor extractor.
+ * -in The input image.
+ * -out The output image.
+ * -rotate If nonzero, rotates the descriptor according to its orientation. */
+int SIFT3D_extract_dense_descriptors(SIFT3D_Extractor *extractor, 
+        const Image *const in, Image *const descrip, const int rotate) {
+
+        //TODO
+
+        return SUCCESS;
 }
 
 /* Convert a keypoint store to a matrix. 

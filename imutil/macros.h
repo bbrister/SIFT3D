@@ -38,11 +38,11 @@
 #endif
 
 // Get the index of an [x,y,z] pair in an image 
-#define IM_GET_IDX(im, x, y, z) ((x) * (im)->x_stride + (y) * (im)->y_stride + \
-				(z) * (im)->z_stride)
+#define IM_GET_IDX(im, x, y, z, c) ((x) * (im)->x_stride + (y) * (im)->y_stride + \
+				(z) * (im)->z_stride + (c))
 
 // Get the value of voxel [x,y,z] in an image 
-#define IM_GET_VOX(im, x, y, z) ((im)->data[IM_GET_IDX((im), (x), (y), (z))])
+#define IM_GET_VOX(im, x, y, z, c) ((im)->data[IM_GET_IDX((im), (x), (y), (z), (c))])
 
 // Loop through an image in x, z, y order. Delmit with IM_LOOP_END
 #define IM_LOOP_START(im, x, y, z) \
@@ -50,63 +50,79 @@
 	for ((y) = 0; (y) < (im)->ny; (y)++) {	\
 	for ((x) = 0; (x) < (im)->nx; (x)++) {
 
+/* As in IM_LOOP_START, but also loop through each channel */
+#define IM_LOOP_START_C(im, x, y, z, c) \
+        IM_LOOP_START(im, x, y, z) \
+        for ((c) = 0; (c) < (im)->nc; (c)++) {
+
 /* Loop through an image iterating with the (inclusive) x, y, z bounds given.
  * Delimit with IM_LOOP_END. */
 #define IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, \
-							  y_start, y_end, z_start, z_end) \
+			      y_start, y_end, z_start, z_end) \
 	for ((z) = z_start; (z) <= z_end; (z)++) { \
 	for ((y) = y_start; (y) <= y_end; (y)++) { \
-	for ((x) = x_start; (x) <= x_end; (x)++)	{		
+	for ((x) = x_start; (x) <= x_end; (x)++) {		
 
-// Delimit an IM_LOOP
+/* As in IM_LOOP_LIMITED_START, but also loop through each channel */
+#define IM_LOOP_LIMITED_START_C(im, x, y, z, c, x_start, x_end, \
+			      y_start, y_end, z_start, z_end) \
+        IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, \
+			      y_start, y_end, z_start, z_end) \
+        for ((c) = 0; (c) < (im)->nc; (c)++) {
+                                
+
+// Delimit an IM_LOOP_START or IM_LOOP_LIMITED_START
 #define IM_LOOP_END }}}
 
-/* Take the Cartesian gradient of an image at [x, y, z]. The voxel cannot be on
- * the boundary. */
-#define IM_GET_GRAD(im, x, y, z, vd) \
-		(vd)->x = 0.5f * (IM_GET_VOX(im, x + 1, y, z) - \
-			   IM_GET_VOX(im, x - 1, y, z)); \
-		(vd)->y = 0.5f * (IM_GET_VOX(im, x, y + 1, z) - \
-			   IM_GET_VOX(im, x, y - 1, z)); \
-		(vd)->z = 0.5f * (IM_GET_VOX(im, x, y, z + 1) - \
-			   IM_GET_VOX(im, x, y, z - 1))
+// Delimited an IM_LOOP_START_C or IM_LOOP_LIMITED_START_C
+#define IM_LOOP_END_C IM_LOOP_END }
+
+/* Take the Cartesian gradient of an image at [x, y, z, c]. The voxel cannot be
+ * on the boundary. */
+#define IM_GET_GRAD(im, x, y, z, c, vd) \
+		(vd)->x = 0.5f * (IM_GET_VOX(im, (x) + 1, y, z, c) - \
+			   IM_GET_VOX(im, (x) - 1, y, z, c)); \
+		(vd)->y = 0.5f * (IM_GET_VOX(im, x, (y) + 1, z, c) - \
+			   IM_GET_VOX(im, x, (y) - 1, z, c)); \
+		(vd)->z = 0.5f * (IM_GET_VOX(im, x, y, (z) + 1, c) - \
+			   IM_GET_VOX(im, x, y, (z) - 1, c))
 
 /* Get the Hessian of an image at [x, y, z]. The voxel cannot be on the 
  * boundary. */
-#define IM_GET_HESSIAN(im, x, y, z, H, type) \
+#define IM_GET_HESSIAN(im, x, y, z, c, H, type) \
    /* Dxx */ \
-    MAT_RM_GET(H, 0, 0, type) = (type) (0.25f * (IM_GET_VOX(im, x + 1, y, z) - \
-				 2 * IM_GET_VOX(im, x, y, z) + \
-				 IM_GET_VOX(im, x - 1, y, z))); \
+    MAT_RM_GET(H, 0, 0, type) = (type) (0.25f * (IM_GET_VOX(im, x + 1, y, z, c) - \
+				 2 * IM_GET_VOX(im, x, y, z, c) + \
+				 IM_GET_VOX(im, x - 1, y, z, c))); \
     /* Dxy */ \
-    MAT_RM_GET(H, 0, 1, type) = (type) (0.25f * (IM_GET_VOX(im, x + 1, y + 1, z) - \
-				 IM_GET_VOX(im, x - 1, y + 1, z) + \
-				 IM_GET_VOX(im, x - 1, y - 1, z) - \
-				 IM_GET_VOX(im, x + 1, y - 1, z))); \
+    MAT_RM_GET(H, 0, 1, type) = (type) (0.25f * (IM_GET_VOX(im, x + 1, y + 1, z, c) - \
+				 IM_GET_VOX(im, x - 1, y + 1, z, c) + \
+				 IM_GET_VOX(im, x - 1, y - 1, z, c) - \
+				 IM_GET_VOX(im, x + 1, y - 1, z, c))); \
     /* Dxz */ \
-    MAT_RM_GET(H, 0, 2, type) = (type) (0.25f * (IM_GET_VOX(im, x + 1, y, z + 1) - \
-				 IM_GET_VOX(im, x - 1, y, z + 1) + \
-				 IM_GET_VOX(im, x - 1, y, z - 1) - \
-				 IM_GET_VOX(im, x + 1, y, z - 1))); \
+    MAT_RM_GET(H, 0, 2, type) = (type) (0.25f * (IM_GET_VOX(im, x + 1, y, z + 1, c) - \
+				 IM_GET_VOX(im, x - 1, y, z + 1, c) + \
+				 IM_GET_VOX(im, x - 1, y, z - 1, c) - \
+				 IM_GET_VOX(im, x + 1, y, z - 1, c))); \
     /* Dyx */ \
     MAT_RM_GET(H, 1, 0, type) = MAT_RM_GET(H, 0, 1, type); \
     /* Dyy */ \
-    MAT_RM_GET(H, 1, 1, type) = (type) (0.25f * (IM_GET_VOX(im, x, y + 1, z) - \
-				 2 * IM_GET_VOX(im, x, y, z) + \
-				 IM_GET_VOX(im, x, y - 1, z))); \
+    MAT_RM_GET(H, 1, 1, type) = (type) (0.25f * (IM_GET_VOX(im, x, y + 1, z, c) - \
+				 2 * IM_GET_VOX(im, x, y, z, c) + \
+				 IM_GET_VOX(im, x, y - 1, z, c))); \
     /* Dyz */ \
-    MAT_RM_GET(H, 1, 2, type) = (type) (0.25f * (IM_GET_VOX(im, x, y + 1, z + 1) - \
-				 IM_GET_VOX(im, x, y - 1, z + 1) + \
-				 IM_GET_VOX(im, x, y - 1, z - 1) - \
-				 IM_GET_VOX(im, x, y + 1, z - 1))); \
+    MAT_RM_GET(H, 1, 2, type) = (type) (0.25f * (IM_GET_VOX(im, x, y + 1, z + 1, c) - \
+				 IM_GET_VOX(im, x, y - 1, z + 1, c) + \
+				 IM_GET_VOX(im, x, y - 1, z - 1, c) - \
+				 IM_GET_VOX(im, x, y + 1, z - 1, c))); \
     /* Dzx */ \
     MAT_RM_GET(H, 2, 0, type) = MAT_RM_GET(H, 0, 2, type); \
     /* Dzy */ \
     MAT_RM_GET(H, 2, 1, type) = MAT_RM_GET(H, 1, 2, type); \
     /* Dzz */ \
-    MAT_RM_GET(H, 2, 2, type) = (type) (0.25f * (IM_GET_VOX(im, x, y, z + 1) - \
-				 2 * IM_GET_VOX(im, x, y, z) + \
-				 IM_GET_VOX(im, x, y, z - 1)))
+    MAT_RM_GET(H, 2, 2, type) = (type) (0.25f * (IM_GET_VOX(im, x, y, z + 1, c) - \
+				 2 * IM_GET_VOX(im, x, y, z, c) + \
+				 IM_GET_VOX(im, x, y, z - 1, c)))
 
 // Get a pointer to an image struct at pyramid level [o, s]
 #define PYR_IM_GET(pyr, o, s) ((pyr)->levels + \

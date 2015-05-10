@@ -124,12 +124,13 @@ typedef struct _Image {
 	int *dims;		// Array-style access to {nx, ...}
 	int *strides;		// Array-style access to {x_stride, ...}
 	cl_mem cl_image;	// Same-sized OpenCL image object
-	double s;			// scale-space location
+	double s;		// scale-space location
 	size_t size;		// Total size in pixels
 	int nx, ny, nz;		// Dimensions in x, y, and z
 	int x_stride;		// Stride in x direction
 	int y_stride;		// Stride in y direction
 	int z_stride;		// Stride in z direction
+        int nc;                 // The number of channels
 	int cl_valid;		// If TRUE, cl_image is valid
 
 } Image;
@@ -328,9 +329,10 @@ typedef struct _SIFT3D_Extractor {
 	
 } SIFT3D_Extractor;
 
+/* Geometric transformations that can be applied by this library. */
 typedef enum _tform_type {
-	AFFINE,
-	TPS	
+	AFFINE,         // Affine (linear + constant)
+	TPS             // Thin-plate spline	
 } tform_type;
 
 /* Struct to hold an affine transformation */

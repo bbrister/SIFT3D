@@ -61,7 +61,8 @@ extern void dsyevd_(const char *, const char *, const int *, double *,
 static char *read_file(const char *path);
 static void im_default_stride(Image *im);
 static int do_mkdir(const char *path, mode_t mode);
-static double resample_linear(Image*, double, double, double);
+double resample_linear(Image *in, const double x, const double y, 
+                        const double z, const int c);
 static int init_gauss_incremental_filter(Gauss_filter *gauss,
 								  double s_cur, double s_next,
 								  int dim);
@@ -647,7 +648,7 @@ int draw_grid(Image *grid, int nx, int ny, int nz, int spacing,
 	if (spacing < 2 || line_width < 1 || line_width > spacing)
 		return FAILURE;
 
-	if (init_im_first_time(grid, nx, ny, nz))
+	if (init_im_first_time(grid, nx, ny, nz, 1))
 		return FAILURE;
 
 	IM_LOOP_START(grid, x, y, z)
@@ -662,12 +663,14 @@ int draw_grid(Image *grid, int nx, int ny, int nz, int spacing,
 			x_end = MIN(x + line_half_width + 1, nx - 1);
 			y_end = MIN(y + line_half_width + 1, ny - 1);
 			z_end = MIN(z + line_half_width + 1, nz - 1);
-			IM_LOOP_LIMITED_START(grid, x_draw, y_draw, z_draw, x_start, x_end, 
+			IM_LOOP_LIMITED_START(grid, x_draw, y_draw, z_draw, 
+                                              x_start, x_end, 
 				y_start, y_end, z_start, z_end)
 				if (abs(x_draw - x) < line_half_width && 
 					abs(y_draw - y) < line_half_width && 
 					abs(z_draw - z) < line_half_width)  
-					IM_GET_VOX(grid, x_draw, y_draw, z_draw) = 1.0f;
+					IM_GET_VOX(grid, x_draw, y_draw, 
+                                                   z_draw, 0) = 1.0f;
 			IM_LOOP_END
 		}
 	IM_LOOP_END	
@@ -683,6 +686,7 @@ int draw_points(const Mat_rm *const in, int nx, int ny, int nz, int radius, Imag
 	out->nx = nx;
 	out->ny = ny;
 	out->nz = nz;
+        out->nc = 1;
 	im_default_stride(out);
 	if(im_resize(out))
 		return FAILURE;
@@ -702,7 +706,7 @@ int draw_points(const Mat_rm *const in, int nx, int ny, int nz, int radius, Imag
 		// Draw the point
 		IM_LOOP_LIMITED_START(out, x, y, z, x_start, x_end, y_start, 
 				      y_end, z_start, z_end)
-			IM_GET_VOX(out, x, y, z) = 1.0f;
+			IM_GET_VOX(out, x, y, z, 0) = 1.0f;
 		IM_LOOP_END
 	}
 	return SUCCESS;
@@ -731,6 +735,7 @@ int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2,
 	out->nx = nx;
 	out->ny = ny;
 	out->nz = nz;
+        out->nc = 1;
 	im_default_stride(out);
 	if(im_resize(out))
 		return FAILURE;
@@ -766,7 +771,7 @@ int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2,
 			const int y_end = (int) MAX(p1y, p2y);
 
 			for (y = y_start; y <= y_end; y++) {
-				IM_GET_VOX(out, xi, y, zi) = 1.0f;
+				IM_GET_VOX(out, xi, y, zi, 0) = 1.0f;
 			}
 		} else {
 
@@ -784,7 +789,7 @@ int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2,
 				if (yi < 0 || yi > ny - 1)
 					continue;
 	
-				IM_GET_VOX(out, xi, yi, zi) = 1.0f;
+				IM_GET_VOX(out, xi, yi, zi, 0) = 1.0f;
 			}
 		}
 	}
@@ -827,13 +832,14 @@ int read_nii(const char *path, Image *im) {
 	im->nx = nifti->nx;
 	im->ny = nifti->ny;
 	im->nz = nifti->nz;
+        im->nc = 1;
 	im_default_stride(im);
 	im_resize(im);
 
 #define IM_COPY_FROM_TYPE(type) \
 	IM_LOOP_START(im, x, y, z)	\
-		IM_GET_VOX(im, x, y, z) = (float) ((type *)nifti->data)[ \
-											IM_GET_IDX(im, x, y, z)]; \
+		IM_GET_VOX(im, x, y, z, 0) = (float) ((type *)nifti->data)[ \
+		IM_GET_IDX(im, x, y, z, 0)]; \
 	IM_LOOP_END
 
 	// Copy into im
@@ -905,8 +911,15 @@ int write_nii(const char *path, Image *im) {
 	nifti_image *nifti;	
 	size_t i;
 	
-	const int dims[] = {3, im->nx, im->ny, im->nz, 
-						0, 0, 0, 0};
+	const int dims[] = {3, im->nx, im->ny, im->nz, 0, 0, 0, 0};
+
+        // Verify inputs
+        if (im->nc != 1) {
+                fprintf(stderr, "write_nii: unsupported number of "
+                        "channels: %d. This function only supports single-"
+                        "channel images.", im->nc);
+                return FAILURE;
+        }
 
 	// Create the path
 	if (mkpath(path, 0777))
@@ -1043,21 +1056,23 @@ write_mat_quit:
 /* Shortcut to initialize an image for first-time use.
  * Allocates memory, and assumes the default stride. This
  * function calls init_im and initializes all values to 0. */
-int init_im_first_time(Image *im, const int nx, const int ny, const int nz) {
+int init_im_first_time(Image *im, const int nx, const int ny, const int nz,
+                        const int nc) {
 
-	int x, y, z;
+	int x, y, z, c;
 
 	init_im(im);
 	im->nx = nx;
 	im->ny = ny;
 	im->nz = nz;
+        im->nc = nc;
 	im_default_stride(im);
 	if (im_resize(im))
 		return FAILURE;	
 
-	IM_LOOP_START(im, x, y, z)
-		IM_GET_VOX(im, x, y, z) = 0;
-	IM_LOOP_END
+	IM_LOOP_START_C(im, x, y, z, c)
+		IM_GET_VOX(im, x, y, z, c) = 0.0f;
+	IM_LOOP_END_C
 
 	return SUCCESS;
 }
@@ -1067,13 +1082,14 @@ int init_im_first_time(Image *im, const int nx, const int ny, const int nz) {
  * -nx
  * -ny
  * -nz
+ * -nc
  * If a dimension is not used, its size should be set
  * to 1. */
 static void im_default_stride(Image *im) {
 
     int i, prod;
     
-    prod = 1;
+    prod = im->nc;
     im->strides[0] = prod;
 
     for (i = 1; i < IM_NDIMS; i++) {
@@ -1086,7 +1102,7 @@ static void im_default_stride(Image *im) {
  * pad with all dimensions and strides, as in im_resize. */
 int im_pad(Image *im, Image *pad) {
 
-    int x, y, z;
+    int x, y, z, c;
 
     const int pad_x_end = pad->nx - 1;
     const int pad_y_end = pad->ny - 1;
@@ -1101,16 +1117,20 @@ int im_pad(Image *im, Image *pad) {
 	return FAILURE;
 
     // Copy the image 
-    IM_LOOP_LIMITED_START(im, x, y, z, 0, data_x_end, 0, data_y_end, 
+    IM_LOOP_LIMITED_START_C(im, x, y, z, c, 0, data_x_end, 0, data_y_end, 
 			  0, data_z_end)
-	IM_GET_VOX(pad, x, y, z) = IM_GET_VOX(im, x, y, z);
-    IM_LOOP_END
+
+        IM_GET_VOX(pad, x, y, z, c) = IM_GET_VOX(im, x, y, z, c);
+
+    IM_LOOP_END_C
 
     // Pad the remaining data with zeros
-    IM_LOOP_LIMITED_START(im, x, y, z, data_x_end, pad_x_end, data_y_end, 
+    IM_LOOP_LIMITED_START_C(im, x, y, z, c, data_x_end, pad_x_end, data_y_end, 
 			  pad_y_end, data_z_end, pad_z_end)
-	IM_GET_VOX(pad, x, y, z) = 0.0f;
-    IM_LOOP_END
+        
+        IM_GET_VOX(pad, x, y, z, c) = 0.0f;
+
+    IM_LOOP_END_C
 
     return SUCCESS;
 }
@@ -1122,6 +1142,7 @@ int im_pad(Image *im, Image *pad) {
  * -nx
  * -ny
  * -nz
+ * -nc
  * -x_stride (can be set by im_default_stride(im)) 
  * -y_stride (can be set by im_default_stride(im)) 
  * -z_stride (can be set by im_default_stride(im)) 
@@ -1131,8 +1152,28 @@ int im_pad(Image *im, Image *pad) {
  */
 int im_resize(Image *im) {
 
+        int i;
+
 	//FIXME: This will not work for strange strides
-	const size_t size = im->nx * im->ny * im->nz;
+	const size_t size = im->nx * im->ny * im->nz * im->nc;
+
+        // Verify inputs
+        for (i = 0; i < IM_NDIMS; i++) {
+
+                const int dim = im->dims[i];
+
+                if (dim > 0) 
+                        continue;
+
+                fprintf(stderr, "im_resize: invalid dimension %d: %d \n", i, 
+                        dim);
+                return FAILURE;
+        }
+        if (im->nc < 1) {
+                fprintf(stderr, "im_resize: invalid number of channels: %d",
+                        im->nc);
+                return FAILURE;
+        }
 
 	// Check for the trivial case
 	if (im->size == size)
@@ -1182,7 +1223,9 @@ int im_concat(const Image *const src1, const Image *const src2, const int dim,
 	      Image *const dst) {
 
 	int off[IM_NDIMS], dims_out[IM_NDIMS];
-	int i, x, y, z;
+	int i, x, y, z, c;
+
+        const int nc = src1->nc;
 
 	// Verify inputs
 	for (i = 0; i < IM_NDIMS; i++) {
@@ -1193,12 +1236,18 @@ int im_concat(const Image *const src1, const Image *const src2, const int dim,
 		if (i == dim)
 			continue;
 		if (src1d != src2d) {
-			printf("im_concat: dimension %d must be equal in "
-			       "input images. src1: %d src2: %d \n", i, src1d, 
-			       src2d);
+			fprintf(stderr, "im_concat: dimension %d must be "
+                                "equal in input images. src1: %d src2: %d \n", 
+                                i, src1d, src2d);
 			return FAILURE;
 		}
 	}	
+        if (src1->nc != src2->nc) {
+                fprintf(stderr, "im_concat: images must have an equal number "
+                        "of channels. src1: %d src2: %d \n", src1->nc, 
+                        src2->nc);
+                return FAILURE;
+        }
 
 	// Get the output dimensions
 	for (i = 0; i < IM_NDIMS; i++) {
@@ -1217,25 +1266,27 @@ int im_concat(const Image *const src1, const Image *const src2, const int dim,
 
 	// Resize dst 
 	memcpy(dst->dims, dims_out, IM_NDIMS * sizeof(int));
+        dst->nc = nc; 
 	im_default_stride(dst);
 	if (im_resize(dst))
 		return FAILURE;
 
 	// Copy the data
-	IM_LOOP_START(src1, x, y, z)
-		IM_GET_VOX(dst, x, y, z) = IM_GET_VOX(src1, x, y, z);
-	IM_LOOP_END
-	IM_LOOP_START(src2, x, y, z)
+	IM_LOOP_START_C(src1, x, y, z, c)
+		        IM_GET_VOX(dst, x, y, z, c) = 
+                                IM_GET_VOX(src1, x, y, z, c);
+	IM_LOOP_END_C
+	IM_LOOP_START_C(src2, x, y, z, c)
 
 		 // Get the destination coordinates
 		 const int x_dst = x + off[0];
 		 const int y_dst = y + off[1];
 		 const int z_dst = z + off[2];
 
-		 // Write the pixel
-		 IM_GET_VOX(dst, x_dst, y_dst, z_dst) = 
-			IM_GET_VOX(src2, x, y, z);
-	IM_LOOP_END
+		 // Write the pixels
+		IM_GET_VOX(dst, x_dst, y_dst, z_dst, c) = 
+			        IM_GET_VOX(src2, x, y, z, c);
+	IM_LOOP_END_C
 
 	return SUCCESS;
 }
@@ -1244,7 +1295,7 @@ int im_concat(const Image *const src1, const Image *const src2, const int dim,
  * This function resizes dst. */
 int im_upsample_2x(Image *src, Image *dst) {
 
-	int x, y, z, sx, sy, sz; 
+	int x, y, z, c, sx, sy, sz; 
 
 	const int w = 2;
 	const float weight = 1.0f / fabs((double) (w * w * w)); 
@@ -1253,6 +1304,7 @@ int im_upsample_2x(Image *src, Image *dst) {
 	dst->nx = src->nx * 2;
 	dst->ny = src->ny * 2;
 	dst->nz = src->nz * 2;
+        dst->nc = src->nc;
 	im_default_stride(dst);
 	if (im_resize(dst))
 		return FAILURE;
@@ -1267,14 +1319,14 @@ int im_upsample_2x(Image *src, Image *dst) {
 		const int sy_end = sy_start + w - 1;
 		const int sz_end = sz_start + w - 1;
 
-		IM_GET_VOX(dst, x, y, z) = 0;
-		IM_LOOP_LIMITED_START(im, sx, sy, sz, sx_start, 
+		IM_GET_VOX(dst, x, y, z, c) = 0;
+		IM_LOOP_LIMITED_START_C(dst, sx, sy, sz, c, sx_start, 
 			sx_end, sy_start, sy_end, sz_start, sz_end)
 
-				IM_GET_VOX(dst, x, y, z) += 
-					IM_GET_VOX(src, sx, sy, sz) * weight;
+                        IM_GET_VOX(dst, x, y, z, c) += 
+                                IM_GET_VOX(src, sx, sy, sz, c) * weight;
 
-		IM_LOOP_END
+		IM_LOOP_END_C
 	IM_LOOP_END
 
 	return SUCCESS;
@@ -1285,7 +1337,7 @@ int im_upsample_2x(Image *src, Image *dst) {
  * dimensions, and allocates memory. */
 int im_downsample_2x(Image *src, Image *dst) {
 
-	int x, y, z, src_x, src_y, src_z;
+	int x, y, z, c;
 
 	// Verify image dimensions
 	if (src->nx % 2 != 0 || src->ny % 2 != 0 || 
@@ -1296,6 +1348,7 @@ int im_downsample_2x(Image *src, Image *dst) {
 	dst->nx = src->nx / 2;
 	dst->ny = src->ny / 2;
 	dst->nz = src->nz / 2;
+        dst->nc = src->nc;
 	im_default_stride(dst);
 	if (im_resize(dst))
 		return FAILURE;
@@ -1303,14 +1356,14 @@ int im_downsample_2x(Image *src, Image *dst) {
 	// TODO: 3-pass downsample might be faster
 
 	// Downsample
-	IM_LOOP_START(dst, x, y, z)
-		src_x = x << 1;
-		src_y = y << 1;
-		src_z = z << 1;
-
-		IM_GET_VOX(dst, x, y, z) = 
-			IM_GET_VOX(src, src_x, src_y, src_z);
-	IM_LOOP_END
+	IM_LOOP_START_C(dst, x, y, z, c)
+		const int src_x = x << 1;
+		const int src_y = y << 1;
+		const int src_z = z << 1;
+                
+                IM_GET_VOX(dst, x, y, z, c) = 
+                        IM_GET_VOX(src, src_x, src_y, src_z, c);
+	IM_LOOP_END_C
 
 	return SUCCESS;
 }
@@ -1332,6 +1385,7 @@ int im_downsample_2x_cl(Image *src, Image *dst) {
 	dst->nx = src->nx / 2;
 	dst->ny = src->ny / 2;
 	dst->nz = src->nz / 2;
+        dst->nc = src->nc;
 	im_default_stride(dst);
 
 	// Do not have a 2D kernel right now
@@ -1386,7 +1440,7 @@ int im_read_back(Image *im, int blocking) {
 #endif
 }
 
-/* Updates an Image struct's OpenCL data, if necessarry, and sets it as argument n
+/* Updates an Image struct's OpenCL data, if neccessary, and sets it as argument n
  * in the provided kernel. */
 int im_set_kernel_arg(cl_kernel kernel, int n, Image *im) {
 #ifdef USE_OPENCL
@@ -1405,7 +1459,7 @@ int im_set_kernel_arg(cl_kernel kernel, int n, Image *im) {
 }
 
 /* Copy an image's dimensions and stride into another. 
- * This function initializes and resizes dst.
+ * This function resizes dst.
  * 
  * @param src The source image.
  * @param dst The destination image.
@@ -1419,12 +1473,13 @@ int im_copy_dims(Image *src, Image *dst) {
 	dst->x_stride = src->x_stride;
 	dst->y_stride = src->y_stride;
 	dst->z_stride = src->z_stride;
+        dst->nc = src->nc;
 
 	return im_resize(dst);
 }
 
 /* Copy an image's data into another. This function
- * initializes the dimensions and stride of dst,
+ * changes the dimensions and stride of dst,
  * and allocates memory. */
 int im_copy_data(Image *src, Image *dst) {
 
@@ -1461,23 +1516,23 @@ void im_free(Image *im) {
 void im_scale(Image *im) {
 		
 	float max, samp;
-	int x, y, z;
+	int x, y, z, c;
 
 	// Find max (absolute value) 
 	max = 0.0f;
-	IM_LOOP_START(im, x, y, z)
-		samp = fabs(IM_GET_VOX(im, x, y, z));
+	IM_LOOP_START_C(im, x, y, z, c)
+		samp = fabs(IM_GET_VOX(im, x, y, z, c));
 		max = MAX(max, samp);
-	IM_LOOP_END
+	IM_LOOP_END_C
 
 	// Do nothing if all data is zero
 	if (max == 0.0f)
 		return; 
 	
 	// Divide by max 
-	IM_LOOP_START(im, x, y, z)
-		IM_GET_VOX(im, x, y, z) /= max;
-	IM_LOOP_END
+	IM_LOOP_START_C(im, x, y, z, c)
+		IM_GET_VOX(im, x, y, z, c) /= max;
+	IM_LOOP_END_C
 }
 
 /* Subtract src2 from src1, saving the result in
@@ -1486,7 +1541,7 @@ void im_scale(Image *im) {
  */
 int im_subtract(Image *src1, Image *src2, Image *dst) {
 
-	int x, y, z;
+	int x, y, z, c;
 
 	// Verify inputs
 	if (src1->nx != src2->nx ||	src1->nx != dst->nx ||
@@ -1498,11 +1553,11 @@ int im_subtract(Image *src1, Image *src2, Image *dst) {
 	if (im_copy_dims(src1, dst))
 		return FAILURE;
 
-	IM_LOOP_START(dst, x, y, z)	
-		IM_GET_VOX(dst, x, y, z) =
-			IM_GET_VOX(src1, x, y, z) - 
-			IM_GET_VOX(src2, x, y, z);
-	IM_LOOP_END
+	IM_LOOP_START_C(dst, x, y, z, c)	
+		IM_GET_VOX(dst, x, y, z, c) =
+			IM_GET_VOX(src1, x, y, z, c) - 
+			IM_GET_VOX(src2, x, y, z, c);
+	IM_LOOP_END_C
 
 	return SUCCESS;
 }
@@ -1510,11 +1565,11 @@ int im_subtract(Image *src1, Image *src2, Image *dst) {
 /* Zero an image. */
 void im_zero(Image *im) {
 
-	int x, y, z;	
+	int x, y, z, c;	
 
-	IM_LOOP_START(im, x, y, z)
-		IM_GET_VOX(im, x, y, z) = 0.0f;
-	IM_LOOP_END
+	IM_LOOP_START_C(im, x, y, z, c)
+		IM_GET_VOX(im, x, y, z, c) = 0.0f;
+	IM_LOOP_END_C
 }
 
 /* Transform an image according to the inverse of the provided tform. 
@@ -1522,36 +1577,23 @@ void im_zero(Image *im) {
 
 int im_inv_transform(Image *in, Image *out, tform_type type, 
 					 void *tform) {
-	int x, y, z;
+	int x, y, z, c;
 
 	// Resize the output image
 	if (im_copy_dims(in, out))
 		return FAILURE;
 
-	// recenter
-	/*
-	if (type == AFFINE) {
-		Mat_rm center; // image centerpoint
-		init_Mat_rm(&center, 3, 1, DOUBLE, TRUE);
-		MAT_RM_GET(&center, 0, 0, double) = in->nx / 2;
-		MAT_RM_GET(&center, 1, 0, double) = in->ny / 2;
-		MAT_RM_GET(&center, 2, 0, double) = in->nz / 2;
-
-		const Mat_rm const *A = &affine->A;
-		Mat_rm translation;
-		init_Mat_rm(&translation, A->num_rows, A->num_cols, DOUBLE, TRUE);
-		mul_Mat_rm(A, &center, &translation);
-		printf("translation: %d \n", MAT_RM_GET(translation, 0, 0, double));
-		// A = [A -t]; // find center translation
-	}
-*/
 	IM_LOOP_START(in, x, y, z)
 		double transx, transy, transz;
 		if (apply_tform_xyz((double)x, (double)y, (double)z, 
 			&transx, &transy, &transz, type, tform))
 			return FAILURE;
-		double res_val = resample_linear(in, transx, transy, transz);
-		IM_GET_VOX(out, x, y, z) = res_val;
+
+                for (c = 0; c < out->nc; c++) {
+		        const double res_val = resample_linear(in, transx, 
+                                                        transy, transz, c);
+		        IM_GET_VOX(out, x, y, z, c) = res_val;
+                }
 	IM_LOOP_END
 
 	return SUCCESS;
@@ -1559,7 +1601,8 @@ int im_inv_transform(Image *in, Image *out, tform_type type,
 
 /* Helper routine for image transformation. Performs trilinear
  * interpolation, setting out-of-bounds voxels to zero. */
-double resample_linear(Image *in, double x, double y, double z) {
+double resample_linear(Image *in, const double x, const double y, 
+                        const double z, const int c) {
 
 	// Detect out-of-bounds
 	if (x < 0 || x > in->nx - 1 ||
@@ -1578,14 +1621,14 @@ double resample_linear(Image *in, double x, double y, double z) {
 	double dist_y = y - fy;
 	double dist_z = z - fz;
 	
-	double c0 = IM_GET_VOX(in, fx, fy, fz);
-	double c1 = IM_GET_VOX(in, fx, cy, fz);
-	double c2 = IM_GET_VOX(in, cx, fy, fz);
-	double c3 = IM_GET_VOX(in, cx, cy, fz);
-	double c4 = IM_GET_VOX(in, fx, fy, cz);
-	double c5 = IM_GET_VOX(in, fx, cy, cz);
-	double c6 = IM_GET_VOX(in, cx, fy, cz);
-	double c7 = IM_GET_VOX(in, cx, cy, cz);
+	double c0 = IM_GET_VOX(in, fx, fy, fz, c);
+	double c1 = IM_GET_VOX(in, fx, cy, fz, c);
+	double c2 = IM_GET_VOX(in, cx, fy, fz, c);
+	double c3 = IM_GET_VOX(in, cx, cy, fz, c);
+	double c4 = IM_GET_VOX(in, fx, fy, cz, c);
+	double c5 = IM_GET_VOX(in, fx, cy, cz, c);
+	double c6 = IM_GET_VOX(in, cx, fy, cz, c);
+	double c7 = IM_GET_VOX(in, cx, cy, cz, c);
 
 	double out = c0 * (1.0-dist_x) * (1.0-dist_y) * (1.0-dist_z) 
 	           + c1 * (1.0-dist_x) * dist_y       * (1.0-dist_z) 
@@ -1627,13 +1670,21 @@ int convolve_sep(const Image *const src,
 	register const int src_ys = src->y_stride;
 	register const int src_zs = src->z_stride;
 
+        // Verify inputs
 	if (dim < 0 || dim > 2) {
-		printf("convole_sep: invalid dimension: %d \n", dim);
+		fprintf(stderr, "convole_sep: invalid dimension: %d \n", dim);
 		return FAILURE;
 	}
+        if (src->nc != 1) {
+                fputs("convolve_sep: only single-channel images are "
+                        "currently supported \n", stderr);
+                return FAILURE;
+                
+        }
 
-	// Resize the output
+	// Resize the output, with the default stride
 	memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));	
+        dst->nc = src->nc;
 	im_default_stride(dst);
 	if (im_resize(dst))
 	    return FAILURE;
@@ -1695,8 +1746,9 @@ int convolve_sep_cl (const Image *const src, Image *const dst,
 		return FAILURE
 	}
 
-	// Resize the output
+	// Resize the output, with default stride
 	memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));	
+        im->nc = src->nc;
 	im_default_stride(dst);
 	if (im_resize(dst))
 	    return FAILURE;
@@ -1767,7 +1819,7 @@ int im_transpose(const Image *const src, const int dim1, const int dim2,
 		 Image *const dst) {
 	
 	int strides[3];
-	register int x, y, z, temp;
+	register int x, y, z, c, temp;
 
 	const float *const data = src->data;
 	int *const dims = dst->dims;
@@ -1788,6 +1840,7 @@ int im_transpose(const Image *const src, const int dim1, const int dim2,
 	temp = dims[dim1];
 	dims[dim1] = dims[dim2];
 	dims[dim2] = temp;
+        dst->nc = src->nc;
 	im_default_stride(dst);
 	if (im_resize(dst))
 	    return FAILURE;
@@ -1801,10 +1854,10 @@ int im_transpose(const Image *const src, const int dim1, const int dim2,
 	strides[dim2] = temp;
 
 	// Transpose the data
-	IM_LOOP_START(dst, x, y, z)
-	    IM_GET_VOX(dst, x, y, z) = 
-		data[x * strides[0] + y * strides[1]+ z * strides[2]];
-	IM_LOOP_END
+	IM_LOOP_START_C(dst, x, y, z, c)
+	    IM_GET_VOX(dst, x, y, z, c) = 
+		data[x * strides[0] + y * strides[1] + z * strides[2]];
+	IM_LOOP_END_C
 
     return SUCCESS;
 }
@@ -1820,18 +1873,19 @@ int im_transpose(const Image *const src, const int dim1, const int dim2,
 int im_restride(const Image *const src, const int *const strides, 
 		Image *const dst) {
 
-    int x, y, z;
+    int x, y, z, c;
 
     // Resize the output
-    memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));    
+    memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));
     memcpy(dst->strides, strides, IM_NDIMS * sizeof(int));
+    dst->nc = src->nc;
     if (im_resize(dst))
 	return FAILURE;
 
     // Copy the data
-    IM_LOOP_START(dst, x, y, z)
-	IM_GET_VOX(dst, x, y, z) = IM_GET_VOX(src, x, y, z);
-    IM_LOOP_END
+    IM_LOOP_START_C(dst, x, y, z, c)
+	IM_GET_VOX(dst, x, y, z, c) = IM_GET_VOX(src, x, y, z, c);
+    IM_LOOP_END_C
 
     return SUCCESS;
 }
@@ -2995,6 +3049,7 @@ int init_pyramid(Pyramid *pyr, Image *im) {
 			level->nx = nx;
 			level->ny = ny;
 			level->nz = nz;
+                        level->nc = im->nc;
 			im_default_stride(level);			
 
 			// Re-size data memory

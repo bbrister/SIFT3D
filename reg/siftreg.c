@@ -188,8 +188,8 @@ int main(int argc, char *argv[]) {
 	nx = MAX(src.nx, ref.nx);
 	ny = MAX(src.ny, ref.ny);
 	nz = MAX(src.nz, ref.nz);
-	if (init_im_first_time(&srcp, nx, ny, nz) || 
-	    init_im_first_time(&refp, nx, ny, nz) || 
+	if (init_im_first_time(&srcp, nx, ny, nz, 1) || 
+	    init_im_first_time(&refp, nx, ny, nz, 1) || 
 	    im_pad(&src, &srcp) || 
 	    im_pad(&ref, &refp))
 	    err_exit("pad images \n");
