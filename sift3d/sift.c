@@ -1743,16 +1743,18 @@ int SIFT3D_extract_descrip(SIFT3D_Extractor *extractor, Image *im,
 			vbins.z >= (float) NHIST_PER_DIM)
 			continue;
 
-		// Take gradient and rotate to Keypoint space
+		// Take the gradient
 		IM_GET_GRAD(im, x, y, z, 0, &vd);
-		MUL_MAT_RM_CVEC(&key->R, &vd, &vd_rot);
 
 		// Apply a Gaussian window
 		weight = expf(-0.5f * sq_dist / (sigma * sigma));
 		CVEC_SCALE(&vd, weight);
 
+                // Rotate the gradient to keypoint space
+		MUL_MAT_RM_CVEC(&key->R, &vd, &vd_rot);
+
 		// Finally, accumulate bins by 5x linear interpolation
-		SIFT3D_desc_acc_interp(extractor, &vbins, &vd, desc);
+		SIFT3D_desc_acc_interp(extractor, &vbins, &vd_rot, desc);
 	IM_LOOP_END
 
 	// Histogram refinement steps
