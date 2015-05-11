@@ -91,8 +91,10 @@ static int build_gpyr(SIFT3D_Detector *detector);
 static int build_dog(SIFT3D_Detector *dog);
 static int detect_extrema(SIFT3D_Detector *detector, Keypoint_store *kp);
 static int refine_keypoints(SIFT3D_Detector *detector, Keypoint_store *kp);
-static int assign_hist_ori(Keypoint *key, Image *im);
-static int assign_eig_ori(Keypoint *key, Image *im);
+static int assign_hist_ori(const Image *const im, const Cvec *const vcenter,
+                          const double sigma, Mat_rm *const R);
+static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
+                          const double sigma, Mat_rm *const R);
 static int assign_orientations(SIFT3D_Detector *detector, Keypoint_store *kp);
 static int Cvec_to_sbins(const Cvec * const vd, Svec * const bins);
 static void refine_Hist(Hist *hist);
@@ -1077,18 +1079,17 @@ static void refine_Hist(Hist *hist) {
 #define ORI_RATIO_WIDTH_SIGMA 3.0
 #endif 
 IGNORE_UNUSED
-static int assign_hist_ori(Keypoint *key, Image *im) {
+static int assign_hist_ori(const Image *const im, const Cvec *const vcenter,
+                          const double sigma, Mat_rm *const R) {
 
 	Svec buf[HIST_NUMEL];
 	Hist hist, tmp_hist;
 	Svec bins, temp;
-	Cvec vd, vdisp, vcenter, vx, vy, vz;
+	Cvec vd, vdisp, vx, vy, vz;
 	Svec *ori;
 	float sq_dist, weight, max, cur, af, pf, norm, proj;
 	int i, x, y, z, a, p, n_ori;
 
-	Mat_rm * const R = &key->R;
-	const double sigma = ORI_SIG_FCTR * key->sd_rel;
 	const double win_radius = sigma * ORI_RATIO_WIDTH_SIGMA;
 	const float smooth_kernel[] = {1.0f / 16.0f, 4.0f / 16.0f, 
 				       6.0f / 16.0f};
@@ -1103,10 +1104,7 @@ static int assign_hist_ori(Keypoint *key, Image *im) {
 		HIST_GET(&tmp_hist, a, p) = 0.0;
 	HIST_LOOP_END
 
-	vcenter.x = key->xd;
-	vcenter.y = key->yd;
-	vcenter.z = key->zd;
-	IM_LOOP_SPHERE_START(im, x, y, z, &vcenter, win_radius, &vdisp, sq_dist)
+	IM_LOOP_SPHERE_START(im, x, y, z, vcenter, win_radius, &vdisp, sq_dist)
 
 		// Compute Gaussian weighting, ignoring constant factor
 		weight = expf(-0.5 * sq_dist / (sigma * sigma));    	
@@ -1258,18 +1256,17 @@ static int assign_hist_ori(Keypoint *key, Image *im) {
 
 /* As above, but using the eigenvector method */
 IGNORE_UNUSED
-static int assign_eig_ori(Keypoint *key, Image *im) {
+static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
+                          const double sigma, Mat_rm *const R) {
 
     Cvec v[2];
     Mat_rm A, L, Q;
-    Cvec vd, vd_win, vdisp, vcenter, vr;
+    Cvec vd, vd_win, vdisp, vr;
     double d;
     float weight, sq_dist, sgn;
     int i, x, y, z, m;
    
-    Mat_rm * const R = &key->R; 
-    const double sigma = ORI_SIG_FCTR * key->sd_rel;
-    const double win_radius = sigma * ORI_RATIO_WIDTH_SIGMA;
+    const double win_radius = sigma * ORI_RATIO_WIDTH_SIGMA; 
 
     // Initialize the intermediates
     if (init_Mat_rm(&A, 3, 3, DOUBLE, TRUE) ||
@@ -1281,10 +1278,7 @@ static int assign_eig_ori(Keypoint *key, Image *im) {
     vd_win.x = 0.0f;
     vd_win.y = 0.0f;
     vd_win.z = 0.0f;
-    vcenter.x = key->xd;
-    vcenter.y = key->yd;
-    vcenter.z = key->zd;
-    IM_LOOP_SPHERE_START(im, x, y, z, &vcenter, win_radius, &vdisp, sq_dist)
+    IM_LOOP_SPHERE_START(im, x, y, z, vcenter, win_radius, &vdisp, sq_dist)
 	// Compute Gaussian weighting, ignoring constant factor
 	weight = expf(-0.5 * sq_dist / (sigma * sigma));		
 
@@ -1402,9 +1396,9 @@ eig_ori_fail:
 static int assign_orientations(SIFT3D_Detector *detector, 
 			       Keypoint_store *kp) {
 
-	int (*ori_fun)(Keypoint *, Image *);
-	Image *level;
-	Keypoint *key, *kp_pos;
+	int (*ori_fun)(const Image *const, const Cvec *const, const double, 
+                       Mat_rm *const);
+	Keypoint *kp_pos;
 	size_t num;
 	int i; 
 
@@ -1419,15 +1413,19 @@ static int assign_orientations(SIFT3D_Detector *detector,
 	kp_pos = kp->buf;
 	for (i = 0; i < kp->slab.num; i++) {
 
-		key = kp->buf + i;
-		level = PYR_IM_GET(&detector->gpyr, key->o, key->s);
+		Keypoint *const key = kp->buf + i;
+		const Image *const level = 
+                        PYR_IM_GET(&detector->gpyr, key->o, key->s);
+                Mat_rm *const R = &key->R;
+                const Cvec center = {key->xd, key->yd, key->zd};
+                const double sigma = ORI_SIG_FCTR * key->sd_rel;
 
 		// Initialize the orientation matrix
-		if (init_Mat_rm_p(&key->R, key->r_data, 3, 3, FLOAT, FALSE))
+		if (init_Mat_rm_p(R, key->r_data, 3, 3, FLOAT, FALSE))
 			return FAILURE;
 
 		// Compute dominant orientations
-		switch (ori_fun(key, level)) {
+		switch (ori_fun(level, &center, sigma, R)) {
 			case SUCCESS:
 				// Continue processing this keypoint
 				break;
@@ -1833,6 +1831,7 @@ int SIFT3D_extract_descriptors(SIFT3D_Extractor *extractor, void *im,
 	desc->ny = level->ny;	
 	desc->nz = level->nz;	
 
+        // Extract the descriptors
 	for (i = 0; i < desc->num; i++) {
 		key = kp->buf + i;
 		descrip = desc->buf + i;
