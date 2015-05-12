@@ -20,7 +20,7 @@ set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Build flags
 set (DEBUG_FLAGS "-g -ggdb3 -DVERBOSE")
-set (RELEASE_FLAGS "-NDEBUG -O3 -ffast-math")
+set (RELEASE_FLAGS "-DNDEBUG -O3 -ffast-math")
 if (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR 
     CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${DEBUG_FLAGS}")
@@ -53,3 +53,4 @@ add_subdirectory (imutil)
 add_subdirectory (sift3d)
 add_subdirectory (reg)
 add_subdirectory (itkwrap)
+add_subdirectory (cli)

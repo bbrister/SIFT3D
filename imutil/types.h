@@ -326,6 +326,8 @@ typedef struct _SIFT3D_Extractor {
 	// OpenCL kernels
 
 	// Parameters
+        double dense_sigma; // Gaussian window parameter for dense descriptors
+        int dense_rotate; // If true, dense descriptors are rotation-invariant
 	
 } SIFT3D_Extractor;
 

@@ -80,7 +80,7 @@ int parse_args_SIFT3D_Detector(SIFT3D_Detector *const detector,
 int SIFT3D_detect_keypoints(SIFT3D_Detector *const detector, Image *const im, 
 			    Keypoint_store *const kp);
 
-int init_SIFT3D_Extractor(SIFT3D_Extractor *extractor);
+int init_SIFT3D_Extractor(SIFT3D_Extractor *const extractor);
 
 
 int SIFT3D_extract_descriptors(SIFT3D_Extractor *extractor, void *im,

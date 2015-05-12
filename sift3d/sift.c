@@ -31,6 +31,11 @@
 #define EIG_MAX_RATIO 0.95	// Maximum ratio of eigenvalue magnitudes
 #define EIG_DD_MIN 1E-10	// Minimum eigenvector directional derivative
 #define BARY_EPS FLT_EPSILON * 1E1	// Error tolerance for barycentric coordinates
+#define ORI_SIG_FCTR 1.5        // Ratio of window parameter to keypoint scale
+#define ORI_RAD_FCTR 3.0 // Ratio of window radius to parameter
+#define DESC_SIG_FCTR 7.071067812 // See, ORI_SIG_FCTR, 5 * sqrt(2)
+#define DESC_RAD_FCTR 2.0  // See ORI_RAD_FCTR
+#define TRUNC_THRESH (0.2f * 128 / DESC_NUMEL) // Descriptor truncation threshold
 
 /* Internal return codes */
 #define REJECT 1
@@ -105,6 +110,8 @@ static void SIFT3D_desc_acc_interp(const SIFT3D_Extractor * const extractor,
 				   const Cvec * const vbins, 
 				   const Cvec * const grad,
 				   SIFT3D_Descriptor * const desc);
+static void extract_descrip(SIFT3D_Extractor *extractor, Image *im,
+	   Keypoint *key, SIFT3D_Descriptor *desc);
 static int argv_permute(const int argc, char *const *argv, 
                         const unsigned char *processed, 
                         const int optind_start);
@@ -1072,12 +1079,6 @@ static void refine_Hist(Hist *hist) {
 
 /* Use orientation histograms to select all of the dominant
  * orientations for a keypoint. */
-#ifndef ORI_SIG_FCTR
-#define ORI_SIG_FCTR 1.5
-#endif
-#ifndef ORI_RATIO_WIDTH_SIGMA
-#define ORI_RATIO_WIDTH_SIGMA 3.0
-#endif 
 IGNORE_UNUSED
 static int assign_hist_ori(const Image *const im, const Cvec *const vcenter,
                           const double sigma, Mat_rm *const R) {
@@ -1090,7 +1091,7 @@ static int assign_hist_ori(const Image *const im, const Cvec *const vcenter,
 	float sq_dist, weight, max, cur, af, pf, norm, proj;
 	int i, x, y, z, a, p, n_ori;
 
-	const double win_radius = sigma * ORI_RATIO_WIDTH_SIGMA;
+	const double win_radius = sigma * ORI_RAD_FCTR;
 	const float smooth_kernel[] = {1.0f / 16.0f, 4.0f / 16.0f, 
 				       6.0f / 16.0f};
 
@@ -1266,7 +1267,7 @@ static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
     float weight, sq_dist, sgn;
     int i, x, y, z, m;
    
-    const double win_radius = sigma * ORI_RATIO_WIDTH_SIGMA; 
+    const double win_radius = sigma * ORI_RAD_FCTR; 
 
     // Initialize the intermediates
     if (init_Mat_rm(&A, 3, 3, DOUBLE, TRUE) ||
@@ -1417,7 +1418,7 @@ static int assign_orientations(SIFT3D_Detector *detector,
 		const Image *const level = 
                         PYR_IM_GET(&detector->gpyr, key->o, key->s);
                 Mat_rm *const R = &key->R;
-                const Cvec center = {key->xd, key->yd, key->zd};
+                const Cvec vcenter = {key->xd, key->yd, key->zd};
                 const double sigma = ORI_SIG_FCTR * key->sd_rel;
 
 		// Initialize the orientation matrix
@@ -1425,7 +1426,7 @@ static int assign_orientations(SIFT3D_Detector *detector,
 			return FAILURE;
 
 		// Compute dominant orientations
-		switch (ori_fun(level, &center, sigma, R)) {
+		switch (ori_fun(level, &vcenter, sigma, R)) {
 			case SUCCESS:
 				// Continue processing this keypoint
 				break;
@@ -1503,10 +1504,14 @@ int SIFT3D_detect_keypoints(SIFT3D_Detector *const detector, Image *const im,
 }
 
 /* Initialize the descriptor parameters and math tables */
-int init_SIFT3D_Extractor(SIFT3D_Extractor *extractor) {
+int init_SIFT3D_Extractor(SIFT3D_Extractor *const extractor) {
 
 	if (init_geometry(extractor))
 		return FAILURE;
+
+        // Default parameters
+        extractor->dense_sigma = ORI_SIG_FCTR;
+        extractor->dense_rotate = TRUE;
 
 	return SUCCESS;
 }
@@ -1584,7 +1589,7 @@ void SIFT3D_desc_acc_interp(const SIFT3D_Extractor * const extractor,
 
 	// Compute the histogram bin
 #ifdef ICOS_HIST
-	const Mesh * const mesh = &extractor->mesh;
+	const Mesh *const mesh = &extractor->mesh;
 
 	// Get the index of the intersecting face 
 	if (icos_hist_bin(extractor, grad, &bary, &bin))
@@ -1671,10 +1676,13 @@ static void normalize_desc(SIFT3D_Descriptor * const desc) {
 	double norm; 
 	int i, a, p;
 
-	norm = 0.0f;
+	norm = 0.0;
 	for (i = 0; i < DESC_NUM_TOTAL_HIST; i++) { 
+
+                const Hist *const hist = desc->hists + i;
+
 		HIST_LOOP_START(a, p) 
-			const float el = HIST_GET(&desc->hists[i], a, p);
+			const float el = HIST_GET(hist, a, p);
 			norm += (double) el * el;
 		HIST_LOOP_END 
 	}
@@ -1682,37 +1690,32 @@ static void normalize_desc(SIFT3D_Descriptor * const desc) {
 	norm = sqrt(norm); 
 
 	for (i = 0; i < DESC_NUM_TOTAL_HIST; i++) {
+
+                Hist *const hist = desc->hists + i;
 		const float norm_inv = 1.0f / norm; 
 
 		HIST_LOOP_START(a, p) 
-			HIST_GET(&desc->hists[i], a, p) *= norm_inv; 
+			HIST_GET(hist, a, p) *= norm_inv; 
 		HIST_LOOP_END 
 	}
 }
 
 /* Helper routine to extract a single SIFT3D descriptor */
-#ifndef DESC_RAD_FCTR 
-#define DESC_RAD_FCTR 7.071067812 // 5 * sqrt(2), circular window
-#endif
-#ifndef TRUNC_THRESH
-#define TRUNC_THRESH (0.2f * 128 / DESC_NUMEL)
-#endif
-int SIFT3D_extract_descrip(SIFT3D_Extractor *extractor, Image *im,
+static void extract_descrip(SIFT3D_Extractor *extractor, Image *im,
 	   Keypoint *key, SIFT3D_Descriptor *desc) {
 
-	Cvec vcenter, vim, vkp, vbins, vd, vd_rot;
+	Cvec vcenter, vim, vkp, vbins, grad, grad_rot;
 	Hist *hist;
 	double factor;
-	float win_radius, desc_width, weight, desc_hw,
-		desc_bin_fctr, sigma, sq_dist;
+	float weight, sq_dist;
 	int i, x, y, z, a, p;
 
 	// Compute basic parameters 
-	sigma = key->sd_rel * DESC_RAD_FCTR; 
-	win_radius = 2.0 * sigma;
-	desc_width = win_radius / SQRT2_F;
-	desc_hw = desc_width / 2.0f;
-	desc_bin_fctr = (float) NHIST_PER_DIM / desc_width;
+        const float sigma = key->sd_rel;
+	const float win_radius = DESC_RAD_FCTR * sigma;
+	const float desc_width = win_radius / SQRT2_F;
+	const float desc_hw = desc_width / 2.0f;
+	const float desc_bin_fctr = (float) NHIST_PER_DIM / desc_width;
 
 	// Zero the descriptor
 	for (i = 0; i < DESC_NUM_TOTAL_HIST; i++) {
@@ -1744,17 +1747,17 @@ int SIFT3D_extract_descrip(SIFT3D_Extractor *extractor, Image *im,
 			continue;
 
 		// Take the gradient
-		IM_GET_GRAD(im, x, y, z, 0, &vd);
+		IM_GET_GRAD(im, x, y, z, 0, &grad);
 
 		// Apply a Gaussian window
 		weight = expf(-0.5f * sq_dist / (sigma * sigma));
-		CVEC_SCALE(&vd, weight);
+		CVEC_SCALE(&grad, weight);
 
                 // Rotate the gradient to keypoint space
-		MUL_MAT_RM_CVEC(&key->R, &vd, &vd_rot);
+		MUL_MAT_RM_CVEC(&key->R, &grad, &grad_rot);
 
 		// Finally, accumulate bins by 5x linear interpolation
-		SIFT3D_desc_acc_interp(extractor, &vbins, &vd_rot, desc);
+		SIFT3D_desc_acc_interp(extractor, &vbins, &grad_rot, desc);
 	IM_LOOP_END
 
 	// Histogram refinement steps
@@ -1784,8 +1787,6 @@ int SIFT3D_extract_descrip(SIFT3D_Extractor *extractor, Image *im,
 	desc->yd = key->yd * factor;
 	desc->zd = key->zd * factor;
 	desc->sd = key->sd;
-
-	return SUCCESS;
 }
 
 /* Extract SIFT3D descriptors from a list of keypoints and an 
@@ -1838,11 +1839,96 @@ int SIFT3D_extract_descriptors(SIFT3D_Extractor *extractor, void *im,
 		key = kp->buf + i;
 		descrip = desc->buf + i;
 		level = PYR_IM_GET((Pyramid *) im, key->o, key->s);
-		if (SIFT3D_extract_descrip(extractor, level, key, descrip))
-			return FAILURE;	
+		extract_descrip(extractor, level, key, descrip);
 	}	
 
 	return SUCCESS;
+}
+
+/* L2-normalize a histogram */
+static void normalize_hist(Hist *const hist) {
+
+        double norm;
+        float norm_inv;
+        int a, p;
+
+        norm = 0.0;
+        HIST_LOOP_START(a, p)
+                const float el = HIST_GET(hist, a, p);
+                norm += (double) el * el;
+        HIST_LOOP_END
+
+        norm = sqrt(norm);
+        norm_inv = 1.0f / norm; 
+
+        HIST_LOOP_START(a, p)
+                 HIST_GET(hist, a, p) *= norm_inv; 
+        HIST_LOOP_END 
+}
+
+/* Helper routine to extract a single SIFT3D histogram. */
+static void extract_dense_descrip(SIFT3D_Extractor *const extractor, 
+           const Image *const im, const Cvec *const vcenter, 
+           const double sigma, const Mat_rm *const R, Hist *const hist) {
+
+	Cvec vim, vkp, vbins, grad, grad_rot, bary;
+	double factor;
+	float sq_dist, mag, weight;
+	int x, y, z, a, p, bin;
+
+        const Mesh *const mesh = &extractor->mesh;
+	const float win_radius = DESC_RAD_FCTR * sigma;
+	const float desc_width = win_radius / SQRT2_F;
+	const float desc_hw = desc_width / 2.0f;
+	const float desc_bin_fctr = 1.0f / desc_width;
+
+	// Zero the descriptor
+	HIST_LOOP_START(a, p)
+		HIST_GET(hist, a, p) = 0.0f; 
+	HIST_LOOP_END
+
+	// Iterate over a sphere window in image space
+	IM_LOOP_SPHERE_START(im, x, y, z, vcenter, win_radius, &vim, sq_dist)
+
+		// Take the gradient and rotate
+		IM_GET_GRAD(im, x, y, z, 0, &grad);
+                if (extractor->dense_rotate) {
+		        MUL_MAT_RM_CVEC(R, &grad, &grad_rot);
+                } else {
+                        grad_rot = grad;
+                }
+
+                // Get the index of the intersecting face
+                if (icos_hist_bin(extractor, &grad_rot, &bary, &bin))
+                        continue;
+
+                // Get the magnitude of the vector
+                mag = CVEC_L2_NORM(&grad);
+
+		// Get the Gaussian window weight
+		weight = expf(-0.5f * sq_dist / (sigma * sigma));
+
+                // Interpolate over three vertices
+                MESH_HIST_GET(mesh, hist, bin, 0) += mag * weight * bary.x;
+                MESH_HIST_GET(mesh, hist, bin, 1) += mag * weight * bary.y;
+                MESH_HIST_GET(mesh, hist, bin, 2) += mag * weight * bary.z;
+
+	IM_LOOP_END
+
+	// Histogram refinement steps
+	refine_Hist(hist);
+
+	// Normalize the descriptor
+	normalize_hist(hist);
+
+	// Truncate
+	HIST_LOOP_START(a, p)
+		HIST_GET(hist, a, p) = MIN(HIST_GET(hist, a, p), 
+					   TRUNC_THRESH);
+	HIST_LOOP_END
+
+	// Normalize again
+	normalize_hist(hist);
 }
 
 /* Get a descriptor with a single histogram at each voxel of an image.
@@ -1852,11 +1938,57 @@ int SIFT3D_extract_descriptors(SIFT3D_Extractor *extractor, void *im,
  * -extractor The descriptor extractor.
  * -in The input image.
  * -out The output image.
- * -rotate If nonzero, rotates the descriptor according to its orientation. */
+ */
 int SIFT3D_extract_dense_descriptors(SIFT3D_Extractor *extractor, 
-        const Image *const in, Image *const descrip, const int rotate) {
+        const Image *const in, Image *const descrip) {
 
-        //TODO
+        Hist hist;
+        int i, x, y, z;
+        Mat_rm R;
+
+        // Verify inputs
+        if (in->nc != 1) {
+                fprintf(stderr, "SIFT3D_extract_dense_descriptors: invalid "
+                        "number of channels: %d. This function only supports "
+                        "single-channel images. \n", in->nc);
+                return FAILURE;
+        }
+
+        // Initialize the orientation matrix to identity
+        init_Mat_rm(&R, 3, 3, FLOAT, TRUE);
+        for (i = 0; i < 3; i++) {       
+                MAT_RM_GET(&R, i, i, float) = 1.0f;
+        }
+
+        // Iterate over each voxel
+        IM_LOOP_START(in, x, y, z)
+
+                const Cvec vcenter = {(float) x + 0.5f, 
+                                      (float) y + 0.5f, 
+                                      (float) z + 0.5f};
+
+                const double sigma = extractor->dense_sigma;
+                const double ori_sigma = sigma * ORI_SIG_FCTR;
+                const double desc_sigma = sigma * DESC_SIG_FCTR / 
+                                          NHIST_PER_DIM;
+
+                // Optionally assign an orientation
+                if (extractor->dense_rotate) {
+                        switch(assign_eig_ori(in, &vcenter, ori_sigma, &R)) {
+                                case SUCCESS:
+                                        break;
+                                case REJECT:
+                                        continue;
+                                default:
+                                        return FAILURE; 
+                        }
+                }
+
+                // Extract the descriptor
+                extract_dense_descrip(extractor, in, &vcenter, desc_sigma, &R, 
+                                      &hist);
+
+        IM_LOOP_END
 
         return SUCCESS;
 }
