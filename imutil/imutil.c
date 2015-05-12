@@ -59,7 +59,6 @@ extern void dsyevd_(const char *, const char *, const int *, double *,
 
 /* Internal helper routines */
 static char *read_file(const char *path);
-static void im_default_stride(Image *im);
 static int do_mkdir(const char *path, mode_t mode);
 double resample_linear(Image *in, const double x, const double y, 
                         const double z, const int c);
@@ -926,7 +925,7 @@ int write_nii(const char *path, Image *im) {
 	    return FAILURE;
 
 	// Init a nifti struct and allocate memory
-	if ((nifti = nifti_make_new_nim(dims, DT_UINT8, 1))
+	if ((nifti = nifti_make_new_nim(dims, DT_FLOAT32, 1))
 		== NULL)
 		goto write_nii_quit;
 
@@ -1085,7 +1084,7 @@ int init_im_first_time(Image *im, const int nx, const int ny, const int nz,
  * -nc
  * If a dimension is not used, its size should be set
  * to 1. */
-static void im_default_stride(Image *im) {
+void im_default_stride(Image *im) {
 
     int i, prod;
     
@@ -1511,8 +1510,38 @@ void im_free(Image *im) {
 		free(im->data);
 }
 
- /* Scale an image to the [0, 1] range, where
-  * the largest value is 1. */
+/* Make a deep copy of a single channel of an image. */
+int im_channel(const Image *const src, Image *const dst, 
+               const unsigned int chan) {
+
+        int x, y, z;
+
+        const int c = chan;
+
+        // Verify inputs
+        if (c >= src->nc) {
+                fprintf(stderr, "im_channel: invalid channel: %d, image has "
+                        "%d channels", c, src->nc); 
+                return FAILURE;
+        }
+
+        // Resize the output
+        memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));
+        dst->nc = 1;
+        im_default_stride(dst); 
+        if (im_resize(dst))
+                return FAILURE;
+
+        // Copy the channel
+        IM_LOOP_START(dst, x, y, z)
+                IM_GET_VOX(dst, x, y, z, 0) = IM_GET_VOX(src, x, y, z, c);
+        IM_LOOP_END
+
+        return SUCCESS;
+}
+
+/* Scale an image to the [0, 1] range, where
+ * the largest value is 1. */
 void im_scale(Image *im) {
 		
 	float max, samp;
@@ -3102,7 +3131,7 @@ int write_pyramid(const char *path, Pyramid *pyr) {
 
 /* Exit and print a message to stdout. */
 void err_exit(const char *str) {
-	printf("Error! Exiting at %s", str);
+	fprintf(stderr, "Error! Exiting at %s", str);
 	exit(1);
 }
 
