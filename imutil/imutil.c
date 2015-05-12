@@ -931,8 +931,7 @@ int write_nii(const char *path, Image *im) {
 
 	// Copy data
 	for (i = 0; i < im->size; i++) {
-		((unsigned char *) nifti->data)[i] = (unsigned char) 
-			(im->data[i] * 255.0f);
+		((float *) nifti->data)[i] = im->data[i];
 	}
 
 	if (nifti_set_filenames(nifti, path, 0, 1))
