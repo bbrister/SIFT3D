@@ -27,9 +27,10 @@
 #define ORI_LB 0.1		// Lower bound ratio on orientation magnitude
 #define ORI_UB 0.95		// Upper bound ratio on orientation magnitude
 #define ORI_GRAD_THRESH 1E-10   // Minimum norm of average gradient
-#define EIG_MIN 1E-3		// Minimum allowed eigenvalue magnitude
-#define EIG_MAX_RATIO 0.95	// Maximum ratio of eigenvalue magnitudes
-#define EIG_DD_MIN 1E-10	// Minimum eigenvector directional derivative
+//#define EIG_MIN 1E-2		// Minimum allowed eigenvalue magnitude
+#define EIG_MIN 1E-10		// Minimum allowed eigenvalue magnitude
+#define EIG_MAX_RATIO 0.90	// Maximum ratio of eigenvalue magnitudes
+#define EIG_COS_ANGLE_MIN 0.5	// Minimum |cos(angle)| between eigenvector and gradient
 #define BARY_EPS FLT_EPSILON * 1E1	// Error tolerance for barycentric coordinates
 #define ORI_SIG_FCTR 1.5        // Ratio of window parameter to keypoint scale
 #define ORI_RAD_FCTR 3.0 // Ratio of window radius to parameter
@@ -79,9 +80,9 @@
 	const int z_end   = (int) MIN((int) (vcenter)->z + (int) ((rad) + 0.5), im->nz - 2); \
 	IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, y_start, y_end, \
 			      z_start, z_end) \
-	    (vdisp)->x = x - (vcenter)->x; \
-	    (vdisp)->y = y - (vcenter)->y; \
-	    (vdisp)->z = z - (vcenter)->z; \
+	    (vdisp)->x = ((float) x + 0.5f) - (vcenter)->x; \
+	    (vdisp)->y = ((float) y + 0.5f) - (vcenter)->y; \
+	    (vdisp)->z = ((float) z + 0.5f) - (vcenter)->z; \
 	    (sq_dist) = CVEC_L2_NORM_SQ(vdisp); \
 	    if ((sq_dist) > (rad) * (rad)) \
 		continue; \
@@ -1263,7 +1264,7 @@ static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
     Cvec v[2];
     Mat_rm A, L, Q;
     Cvec vd, vd_win, vdisp, vr;
-    double d;
+    double d, cos_ang;
     float weight, sq_dist, sgn;
     int i, x, y, z, m;
    
@@ -1341,9 +1342,11 @@ static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
 	// Get the directional derivative
 	d = CVEC_DOT(&vd, &vr);
 
-	// Check the magnitude of the derivative
-	if (fabs(d) < EIG_DD_MIN)
-	    goto eig_ori_reject;
+        // Get the cosine of the angle between the eigenvector and the gradient
+        cos_ang = d / (CVEC_L2_NORM(&vr) * CVEC_L2_NORM(&vd));
+
+        if (fabs(cos_ang) < EIG_COS_ANGLE_MIN) 
+                goto eig_ori_reject;
 
 	// Get the sign of the derivative
 	if (d > 0.0)

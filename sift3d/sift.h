@@ -16,7 +16,7 @@
 /* Default SIFT detector parameters. These can be overriden by 
  * the appropriate initializer arguments. */
 #define DEFAULT_FIRST_OCTAVE 0
-#define DEFAULT_PEAK_THRESH 0.05
+#define DEFAULT_PEAK_THRESH 0.01
 #define DEFAULT_CORNER_THRESH 0.1
 #define DEFAULT_NUM_KP_LEVELS 3
 #define DEFAULT_SIGMA_N 1.15 
