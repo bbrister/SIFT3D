@@ -1885,6 +1885,8 @@ static void extract_dense_descrip(SIFT3D_Extractor *const extractor,
 	const float desc_hw = desc_width / 2.0f;
 	const float desc_bin_fctr = 1.0f / desc_width;
 
+        const float hist_trunc = TRUNC_THRESH * DESC_NUMEL / HIST_NUMEL;
+
 	// Zero the descriptor
 	HIST_LOOP_START(a, p)
 		HIST_GET(hist, a, p) = 0.0f; 
@@ -1927,7 +1929,7 @@ static void extract_dense_descrip(SIFT3D_Extractor *const extractor,
 	// Truncate
 	HIST_LOOP_START(a, p)
 		HIST_GET(hist, a, p) = MIN(HIST_GET(hist, a, p), 
-					   TRUNC_THRESH);
+					   hist_trunc);
 	HIST_LOOP_END
 
 	// Normalize again
