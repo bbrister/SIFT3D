@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
 		src_path = argv[optind + 1];
 		break;
       	default:
-		puts("Usage: siftreg [source image] [reference image] \n" 
+		puts("Usage: siftreg [reference image] [source image] \n" 
 			 "Only use im1 for synthetic \n");
 		return 1;
 	}
