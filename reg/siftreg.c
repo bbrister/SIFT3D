@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
 				err_exit("load source image\n");
 		}
 
-		// Apply an affine transformation to the reference image
+                // Make a rotation matrix
 		double ang_deg = 10.0;
 		double ang_rad = ang_deg * UTIL_PI / 180.0;
 		MAT_RM_GET(&A, 0, 0, double) = cos(ang_rad);
@@ -163,7 +163,25 @@ int main(int argc, char *argv[]) {
 		MAT_RM_GET(&A, 1, 1, double) = cos(ang_rad);
 		MAT_RM_GET(&A, 2, 2, double) = 1.0;
 		if (Affine_set_mat(&A, &aff_syn))
+			err_exit("set rotation matrix\n");
+
+                // Rotate the center 
+                const double xc = ((double) src_temp.nx - 1.0) / 2.0;
+                const double yc = ((double) src_temp.ny - 1.0) / 2.0;
+                const double zc = ((double) src_temp.nz - 1.0) / 2.0;
+                double xtrans, ytrans, ztrans;
+                if (apply_tform_xyz(xc, yc, zc, &xtrans, &ytrans, &ztrans, 
+                                        AFFINE, &aff_syn))
+                        err_exit("get center translation");
+
+                // Apply the center translation and update the affine transformation
+                MAT_RM_GET(&A, 0, 3, double) = xtrans - xc;
+                MAT_RM_GET(&A, 1, 3, double) = ytrans - yc;
+                MAT_RM_GET(&A, 2, 3, double) = ztrans - zc;
+		if (Affine_set_mat(&A, &aff_syn))
 			err_exit("set affine matrix\n");
+
+		// Apply an affine transformation to the reference image
 		if (im_inv_transform(&src_temp, &src, AFFINE, &aff_syn))
 			err_exit("apply image transform\n");		
 
