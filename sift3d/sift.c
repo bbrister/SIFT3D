@@ -36,7 +36,7 @@
 #define ORI_RAD_FCTR 3.0 // Ratio of window radius to parameter
 #define DESC_SIG_FCTR 7.071067812 // See, ORI_SIG_FCTR, 5 * sqrt(2)
 #define DESC_RAD_FCTR 2.0  // See ORI_RAD_FCTR
-#define TRUNC_THRESH (0.2f * 128 / DESC_NUMEL) // Descriptor truncation threshold
+#define TRUNC_THRESH (0.2f * 128.0f / DESC_NUMEL) // Descriptor truncation threshold
 
 /* Internal return codes */
 #define REJECT 1
@@ -625,18 +625,6 @@ static int resize_SIFT3D_Detector(SIFT3D_Detector *detector) {
 		last_octave = (int) log2((double) MIN(MIN(im->nx, im->ny),
 			im->nz)) - 3 - first_octave;		// min size: 8 in any dimension
 
-		// As of now, only the last level can have an odd dimension
-		nx = im->nx * pow(2.0, -last_octave);
-		ny = im->ny * pow(2.0, -last_octave);
-		nz = im->nz * pow(2.0, -last_octave);
-		while (last_octave > 0 && (fmod(nx, 2) != 0 || 
-		       fmodf(ny, 2) != 0 || fmodf(nz, 2) != 0)) {
-			nx *= 2;
-			ny *= 2;
-			nz *= 2;
-			last_octave--;
-		}
-
 		num_octaves = last_octave - first_octave + 1;
 	} else {
 		// Number of octaves specified by user: compute last octave
@@ -855,7 +843,6 @@ static int refine_keypoints(SIFT3D_Detector *detector, Keypoint_store *kp) {
 IGNORE_UNUSED
 	Cvec vd;
 	double xd, yd, zd, sd;
-//XXX
 IGNORE_UNUSED
 	int x, y, z, c, xnew, ynew, znew, i, j, k, l;
 
@@ -1514,7 +1501,7 @@ int init_SIFT3D_Extractor(SIFT3D_Extractor *const extractor) {
 
         // Default parameters
         extractor->dense_sigma = ORI_SIG_FCTR;
-        extractor->dense_rotate = TRUE;
+        extractor->dense_rotate = FALSE;
 
 	return SUCCESS;
 }
@@ -1690,7 +1677,7 @@ static void normalize_desc(SIFT3D_Descriptor * const desc) {
 		HIST_LOOP_END 
 	}
 
-	norm = sqrt(norm); 
+	norm = sqrt(norm) + DBL_EPSILON; 
 
 	for (i = 0; i < DESC_NUM_TOTAL_HIST; i++) {
 
@@ -1861,7 +1848,7 @@ static void normalize_hist(Hist *const hist) {
                 norm += (double) el * el;
         HIST_LOOP_END
 
-        norm = sqrt(norm);
+        norm = sqrt(norm) + DBL_EPSILON;
         norm_inv = 1.0f / norm; 
 
         HIST_LOOP_START(a, p)
@@ -1897,11 +1884,7 @@ static void extract_dense_descrip(SIFT3D_Extractor *const extractor,
 
 		// Take the gradient and rotate
 		IM_GET_GRAD(im, x, y, z, 0, &grad);
-                if (extractor->dense_rotate) {
-		        MUL_MAT_RM_CVEC(R, &grad, &grad_rot);
-                } else {
-                        grad_rot = grad;
-                }
+		MUL_MAT_RM_CVEC(R, &grad, &grad_rot);
 
                 // Get the index of the intersecting face
                 if (icos_hist_bin(extractor, &grad_rot, &bary, &bin))
@@ -1944,12 +1927,13 @@ static void extract_dense_descrip(SIFT3D_Extractor *const extractor,
  * -in The input image.
  * -out The output image.
  */
-int SIFT3D_extract_dense_descriptors(SIFT3D_Extractor *extractor, 
-        const Image *const in, Image *const descrip) {
+int SIFT3D_extract_dense_descriptors(SIFT3D_Extractor *const extractor, 
+        const Image *const in, Image *const desc) {
 
         Hist hist;
-        int i, x, y, z;
-        Mat_rm R;
+        Mat_rm R, Id;
+        Mat_rm *ori;
+        int i, x, y, z, c;
 
         // Verify inputs
         if (in->nc != 1) {
@@ -1959,10 +1943,25 @@ int SIFT3D_extract_dense_descriptors(SIFT3D_Extractor *extractor,
                 return FAILURE;
         }
 
-        // Initialize the orientation matrix to identity
-        init_Mat_rm(&R, 3, 3, FLOAT, TRUE);
+        // Resize the output image
+        memcpy(desc->dims, in->dims, IM_NDIMS * sizeof(int));
+        desc->nc = HIST_NUMEL;
+        im_default_stride(desc);
+        if (im_resize(desc))
+                return FAILURE;
+
+        // Initialize the identity matrix
+        if (init_Mat_rm(&Id, 3, 3, FLOAT, TRUE)) {
+                return FAILURE;
+        }
         for (i = 0; i < 3; i++) {       
-                MAT_RM_GET(&R, i, i, float) = 1.0f;
+                MAT_RM_GET(&Id, i, i, float) = 1.0f;
+        }
+
+        // Initialize the rotation matrix
+        if (init_Mat_rm(&R, 3, 3, FLOAT, TRUE)) {
+                cleanup_Mat_rm(&Id);
+                return FAILURE;
         }
 
         // Iterate over each voxel
@@ -1981,21 +1980,43 @@ int SIFT3D_extract_dense_descriptors(SIFT3D_Extractor *extractor,
                 if (extractor->dense_rotate) {
                         switch(assign_eig_ori(in, &vcenter, ori_sigma, &R)) {
                                 case SUCCESS:
+                                        // Use the assigned orientation
+                                        ori = &R;
                                         break;
                                 case REJECT:
-                                        continue;
+                                        // Default to identity
+                                        ori = &Id;
+                                        break;
                                 default:
-                                        return FAILURE; 
+                                        // Unexpected error
+                                        goto dense_descrip_quit;
                         }
+                } else {
+                       // No rotation
+                       ori = &Id; 
                 }
 
                 // Extract the descriptor
-                extract_dense_descrip(extractor, in, &vcenter, desc_sigma, &R, 
+                extract_dense_descrip(extractor, in, &vcenter, desc_sigma, ori,
                                       &hist);
+
+                // Copy the descriptor to the image channels
+                for (c = 0; c < HIST_NUMEL; c++) {
+                        IM_GET_VOX(desc, x, y, z, c) = hist.bins[c];
+                }
 
         IM_LOOP_END
 
+        // Clean up
+        cleanup_Mat_rm(&R);
+        cleanup_Mat_rm(&Id);
         return SUCCESS;
+
+dense_descrip_quit:
+        // Clean up and return an error condition 
+        cleanup_Mat_rm(&R);
+        cleanup_Mat_rm(&Id);
+        return FAILURE;
 }
 
 /* Convert a keypoint store to a matrix. 

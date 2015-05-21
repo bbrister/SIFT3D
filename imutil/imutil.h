@@ -177,7 +177,7 @@ void im_zero(Image *im);
 void im_Hessian(Image *im, int x, int y, int z, Mat_rm *H);
 
 int im_inv_transform(Image *in, Image *out, tform_type type, 
-					 void *tform);
+		        void *tform, interp_type interp);
 
 int convolve_sep(const Image *const src,
 	Image *const dst, const Sep_FIR_filter *const f, int dim);

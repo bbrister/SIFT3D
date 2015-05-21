@@ -60,8 +60,11 @@ extern void dsyevd_(const char *, const char *, const int *, double *,
 /* Internal helper routines */
 static char *read_file(const char *path);
 static int do_mkdir(const char *path, mode_t mode);
-double resample_linear(Image *in, const double x, const double y, 
+static double resample_linear(Image *in, const double x, const double y, 
                         const double z, const int c);
+static double resample_lanczos2(Image *in, const double x, const double y, 
+                        const double z, const int c);
+static double lanczos(double x, double a);
 static int init_gauss_incremental_filter(Gauss_filter *gauss,
 								  double s_cur, double s_next,
 								  int dim);
@@ -1337,15 +1340,10 @@ int im_downsample_2x(Image *src, Image *dst) {
 
 	int x, y, z, c;
 
-	// Verify image dimensions
-	if (src->nx % 2 != 0 || src->ny % 2 != 0 || 
-		src->nz % 2 != 0)
-		return FAILURE;
-
 	// Initialize dst
-	dst->nx = src->nx / 2;
-	dst->ny = src->ny / 2;
-	dst->nz = src->nz / 2;
+	dst->nx = (int) floor((double) src->nx / 2.0);
+	dst->ny = (int) floor((double) src->ny / 2.0);
+	dst->nz = (int) floor((double) src->nz / 2.0);
         dst->nc = src->nc;
 	im_default_stride(dst);
 	if (im_resize(dst))
@@ -1604,32 +1602,49 @@ void im_zero(Image *im) {
  * Resizes im_out. */
 
 int im_inv_transform(Image *in, Image *out, tform_type type, 
-					 void *tform) {
+		        void *tform, interp_type interp) {
+
 	int x, y, z, c;
+        double transx, transy, transz;
 
 	// Resize the output image
 	if (im_copy_dims(in, out))
 		return FAILURE;
 
-	IM_LOOP_START(in, x, y, z)
-		double transx, transy, transz;
-		if (apply_tform_xyz((double)x, (double)y, (double)z, 
-			&transx, &transy, &transz, type, tform))
-			return FAILURE;
+#define IMUTIL_RESAMPLE(arg) \
+	IM_LOOP_START(in, x, y, z) \
+		if (apply_tform_xyz((double)x, (double)y, (double)z, \
+			&transx, &transy, &transz, type, tform)) \
+			return FAILURE; \
+                        \
+                for (c = 0; c < out->nc; c++) { \
+		        IM_GET_VOX(out, x, y, z, c) = resample_ ## arg(in, \
+                                transx, transy, transz, c); \
+                } \
+	IM_LOOP_END 
 
-                for (c = 0; c < out->nc; c++) {
-		        const double res_val = resample_linear(in, transx, 
-                                                        transy, transz, c);
-		        IM_GET_VOX(out, x, y, z, c) = res_val;
-                }
-	IM_LOOP_END
+        // Transform
+        switch (interp) {
+                case LINEAR:
+                        IMUTIL_RESAMPLE(linear)
+                        break;
+                case LANCZOS2:
+                        IMUTIL_RESAMPLE(lanczos2)
+                        break;
+                default:
+                        fprintf(stderr, "im_inv_transform: unrecognized "
+                                "interpolation type");
+                        return FAILURE;
+        }
 
-	return SUCCESS;
+#undef RESAMPLE
+
+        return SUCCESS;
 }
 
 /* Helper routine for image transformation. Performs trilinear
  * interpolation, setting out-of-bounds voxels to zero. */
-double resample_linear(Image *in, const double x, const double y, 
+static double resample_linear(Image *in, const double x, const double y, 
                         const double z, const int c) {
 
 	// Detect out-of-bounds
@@ -1668,6 +1683,63 @@ double resample_linear(Image *in, const double x, const double y,
                + c7 * dist_x       * dist_y       * dist_z;
 
 	return out;
+}
+
+/* Helper routine to resample an image at a point, using the Lanczos kernel */
+static double resample_lanczos2(Image *im, const double x, const double y, 
+                        const double z, const int c) {
+
+        double val;
+        int xs, ys, zs;
+
+        //TODO: faster separable implementation
+
+        // Kernel parameter
+        const double a = 2;
+
+        // Check bounds
+        const double xMin = 0;
+        const double yMin = 0;
+        const double zMin = 0;
+        const double xMax = im->nx - 1;
+        const double yMax = im->ny - 1;
+        const double zMax = im->nz - 1;
+        if (x < xMin || y < yMin || z < zMin || 
+            x > xMax || y > yMax || z > zMax)
+                return 0.0;
+
+        // Window 
+        const int x_start = MAX(floor(x) - a, xMin);
+        const int x_end = MIN(floor(x) + a, xMax);
+        const int y_start = MAX(floor(y) - a, yMin);
+        const int y_end = MIN(floor(y) + a, yMax);
+        const int z_start = MAX(floor(z) - a, zMin);
+        const int z_end = MIN(floor(z) + a, zMax);
+       
+        // Iterate through the window 
+        val = 0.0;
+        IM_LOOP_LIMITED_START(in, xs, ys, zs, x_start, x_end, y_start, y_end, 
+                                z_start, z_end)
+
+                // Evalutate the kernel
+                const double xw = fabs((double) xs - x) + DBL_EPSILON; 
+                const double yw = fabs((double) ys - y) + DBL_EPSILON; 
+                const double zw = fabs((double) zs - z) + DBL_EPSILON; 
+                const double kernel = lanczos(xs, a) * lanczos(ys, a) * 
+                                          lanczos(zs, a);
+
+                // Accumulate
+                val += kernel * IM_GET_VOX(im, xs, ys, zs, c);
+
+        IM_LOOP_END
+
+        return val;
+}
+
+/* Lanczos kernel function */
+static double lanczos(double x, double a) {
+        const double pi_x = UTIL_PI * x;
+        return a * sin(pi_x) * sin(pi_x / a) / (UTIL_PI * UTIL_PI * x * x);
 }
 
 /* Horizontally convolves a separable filter with an image, 

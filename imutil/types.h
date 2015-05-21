@@ -337,6 +337,12 @@ typedef enum _tform_type {
 	TPS             // Thin-plate spline	
 } tform_type;
 
+/* Interpolation algorithms that can be used by this library. */
+typedef enum _interp_type {
+        LINEAR,         // N-linear interpolation
+        LANCZOS2        // Lanczos kernel, a = 2
+} interp_type;
+
 /* Struct to hold an affine transformation */
 typedef struct _Affine {
 	Mat_rm A;		// Transformation matrix, x' = Ax

@@ -20,9 +20,10 @@
 #include "math.h"
 
 /* Parameters */
+#define INTERP LINEAR // Interpolation type for synthetic transform
 #define NN_THRESH_DEFAULT 0.8
 #define MIN_INLIERS 0.001
-#define ERR_THRESH 5.0
+#define ERR_THRESH 2.0
 #define NUM_ITER 500
 
 /* Debugging file paths */
@@ -175,14 +176,14 @@ int main(int argc, char *argv[]) {
                         err_exit("get center translation");
 
                 // Apply the center translation and update the affine transformation
-                MAT_RM_GET(&A, 0, 3, double) = xtrans - xc;
-                MAT_RM_GET(&A, 1, 3, double) = ytrans - yc;
-                MAT_RM_GET(&A, 2, 3, double) = ztrans - zc;
+                MAT_RM_GET(&A, 0, 3, double) = xc - xtrans;
+                MAT_RM_GET(&A, 1, 3, double) = yc - ytrans;
+                MAT_RM_GET(&A, 2, 3, double) = zc - ztrans;
 		if (Affine_set_mat(&A, &aff_syn))
 			err_exit("set affine matrix\n");
 
 		// Apply an affine transformation to the reference image
-		if (im_inv_transform(&src_temp, &src, AFFINE, &aff_syn))
+		if (im_inv_transform(&src_temp, &src, AFFINE, &aff_syn, INTERP))
 			err_exit("apply image transform\n");		
 
 #ifdef VERBOSE
@@ -258,8 +259,10 @@ int main(int argc, char *argv[]) {
 }
 #endif
 
-	// Extract source keypoints
+        // Start the benchmark
 	clock_gettime(CLOCK_MONOTONIC, &reg_start);
+
+	// Extract source keypoints
 	if (SIFT3D_detect_keypoints(&detector, &srcp, &kp_src))
 		err_exit("detect source keypoints\n");
 	if (SIFT3D_extract_descriptors(&extractor, &detector.gpyr, &kp_src, 
@@ -342,7 +345,7 @@ int main(int argc, char *argv[]) {
 		err_exit("fit transform\n");
 
 	// Transform the source image
-	if (im_inv_transform(&srcp, &srcp_reg, AFFINE, &aff_reg))
+	if (im_inv_transform(&srcp, &srcp_reg, AFFINE, &aff_reg, LINEAR))
 		err_exit("apply image transform\n");		
 
 	// End the benchmark
@@ -408,9 +411,13 @@ int main(int argc, char *argv[]) {
 		    match_err = sqrt(dx * dx + dy * dy + dz * dz);
 
 		    // Test if the match is outside the error threshold
-		    if (match_err > ERR_THRESH)
-			// False positive
-			continue;
+		    if (match_err <= ERR_THRESH)  {
+                        // True positive
+                        num_true_pos++;
+                    }
+
+                    // Nothing left to do for positives
+	            continue;
 		}
 		
 		// Find the nearest reference feature location
@@ -433,21 +440,10 @@ int main(int argc, char *argv[]) {
 
 		min_err = sqrt(min_err_sq);
 
-		// Test the positives
-		if (match) {
-		    if (min_err < match_err - 1.0) 
-			// False positive
-			continue;
-		    
-		    // True positive
-		    num_true_pos++;
-		    continue;
-		}
-
-		// Test the negatives
-		if (min_err < ERR_THRESH)
+		if (min_err < ERR_THRESH) {
 		    // False negative
 		    continue;
+                }
    
 		// True negative 
 		num_true_neg++;
@@ -480,7 +476,7 @@ int main(int argc, char *argv[]) {
 	init_im(&grid_deformed);
 	if (draw_grid(&grid, nx, ny, nz, 20, 1))
 		err_exit("make grid \n");
-	if (im_inv_transform(&grid, &grid_deformed, AFFINE, &aff_reg))
+	if (im_inv_transform(&grid, &grid_deformed, AFFINE, &aff_reg, LINEAR))
 		err_exit("deform grid \n");
 	if (write_nii(GRID_PATH, &grid_deformed))
 		err_exit("write deformation grid to file \n");	

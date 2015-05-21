@@ -16,7 +16,7 @@
 /* Default SIFT detector parameters. These can be overriden by 
  * the appropriate initializer arguments. */
 #define DEFAULT_FIRST_OCTAVE 0
-#define DEFAULT_PEAK_THRESH 0.01
+#define DEFAULT_PEAK_THRESH 0.03
 #define DEFAULT_CORNER_THRESH 0.1
 #define DEFAULT_NUM_KP_LEVELS 3
 #define DEFAULT_SIGMA_N 1.15 
@@ -84,7 +84,10 @@ int init_SIFT3D_Extractor(SIFT3D_Extractor *const extractor);
 
 
 int SIFT3D_extract_descriptors(SIFT3D_Extractor *extractor, void *im,
-	Keypoint_store *kp, SIFT3D_Descriptor_store *desc, int use_gpyr);
+ 	Keypoint_store *kp, SIFT3D_Descriptor_store *desc, int use_gpyr);
+
+int SIFT3D_extract_dense_descriptors(SIFT3D_Extractor *const extractor, 
+        const Image *const in, Image *const desc);
 
 int SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
 		    const SIFT3D_Descriptor_store *const d2,
