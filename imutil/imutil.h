@@ -116,6 +116,11 @@ void cleanup_Tps(Tps *tps);
 
 int mul_Mat_rm(Mat_rm *mat_in1, Mat_rm *mat_in2, Mat_rm *mat_out);
 
+int init_Sep_FIR_filter(Sep_FIR_filter *f, int dim, int half_width, int width, 
+						float *kernel, int symmetric);
+
+void cleanup_Sep_FIR_filter(Sep_FIR_filter *f);
+
 int apply_Sep_FIR_filter(Image *src, Image *dst,
 	Sep_FIR_filter *f, int dim);
 
@@ -190,7 +195,14 @@ int convolve_sep_sym(const Image *const src, Image *const dst,
 
 void init_im(Image *im);
 
-int init_gauss_filter(Gauss_filter *gauss, double sigma, int dim);
+int init_Gauss_filter(Gauss_filter *gauss, double sigma, int dim);
+
+int init_Sep_FIR_filter(Sep_FIR_filter *f, int dim, int half_width, int width, 
+						float *kernel, int symmetric);
+
+void cleanup_Sep_FIR_filter(Sep_FIR_filter *f);
+
+void cleanup_Gauss_filter(Gauss_filter *gauss);
 
 int init_gss(GSS_filters *gss, Pyramid *pyr);
 

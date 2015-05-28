@@ -1755,32 +1755,31 @@ static double lanczos(double x, double a) {
 int convolve_sep(const Image *const src,
 	Image *const dst, const Sep_FIR_filter *const f, int dim) {
 
-	int samp_coords[3], widths[3];
-	register float acc;
-	register int x, y, z, d, dst_xs, dst_ys, dst_zs;
+        Image pad;
+	register int x, y, z, c, d, dst_xs, dst_ys, dst_zs;
 
-	const float *const kernel = f->kernel;
-	const float *const src_data = src->data;
-	float *const dst_data = dst->data;
 	register const int half_width = f->half_width;
 	register const int nx = src->nx;
 	register const int ny = src->ny;
 	register const int nz = src->nz;
-	register const int src_xs = src->x_stride;
-	register const int src_ys = src->y_stride;
-	register const int src_zs = src->z_stride;
+        register const int nc = src->nc;
+        register const int x_start = half_width;
+        register const int y_start = half_width;
+        register const int z_start = half_width;
+        register const int x_end = nx - half_width - 1;
+        register const int y_end = ny - half_width - 1;
+        register const int z_end = nz - half_width - 1;
+        register const int dim_end = src->dims[dim] - 1;
+
+        //TODO: Convert this to convolve_x, which only convolves in x,
+        // then make a wrapper to restride, transpose, convolve x, and transpose 
+        // back
 
         // Verify inputs
 	if (dim < 0 || dim > 2) {
 		fprintf(stderr, "convole_sep: invalid dimension: %d \n", dim);
 		return FAILURE;
 	}
-        if (src->nc != 1) {
-                fputs("convolve_sep: only single-channel images are "
-                        "currently supported \n", stderr);
-                return FAILURE;
-                
-        }
 
 	// Resize the output, with the default stride
 	memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));	
@@ -1789,43 +1788,73 @@ int convolve_sep(const Image *const src,
 	if (im_resize(dst))
 	    return FAILURE;
 
-	// Init widths
-	widths[0] = nx;
-	widths[1] = ny;
-	widths[2] = nz;
-	dst_xs = dst->x_stride;
-	dst_ys = dst->y_stride;
-	dst_zs = dst->z_stride;
+        // Initialize the output to zeros
+        im_zero(dst);
 
-	for (z = 0; z < nz; z++) {
-		samp_coords[2] = z;
-		for (y = 0; y < ny; y++) {
-			samp_coords[1] = y;
-			for (x = 0; x < nx; x++) {
-				samp_coords[0] = x;
-				acc = 0.0f;
-				// TODO: zero-padding would be faster on CPU
-				for (d = MAX(-half_width, -samp_coords[dim]); 
-					 d <= MIN(half_width, 
-							widths[dim] - 1 - samp_coords[dim]);
-						d++) {
-					// Adjust coordinates for filter
-					samp_coords[dim] += d;
+        // First pass: process the interior
+        IM_LOOP_LIMITED_START(dst, x, y, z, x_start, x_end, y_start, y_end, 
+                z_start, z_end)
+                        
+                int coords[IM_NDIMS] = {x, y, z};
 
-					// Sample image and apply weight
-					acc += src_data[samp_coords[0] * src_xs +
-									samp_coords[1] * src_ys +
-									samp_coords[2] * src_zs] *
-									kernel[half_width + d];
+                for (c = 0; c < nc; c++) {
+                        for (d = -half_width; d <= half_width; d++) {
 
-					// Undo coordinates
-					samp_coords[dim] -= d;
-				}
-				// Save result
-				dst_data[x * dst_xs + y * dst_ys +  z * dst_zs] = acc;
-			}
-		}
-	}
+                                const float tap = f->kernel[d + half_width];
+
+                                // Adjust the sampling coordinates
+                                coords[dim] -= d;
+
+                                // Sample
+                                IM_GET_VOX(dst, x, y, z, c) += 
+                                        IM_GET_VOX(src, coords[0], coords[1], 
+                                                coords[2], c) * tap;
+
+                                // Reset the sampling coordinates
+                                coords[dim] += d;
+                        }
+                }
+
+        IM_LOOP_END
+
+        // Second pass: process the boundaries
+        IM_LOOP_START(dst, x, y, z)
+
+                int coords[IM_NDIMS] = {x, y, z};
+
+                // Skip pixels we have already processed
+                if (x >= x_start && x <= x_end && 
+                        y >= y_start && y <= y_end &&
+                        z >= z_start && z <= z_end)
+                        continue;
+
+                // Process the boundary pixel
+                for (c = 0; c < nc; c++) {
+                        for (d = -half_width; d <= half_width; d++) {
+
+                                const float tap = f->kernel[d + half_width];
+
+                                // Adjust the sampling coordinates
+                                coords[dim] -= d;
+
+                                // Clamp coordinates to the edge
+                                if (coords[dim] < 0) {
+                                        coords[dim] = 0;
+                                } else if (coords[dim] > dim_end) {
+                                        coords[dim] = dim_end;
+                                }
+
+                                // Sample
+                                IM_GET_VOX(dst, x, y, z, c) += 
+                                        IM_GET_VOX(src, coords[0], coords[1], 
+                                                coords[2], c) * tap;
+
+                                // Reset the sampling coordinates
+                                coords[dim] += d;
+                        }
+                }
+
+        IM_LOOP_END
 
 	return SUCCESS;
 }
@@ -2964,9 +2993,21 @@ int init_Sep_FIR_filter(Sep_FIR_filter *f, int dim, int half_width, int width,
 	return SUCCESS;
 }
 
+/* Free a Sep_FIR_Filter. */
+void cleanup_Sep_FIR_filter(Sep_FIR_filter *f) {
+
+        if (f->kernel != NULL) {
+                free(f->kernel);
+                f->kernel = NULL; 
+        }
+
+#ifdef USE_OPENCL
+        //TODO release OpenCL program
+#endif
+}
+
 /* Initialize the values of im so that it can be used by the
- * resize function. Does not allocate memory. 
- */
+ * resize function. Does not allocate memory. */
 void init_im(Image *im) {
 	im->data = NULL;
 	im->dims = &im->nx;
@@ -2987,7 +3028,7 @@ void init_im(Image *im) {
 #ifndef GAUSS_RATIO_WIDTH_SIGMA
 #define GAUSS_RATIO_WIDTH_SIGMA 3.0
 #endif
-int init_gauss_filter(Gauss_filter *gauss, double sigma, int dim) {
+int init_Gauss_filter(Gauss_filter *gauss, double sigma, int dim) {
 
 	float *kernel;
 	double x;
@@ -3033,9 +3074,9 @@ int init_gauss_filter(Gauss_filter *gauss, double sigma, int dim) {
 /* Helper routine to initialize a Gaussian filter to go from
  * scale s_cur to s_next. 
  */
-int init_gauss_incremental_filter(Gauss_filter *gauss,
-								  double s_cur, double s_next,
-								  int dim) {
+static int init_gauss_incremental_filter(Gauss_filter *gauss,
+					  double s_cur, double s_next,
+					  int dim) {
 	double sigma;
 	
 	assert(s_cur < s_next);
@@ -3045,10 +3086,15 @@ int init_gauss_incremental_filter(Gauss_filter *gauss,
 	sigma = sqrt(s_next * s_next - s_cur * s_cur);
 
 	// Initialize filter kernel
-	if (init_gauss_filter(gauss, sigma, dim))
+	if (init_Gauss_filter(gauss, sigma, dim))
 		return FAILURE;
 
 	return SUCCESS;
+}
+
+/* Free a Gauss_filter */
+void cleanup_Gauss_filter(Gauss_filter *gauss) {
+        cleanup_Sep_FIR_filter(&gauss->f);
 }
 
 /* Initialize GSS filters to create the given scale-space 
