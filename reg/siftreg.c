@@ -39,8 +39,7 @@
 int main(int argc, char *argv[]) {
 
 	Image src, ref, srcp, refp, srcp_reg;
-	SIFT3D_Detector detector;
-	SIFT3D_Extractor extractor;
+	SIFT3D sift3d;
 	Keypoint_store kp_src, kp_ref;
 	SIFT3D_Descriptor_store desc_src, desc_ref;
 	Mat_rm match_src, match_ref, A;
@@ -57,16 +56,12 @@ int main(int argc, char *argv[]) {
 	nn_thresh = NN_THRESH_DEFAULT;
 	syn_mode = 0;
 
-	// Initialize the SIFT detector
-	if (init_SIFT3D_Detector(&detector))
-		err_exit("init sift detector\n");
-
-	// Initialize the SIFT descriptor extractor 
-	if (init_SIFT3D_Extractor(&extractor))
-		err_exit("init sift extractor\n");
+	// Initialize the SIFT3D struct
+	if (init_SIFT3D(&sift3d))
+		err_exit("init sift3d\n");
 
         // Parse the SIFT3D options and increment the argument list
-        parse_args_SIFT3D_Detector(&detector, argc, argv, &optind, 0);
+        parse_args_SIFT3D(&sift3d, argc, argv, &optind, 0);
 
 	// Parse the options	
 	while ((c = getopt(argc, argv, "+sn:")) != -1)
@@ -222,9 +217,9 @@ int main(int argc, char *argv[]) {
 	clock_gettime(CLOCK_MONOTONIC, &reg_start);
 
 	// Extract features from reference image
-	if (SIFT3D_detect_keypoints(&detector, &refp, &kp_ref))
+	if (SIFT3D_detect_keypoints(&sift3d, &refp, &kp_ref))
 		err_exit("detect source keypoints\n");
-	if (SIFT3D_extract_descriptors(&extractor, &detector.gpyr, &kp_ref,
+	if (SIFT3D_extract_descriptors(&sift3d, &sift3d.gpyr, &kp_ref,
 		&desc_ref, TRUE))
 		err_exit("extract source descriptors\n");
 
@@ -240,11 +235,11 @@ int main(int argc, char *argv[]) {
 	if (write_nii("../debug/src_im.nii", &srcp) ||
 		write_nii("../debug/ref_im.nii", &refp))
 		err_exit("write input images");
-	if (write_pyramid(GPYR_REF_PATH, &detector.gpyr))
+	if (write_pyramid(GPYR_REF_PATH, &sift3d.gpyr))
 		fprintf(stderr, "Failed to write reference GSS pyramid to"
 						" path %s \n", GPYR_REF_PATH);
 		printf("Reference GSS pyramid written to %s \n", GPYR_REF_PATH);
-	if (write_pyramid(DOG_REF_PATH, &detector.dog))
+	if (write_pyramid(DOG_REF_PATH, &sift3d.dog))
 		fprintf(stderr, "Failed to write reference DoG pyramid to"
 						" path %s \n", DOG_REF_PATH);
 		printf("Reference DoG pyramid written to %s \n", DOG_REF_PATH);
@@ -264,9 +259,9 @@ int main(int argc, char *argv[]) {
 #endif
 
 	// Extract source keypoints
-	if (SIFT3D_detect_keypoints(&detector, &srcp, &kp_src))
+	if (SIFT3D_detect_keypoints(&sift3d, &srcp, &kp_src))
 		err_exit("detect source keypoints\n");
-	if (SIFT3D_extract_descriptors(&extractor, &detector.gpyr, &kp_src, 
+	if (SIFT3D_extract_descriptors(&sift3d, &sift3d.gpyr, &kp_src, 
 				       &desc_src, TRUE))
 		err_exit("extract source descriptors\n");
 
@@ -278,11 +273,11 @@ int main(int argc, char *argv[]) {
 	init_im(&kp_src_im);
 
 	// More intermediate data
-	if (write_pyramid(GPYR_SRC_PATH, &detector.gpyr))
+	if (write_pyramid(GPYR_SRC_PATH, &sift3d.gpyr))
 		fprintf(stderr, "Failed to write source GSS pyramid to"
 				" path %s \n", GPYR_SRC_PATH);
 		printf("Source GSS pyramid written to %s \n", GPYR_SRC_PATH);
-	if (write_pyramid(DOG_SRC_PATH, &detector.dog))
+	if (write_pyramid(DOG_SRC_PATH, &sift3d.dog))
 		fprintf(stderr, "Failed to write source DoG pyramid to"
 				" path %s \n", DOG_SRC_PATH);
 		printf("Source DoG pyramid written to %s \n", DOG_SRC_PATH);

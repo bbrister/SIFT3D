@@ -96,34 +96,34 @@
 extern CL_data cl_data;
 
 /* Helper routines */
-static int init_geometry(SIFT3D_Extractor *extractor);
-static int resize_SIFT3D_Detector(SIFT3D_Detector *detector);
-static int build_gpyr(SIFT3D_Detector *detector);
-static int build_dog(SIFT3D_Detector *dog);
-static int detect_extrema(SIFT3D_Detector *detector, Keypoint_store *kp);
-static int refine_keypoints(SIFT3D_Detector *detector, Keypoint_store *kp);
+static int init_geometry(SIFT3D *sift3d);
+static int resize_SIFT3D(SIFT3D *sift3d);
+static int build_gpyr(SIFT3D *sift3d);
+static int build_dog(SIFT3D *dog);
+static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp);
+static int refine_keypoints(SIFT3D *sift3d, Keypoint_store *kp);
 static int assign_hist_ori(const Image *const im, const Cvec *const vcenter,
                           const double sigma, Mat_rm *const R);
 static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
                           const double sigma, Mat_rm *const R);
-static int assign_orientations(SIFT3D_Detector *detector, Keypoint_store *kp);
+static int assign_orientations(SIFT3D *sift3d, Keypoint_store *kp);
 static int Cvec_to_sbins(const Cvec * const vd, Svec * const bins);
 static void refine_Hist(Hist *hist);
-static int init_cl_SIFT3D_Detector(SIFT3D_Detector *detector);
+static int init_cl_SIFT3D(SIFT3D *sift3d);
 static int cart2bary(const Cvec * const cart, const Tri * const tri, 
 		      Cvec * const bary, float * const k);
-static void SIFT3D_desc_acc_interp(const SIFT3D_Extractor * const extractor, 
+static void SIFT3D_desc_acc_interp(const SIFT3D * const sift3d, 
 				   const Cvec * const vbins, 
 				   const Cvec * const grad,
 				   SIFT3D_Descriptor * const desc);
-static void extract_descrip(SIFT3D_Extractor *extractor, Image *im,
+static void extract_descrip(SIFT3D *sift3d, Image *im,
 	   Keypoint *key, SIFT3D_Descriptor *desc);
 static int argv_permute(const int argc, char *const *argv, 
                         const unsigned char *processed, 
                         const int optind_start);
-static int extract_dense_descriptors(SIFT3D_Extractor *const extractor,
+static int extract_dense_descriptors(SIFT3D *const sift3d,
         const Image *const in, Image *const desc);
-static int extract_dense_descriptors_rotate(SIFT3D_Extractor *const extractor,
+static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
         const Image *const in, Image *const desc);
 static int vox2hist(const Image *const im, const int x, const int y,
         const int z, Hist *const hist);
@@ -131,14 +131,14 @@ static int hist2vox(Hist *const hist, const Image *const im, const int x,
         const int y, const int z);
 
 /* Initialize geometry tables. */
-static int init_geometry(SIFT3D_Extractor *extractor) {
+static int init_geometry(SIFT3D *sift3d) {
 
 	Mat_rm V, F;
 	Cvec temp1, temp2, temp3, n;
 	float mag;
 	int i, j;
 
-	Mesh * const mesh = &extractor->mesh;
+	Mesh * const mesh = &sift3d->mesh;
 
 	/* Verices of a regular icosahedron inscribed in the unit sphere. */
 	const float vert[] = {  0,  1,  GR,
@@ -317,9 +317,9 @@ void init_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *desc) {
 	desc->buf = NULL;
 }
 
-/* Initializes the OpenCL data for this SIFT3D_Detector. This
+/* Initializes the OpenCL data for this SIFT3D struct. This
  * increments the reference counts for shared data. */
-static int init_cl_SIFT3D_Detector(SIFT3D_Detector *detector) {
+static int init_cl_SIFT3D(SIFT3D *sift3d) {
 #ifdef USE_OPENCL
 	cl_image_format image_format;
 
@@ -337,50 +337,50 @@ static int init_cl_SIFT3D_Detector(SIFT3D_Detector *detector) {
 	return SUCCESS;
 }
 
-void set_first_octave_SIFT3D_Detector(SIFT3D_Detector *const detector, 
+void set_first_octave_SIFT3D(SIFT3D *const sift3d, 
                                 const int first_octave) {
-	detector->dog.first_octave = detector->gpyr.first_octave = first_octave;
+	sift3d->dog.first_octave = sift3d->gpyr.first_octave = first_octave;
 }
 
-void set_peak_thresh_SIFT3D_Detector(SIFT3D_Detector *const detector,
+void set_peak_thresh_SIFT3D(SIFT3D *const sift3d,
                                 const double peak_thresh) {
-        detector->peak_thresh = peak_thresh;
+        sift3d->peak_thresh = peak_thresh;
 }
 
-void set_corner_thresh_SIFT3D_Detector(SIFT3D_Detector *const detector,
+void set_corner_thresh_SIFT3D(SIFT3D *const sift3d,
                                 const double corner_thresh) {
-        detector->corner_thresh = corner_thresh;
+        sift3d->corner_thresh = corner_thresh;
 }
 
-void set_num_octaves_SIFT3D_Detector(SIFT3D_Detector *const detector,
+void set_num_octaves_SIFT3D(SIFT3D *const sift3d,
                                 const int num_octaves) {
-	detector->dog.num_octaves = detector->gpyr.num_octaves = num_octaves;
+	sift3d->dog.num_octaves = sift3d->gpyr.num_octaves = num_octaves;
 }
 
-void set_num_kp_levels_SIFT3D_Detector(SIFT3D_Detector *const detector,
+void set_num_kp_levels_SIFT3D(SIFT3D *const sift3d,
                                 const int num_kp_levels) {
 
 	const int num_dog_levels = num_kp_levels + 2;
 	const int num_gpyr_levels = num_dog_levels + 1;
 
-	detector->dog.num_kp_levels = detector->gpyr.num_kp_levels = 
+	sift3d->dog.num_kp_levels = sift3d->gpyr.num_kp_levels = 
                 num_kp_levels;
-	detector->dog.num_levels = num_dog_levels;
-	detector->gpyr.num_levels = num_gpyr_levels;
+	sift3d->dog.num_levels = num_dog_levels;
+	sift3d->gpyr.num_levels = num_gpyr_levels;
 }
 
-void set_sigma_n_SIFT3D_Detector(SIFT3D_Detector *const detector,
+void set_sigma_n_SIFT3D(SIFT3D *const sift3d,
                                 const double sigma_n) {
-	detector->dog.sigma_n = detector->gpyr.sigma_n = sigma_n;
+	sift3d->dog.sigma_n = sift3d->gpyr.sigma_n = sigma_n;
 }
 
-void set_sigma0_SIFT3D_Detector(SIFT3D_Detector *const detector,
+void set_sigma0_SIFT3D(SIFT3D *const sift3d,
                                 const double sigma0) {
-	detector->dog.sigma0 = detector->gpyr.sigma0 = sigma0;
+	sift3d->dog.sigma0 = sift3d->gpyr.sigma0 = sigma0;
 }
 
-/* Initialize a SIFT3D_Detector struct with the default parameters. */
-int init_SIFT3D_Detector(SIFT3D_Detector *detector) {
+/* Initialize a SIFT3D struct with the default parameters. */
+int init_SIFT3D(SIFT3D *sift3d) {
 
 	int num_dog_levels, num_gpyr_levels;
 
@@ -392,30 +392,36 @@ int init_SIFT3D_Detector(SIFT3D_Detector *detector) {
 	const int num_kp_levels = DEFAULT_NUM_KP_LEVELS;
 	const double sigma_n = DEFAULT_SIGMA_N;
 	const double sigma0 = DEFAULT_SIGMA0;
+        const int dense_rotate = FALSE;
 
 	// First-time pyramid initialization
-	detector->dog.levels = detector->gpyr.levels = NULL;
+	sift3d->dog.levels = sift3d->gpyr.levels = NULL;
+
+        // Intialize the geometry tables
+	if (init_geometry(sift3d))
+		return FAILURE;
 
 	// init static OpenCL programs and contexts, if support is enabled
-	if (init_cl_SIFT3D_Detector(detector))
+	if (init_cl_SIFT3D(sift3d))
 		return FAILURE;
 
 	// Initialize image to null, to mark for resizing
-	detector->im = NULL;
+	sift3d->im = NULL;
 
 	// Declare pyramid memory null, to mark for initialization 
         // (see init_pyramid)
-	detector->gpyr.levels = detector->dog.levels = NULL;
+	sift3d->gpyr.levels = sift3d->dog.levels = NULL;
 
 	// Save data
-	detector->dog.first_level = detector->gpyr.first_level = -1;
-        set_first_octave_SIFT3D_Detector(detector, first_octave);
-        set_num_octaves_SIFT3D_Detector(detector, num_octaves);
-        set_num_kp_levels_SIFT3D_Detector(detector, num_kp_levels);
-        set_sigma_n_SIFT3D_Detector(detector, sigma_n);
-        set_sigma0_SIFT3D_Detector(detector, sigma0);
-        set_peak_thresh_SIFT3D_Detector(detector, peak_thresh);
-        set_corner_thresh_SIFT3D_Detector(detector, corner_thresh);
+	sift3d->dog.first_level = sift3d->gpyr.first_level = -1;
+        set_first_octave_SIFT3D(sift3d, first_octave);
+        set_num_octaves_SIFT3D(sift3d, num_octaves);
+        set_num_kp_levels_SIFT3D(sift3d, num_kp_levels);
+        set_sigma_n_SIFT3D(sift3d, sigma_n);
+        set_sigma0_SIFT3D(sift3d, sigma0);
+        set_peak_thresh_SIFT3D(sift3d, peak_thresh);
+        set_corner_thresh_SIFT3D(sift3d, corner_thresh);
+        sift3d->dense_rotate = dense_rotate;
 
 	return SUCCESS;
 }
@@ -476,9 +482,9 @@ static int argv_permute(const int argc, char *const *argv,
         return SUCCESS;
 }
 
-/* Set the parameters of a SIFT3D detector from the given command line 
- * arguments. The argument detector must be initialized with
- * init_SIFT3D_Detector prior to calling this function. All options not
+/* Set the parameters of a SIFT3D struct from the given command line 
+ * arguments. The argument SIFT3D must be initialized with
+ * init_SIFT3D prior to calling this function. All options not
  * specified in argv will remain at their previous values.
  *
  * NOTE: This function uses the POSIX convention for getopt, i.e. processing 
@@ -503,13 +509,13 @@ static int argv_permute(const int argc, char *const *argv,
  *      argc - The number of arguments
  *      argv - An array of strings of arguments. All unproccesed arguments are
  *              permuted to the end.
- *      detector - The detector to be initialized
+ *      sift3d - The struct to be initialized
  *      optind_ret - If NULL, does nothing. Otherwise, an index to the remaining
  *             options is written to this address, as in GNU getopt.
  *      check_err - If nonzero, report unrecognized options as errors
  * Return value: 
  *      0 on success, -1 on error. */
-int parse_args_SIFT3D_Detector(SIFT3D_Detector *const detector,
+int parse_args_SIFT3D(SIFT3D *const sift3d,
         const int argc, char *const *argv, int *optind_ret, 
         const int check_err) {
 
@@ -537,7 +543,7 @@ int parse_args_SIFT3D_Detector(SIFT3D_Detector *const detector,
 
         // Intialize intermediate data
         if ((processed = calloc(argc, sizeof(char *))) == NULL) {
-                fprintf(stderr, "parse_args_SIFT3D_Detector: out of memory\n");
+                fprintf(stderr, "parse_args_SIFT3D: out of memory\n");
                 return FAILURE;
         }
         err = FALSE;
@@ -555,42 +561,42 @@ int parse_args_SIFT3D_Detector(SIFT3D_Detector *const detector,
 
                 switch (c) {
                         case 'a':
-                                set_first_octave_SIFT3D_Detector(detector, 
+                                set_first_octave_SIFT3D(sift3d, 
                                         ival);
                                 processed[idx - 1] = TRUE;
                                 processed[idx] = TRUE;
                                 break;
                         case 'b':
-                                set_peak_thresh_SIFT3D_Detector(detector, 
+                                set_peak_thresh_SIFT3D(sift3d, 
                                         dval);
                                 processed[idx - 1] = TRUE;
                                 processed[idx] = TRUE;
                                 break;
                         case 'c':
-                                set_corner_thresh_SIFT3D_Detector(detector, 
+                                set_corner_thresh_SIFT3D(sift3d, 
                                         dval);
                                 processed[idx - 1] = TRUE;
                                 processed[idx] = TRUE;
                                 break;
                         case 'd':
-                                set_num_octaves_SIFT3D_Detector(detector, 
+                                set_num_octaves_SIFT3D(sift3d, 
                                         ival);
                                 processed[idx - 1] = TRUE;
                                 processed[idx] = TRUE;
                                 break;
                         case 'e':
-                                set_num_kp_levels_SIFT3D_Detector(detector, 
+                                set_num_kp_levels_SIFT3D(sift3d, 
                                         ival);
                                 processed[idx - 1] = TRUE;
                                 processed[idx] = TRUE;
                                 break;
                         case 'f':
-                                set_sigma_n_SIFT3D_Detector(detector, dval);
+                                set_sigma_n_SIFT3D(sift3d, dval);
                                 processed[idx - 1] = TRUE;
                                 processed[idx] = TRUE;
                                 break;
                         case 'g':
-                                set_sigma0_SIFT3D_Detector(detector, dval);
+                                set_sigma0_SIFT3D(sift3d, dval);
                                 processed[idx - 1] = TRUE;
                                 processed[idx] = TRUE;
                                 break;
@@ -627,19 +633,18 @@ parse_args_quit:
         return FAILURE;
 }
 
-/* Helper routine to resize a detector and recompile filters, 
-	if (init_cl_SIFT3D_Detector(&detector))
+/* Helper routine to resize a SIFT3D struct and recompile filters, 
  * according to the dimensions of im. */
-static int resize_SIFT3D_Detector(SIFT3D_Detector *detector) {
+static int resize_SIFT3D(SIFT3D *sift3d) {
 
 	double nx, ny, nz;
 	int last_octave, num_octaves; 
 
-	Image const *im = detector->im;
-	const int first_octave = detector->gpyr.first_octave;
+	Image const *im = sift3d->im;
+	const int first_octave = sift3d->gpyr.first_octave;
 
 	// Compute the number of octaves, if not specified by user
-	if ((num_octaves = detector->gpyr.num_octaves) == -1) {
+	if ((num_octaves = sift3d->gpyr.num_octaves) == -1) {
 		last_octave = (int) log2((double) MIN(MIN(im->nx, im->ny),
 			im->nz)) - 3 - first_octave;		// min size: 8 in any dimension
 
@@ -650,30 +655,30 @@ static int resize_SIFT3D_Detector(SIFT3D_Detector *detector) {
 	}
 
 	// Update pyramid data
-	detector->gpyr.last_octave = detector->dog.last_octave = last_octave;
-	detector->dog.num_octaves = detector->gpyr.num_octaves = num_octaves;
+	sift3d->gpyr.last_octave = sift3d->dog.last_octave = last_octave;
+	sift3d->dog.num_octaves = sift3d->gpyr.num_octaves = num_octaves;
 
 	// Re-initialize the pyramid
-	if (init_pyramid(&detector->gpyr, detector->im) ||
-		init_pyramid(&detector->dog, detector->im))
+	if (init_pyramid(&sift3d->gpyr, sift3d->im) ||
+		init_pyramid(&sift3d->dog, sift3d->im))
 		return FAILURE;
 
 	// Compute the Gaussian filters
-	if (init_gss(&detector->filters.gss, &detector->gpyr))
+	if (init_gss(&sift3d->filters.gss, &sift3d->gpyr))
 		return FAILURE;
 
 	return SUCCESS;
 }
 
 /* Build the GSS pyramid on a single CPU thread */
-static int build_gpyr(SIFT3D_Detector *detector) {
+static int build_gpyr(SIFT3D *sift3d) {
 
 	Sep_FIR_filter *f;
 	Image *cur, *prev;
 	int o, s;
 
-	Pyramid *const gpyr = &detector->gpyr;
-	const GSS_filters *const gss = &detector->filters.gss;
+	Pyramid *const gpyr = &sift3d->gpyr;
+	const GSS_filters *const gss = &sift3d->filters.gss;
 	const int s_start = gpyr->first_level + 1;
 	const int s_end = gpyr->last_level;
 	const int o_start = gpyr->first_octave;
@@ -681,7 +686,7 @@ static int build_gpyr(SIFT3D_Detector *detector) {
 
 	// Build the first image
 	cur = PYR_IM_GET(gpyr, o_start, s_start - 1);
-	prev = detector->im;
+	prev = sift3d->im;
 #ifdef USE_OPENCL
 	if (im_load_cl(cur, FALSE))
 		return FAILURE;	
@@ -719,13 +724,13 @@ static int build_gpyr(SIFT3D_Detector *detector) {
 	return SUCCESS;
 }
 
-static int build_dog(SIFT3D_Detector *detector) {
+static int build_dog(SIFT3D *sift3d) {
 
 	Image *gpyr_cur, *gpyr_next, *dog_level;
 	int o, s;
 
-	Pyramid *const dog = &detector->dog;
-	Pyramid *const gpyr = &detector->gpyr;
+	Pyramid *const dog = &sift3d->dog;
+	Pyramid *const gpyr = &sift3d->gpyr;
 
 	PYR_LOOP_START(dog, o, s)
 		gpyr_cur = PYR_IM_GET(gpyr, o, s);
@@ -741,7 +746,7 @@ static int build_dog(SIFT3D_Detector *detector) {
 }
 
 /* Detect local extrema */
-static int detect_extrema(SIFT3D_Detector *detector, Keypoint_store *kp) {
+static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 
 	Image *cur, *prev, *next;
 	Keypoint *key;
@@ -749,7 +754,7 @@ static int detect_extrema(SIFT3D_Detector *detector, Keypoint_store *kp) {
 	int o, s, x, y, z, x_start, x_end, y_start, y_end, z_start,
 		z_end, num;
 
-	const Pyramid *const dog = &detector->dog;
+	const Pyramid *const dog = &sift3d->dog;
 	const int o_start = dog->first_octave;
 	const int o_end = dog->last_octave;
 	const int s_start = dog->first_level + 1;
@@ -813,7 +818,7 @@ static int detect_extrema(SIFT3D_Detector *detector, Keypoint_store *kp) {
                                 fabsf(IM_GET_VOX(cur, x, y, z, 0)));
 		IM_LOOP_END
 		// Adjust threshold
-		peak_thresh = detector->peak_thresh * dogmax;
+		peak_thresh = sift3d->peak_thresh * dogmax;
 
 		// Loop through all non-boundary pixels
 		x_start = y_start = z_start = 1;
@@ -855,7 +860,7 @@ static int detect_extrema(SIFT3D_Detector *detector, Keypoint_store *kp) {
 }
 
 /* Refine keypoint locations to sub-pixel accuracy. */
-static int refine_keypoints(SIFT3D_Detector *detector, Keypoint_store *kp) {
+static int refine_keypoints(SIFT3D *sift3d, Keypoint_store *kp) {
 
 	Mat_rm B, Hi, Hs, X;
 IGNORE_UNUSED
@@ -876,9 +881,9 @@ IGNORE_UNUSED
 		Keypoint * const key = kp->buf + k;
 		const int o = key->o;
 		const int s = key->s;
-		const Image const *prev = PYR_IM_GET(&detector->dog, o, s - 1);
-		const Image const *cur = PYR_IM_GET(&detector->dog, o, s);
-		const Image const *next = PYR_IM_GET(&detector->dog, o, s + 1);
+		const Image const *prev = PYR_IM_GET(&sift3d->dog, o, s - 1);
+		const Image const *cur = PYR_IM_GET(&sift3d->dog, o, s);
+		const Image const *next = PYR_IM_GET(&sift3d->dog, o, s + 1);
 
 		// Bound the translation to all non-boundary pixels
 		const double xmin = 1;
@@ -1402,7 +1407,7 @@ eig_ori_fail:
  * Note that this stage will modify kp, likely
  * rejecting some keypoints as orientationally
  * unstable. */
-static int assign_orientations(SIFT3D_Detector *detector, 
+static int assign_orientations(SIFT3D *sift3d, 
 			       Keypoint_store *kp) {
 
 	int (*ori_fun)(const Image *const, const Cvec *const, const double, 
@@ -1424,7 +1429,7 @@ static int assign_orientations(SIFT3D_Detector *detector,
 
 		Keypoint *const key = kp->buf + i;
 		const Image *const level = 
-                        PYR_IM_GET(&detector->gpyr, key->o, key->s);
+                        PYR_IM_GET(&sift3d->gpyr, key->o, key->s);
                 Mat_rm *const R = &key->R;
                 const Cvec vcenter = {key->xd, key->yd, key->zd};
                 const double sigma = ORI_SIG_FCTR * key->sd_rel;
@@ -1458,9 +1463,9 @@ static int assign_orientations(SIFT3D_Detector *detector,
 }
 
 /* Detect keypoint locations and orientations. You must initialize
- * the detector, image, and keypoint store with the appropriate
+ * the SIFT3D struct, image, and keypoint store with the appropriate
  * functions prior to calling this function. */
-int SIFT3D_detect_keypoints(SIFT3D_Detector *const detector, Image *const im, 
+int SIFT3D_detect_keypoints(SIFT3D *const sift3d, Image *const im, 
 			    Keypoint_store *const kp) {
 
 	Image im_old; 
@@ -1474,52 +1479,39 @@ int SIFT3D_detect_keypoints(SIFT3D_Detector *const detector, Image *const im,
         }
 
 	// Copy the last image and load the new one
-	if (detector->im == NULL)
-		// The detector has not been used: initialize im_old
+	if (sift3d->im == NULL)
+		// The SIFT3D has not been used: initialize im_old
 		// to dummy values to mark for resizing.
 		im_old.nx = im_old.ny = im_old.nz = -1;
 	else
-		im_old = *detector->im;
-	detector->im = im;
+		im_old = *sift3d->im;
+	sift3d->im = im;
 
-	// Resize detector, if necessary
+	// Resize sift3d, if necessary
 	if ((im->nx != im_old.nx || im->ny != im_old.ny ||
 		im->nz != im_old.nz) && 
-		resize_SIFT3D_Detector(detector))
+		resize_SIFT3D(sift3d))
 		return FAILURE;
 
 	// Build the GSS pyramid
-	if (build_gpyr(detector))
+	if (build_gpyr(sift3d))
 		return FAILURE;
 
 	// Build the DoG pyramid
-	if (build_dog(detector))
+	if (build_dog(sift3d))
 		return FAILURE;
 
 	// Detect extrema
-	if (detect_extrema(detector, kp))
+	if (detect_extrema(sift3d, kp))
 		return FAILURE;
 
 	// Refine keypoints	
-	if (refine_keypoints(detector, kp))
+	if (refine_keypoints(sift3d, kp))
 		return FAILURE;
 
 	// Assign orientations
-	if (assign_orientations(detector, kp))
+	if (assign_orientations(sift3d, kp))
 		return FAILURE;
-
-	return SUCCESS;
-}
-
-/* Initialize the descriptor parameters and math tables */
-int init_SIFT3D_Extractor(SIFT3D_Extractor *const extractor) {
-
-	if (init_geometry(extractor))
-		return FAILURE;
-
-        // Default parameters
-        extractor->dense_sigma = DEFAULT_SIGMA0;
-        extractor->dense_rotate = FALSE;
 
 	return SUCCESS;
 }
@@ -1527,14 +1519,14 @@ int init_SIFT3D_Extractor(SIFT3D_Extractor *const extractor) {
 /* Get the bin and barycentric coordinates of a vector in the icosahedral 
  * histogram. */
 IGNORE_UNUSED
-static int icos_hist_bin(const SIFT3D_Extractor * const extractor,
+static int icos_hist_bin(const SIFT3D * const sift3d,
 			   const Cvec * const x, Cvec * const bary,
 			   int * const bin) { 
 
 	float k;
 	int i;
 
-	const Mesh * const mesh = &extractor->mesh;
+	const Mesh * const mesh = &sift3d->mesh;
 
 	// Check for very small vectors
 	if (CVEC_L2_NORM_SQ(x) < BARY_EPS)
@@ -1568,7 +1560,7 @@ static int icos_hist_bin(const SIFT3D_Extractor * const extractor,
 
 /* Helper routine to interpolate over the histograms of a
  * SIFT3D descriptor. */
-void SIFT3D_desc_acc_interp(const SIFT3D_Extractor * const extractor, 
+void SIFT3D_desc_acc_interp(const SIFT3D * const sift3d, 
 				const Cvec * const vbins, 
 				const Cvec * const grad,
 				SIFT3D_Descriptor * const desc) {
@@ -1597,10 +1589,10 @@ void SIFT3D_desc_acc_interp(const SIFT3D_Extractor * const extractor,
 
 	// Compute the histogram bin
 #ifdef ICOS_HIST
-	const Mesh *const mesh = &extractor->mesh;
+	const Mesh *const mesh = &sift3d->mesh;
 
 	// Get the index of the intersecting face 
-	if (icos_hist_bin(extractor, grad, &bary, &bin))
+	if (icos_hist_bin(sift3d, grad, &bary, &bin))
 		return;
 	
 	// Get the magnitude of the vector
@@ -1719,7 +1711,7 @@ static void hist_zero(Hist *hist) {
 }
 
 /* Helper routine to extract a single SIFT3D descriptor */
-static void extract_descrip(SIFT3D_Extractor *extractor, Image *im,
+static void extract_descrip(SIFT3D *sift3d, Image *im,
 	   Keypoint *key, SIFT3D_Descriptor *desc) {
 
 	Cvec vcenter, vim, vkp, vbins, grad, grad_rot;
@@ -1773,7 +1765,7 @@ static void extract_descrip(SIFT3D_Extractor *extractor, Image *im,
 		MUL_MAT_RM_CVEC(&key->R, &grad, &grad_rot);
 
 		// Finally, accumulate bins by 5x linear interpolation
-		SIFT3D_desc_acc_interp(extractor, &vbins, &grad_rot, desc);
+		SIFT3D_desc_acc_interp(sift3d, &vbins, &grad_rot, desc);
 	IM_LOOP_END
 
 	// Histogram refinement steps
@@ -1808,7 +1800,7 @@ static void extract_descrip(SIFT3D_Extractor *extractor, Image *im,
  * image.
  *
  * parameters:
- * 	extractor - (initialized) struct defining parameters
+ * 	sift3d - (initialized) struct defining parameters
  *  im - If use_gpyr == 0, this is a pointer to an Image
  *   	 and features will be extracted from the "raw" data.
  *  	 Else, this is a pointer to a Pyramid and features
@@ -1817,7 +1809,7 @@ static void extract_descrip(SIFT3D_Extractor *extractor, Image *im,
  *  kp - keypoint list populated by a feature detector 
  *  desc - (initialized) struct to hold the descriptors
  *  use_gpyr - see im for details */
-int SIFT3D_extract_descriptors(SIFT3D_Extractor *extractor, void *im,
+int SIFT3D_extract_descriptors(SIFT3D *sift3d, void *im,
 	Keypoint_store *kp,	SIFT3D_Descriptor_store *desc, int use_gpyr) {
 
 	Image *level;
@@ -1854,7 +1846,7 @@ int SIFT3D_extract_descriptors(SIFT3D_Extractor *extractor, void *im,
 		key = kp->buf + i;
 		descrip = desc->buf + i;
 		level = PYR_IM_GET((Pyramid *) im, key->o, key->s);
-		extract_descrip(extractor, level, key, descrip);
+		extract_descrip(sift3d, level, key, descrip);
 	}	
 
 	return SUCCESS;
@@ -1905,7 +1897,7 @@ static void postproc_Hist(Hist *const hist) {
 }
 
 /* Helper routine to extract a single SIFT3D histogram. */
-static void extract_dense_descrip(SIFT3D_Extractor *const extractor, 
+static void extract_dense_descrip(SIFT3D *const sift3d, 
            const Image *const im, const Cvec *const vcenter, 
            const double sigma, const Mat_rm *const R, Hist *const hist) {
 
@@ -1913,7 +1905,7 @@ static void extract_dense_descrip(SIFT3D_Extractor *const extractor,
 	float sq_dist, mag, weight;
 	int a, p, x, y, z, bin;
 
-        const Mesh *const mesh = &extractor->mesh;
+        const Mesh *const mesh = &sift3d->mesh;
 	const float win_radius = DESC_RAD_FCTR * sigma;
 	const float desc_width = win_radius / SQRT2_F;
 	const float desc_hw = desc_width / 2.0f;
@@ -1929,7 +1921,7 @@ static void extract_dense_descrip(SIFT3D_Extractor *const extractor,
 		MUL_MAT_RM_CVEC(R, &grad, &grad_rot);
 
                 // Get the index of the intersecting face
-                if (icos_hist_bin(extractor, &grad_rot, &bary, &bin))
+                if (icos_hist_bin(sift3d, &grad_rot, &bary, &bin))
                         continue;
 
                 // Get the magnitude of the vector
@@ -1953,11 +1945,11 @@ static void extract_dense_descrip(SIFT3D_Extractor *const extractor,
  * The result is an image with HIST_NUMEL channels, where each channel is a
  * bin of the histogram. 
  * Parameters:
- * -extractor The descriptor extractor.
+ * -sift3d The descriptor extractor.
  * -in The input image.
  * -out The output image.
  */
-int SIFT3D_extract_dense_descriptors(SIFT3D_Extractor *const extractor, 
+int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d, 
         const Image *const in, Image *const desc) {
 
         // Verify inputs
@@ -1976,15 +1968,15 @@ int SIFT3D_extract_dense_descriptors(SIFT3D_Extractor *const extractor,
                 return FAILURE;
 
         // Extract the descriptors
-        return extractor->dense_rotate ? 
-                extract_dense_descriptors_rotate(extractor, in, desc) :
-                extract_dense_descriptors(extractor, in, desc);
+        return sift3d->dense_rotate ? 
+                extract_dense_descriptors_rotate(sift3d, in, desc) :
+                extract_dense_descriptors(sift3d, in, desc);
 }
 
 /* Helper function for extract_dense_descriptors, without rotation invariance.
  * This function is much faster than its rotation-invariant counterpart 
  * because histogram bins are pre-computed. */
-static int extract_dense_descriptors(SIFT3D_Extractor *const extractor,
+static int extract_dense_descriptors(SIFT3D *const sift3d,
         const Image *const in, Image *const desc) {
 
         Image temp; 
@@ -2000,15 +1992,12 @@ static int extract_dense_descriptors(SIFT3D_Extractor *const extractor,
         const int y_end = in->ny - 2;
         const int z_end = in->nz - 2;
 
-        Mesh * const mesh = &extractor->mesh;
-        const double sigma_win = extractor->dense_sigma * DESC_SIG_FCTR;
+        Mesh * const mesh = &sift3d->mesh;
+        const double sigma_win = sift3d->dense_sigma * DESC_SIG_FCTR;
 
         // Initialize the intermediate image
         init_im(&temp);
-        memcpy(temp.dims, desc->dims, IM_NDIMS * sizeof(int));
-        temp.nc = in->nc;
-        im_default_stride(&temp);
-        if (im_resize(&temp))
+        if (im_copy_dims(desc, &temp))
                 return FAILURE;
 
         // Initialize the filter
@@ -2026,7 +2015,7 @@ static int extract_dense_descriptors(SIFT3D_Extractor *const extractor,
 		IM_GET_GRAD(in, x, y, z, 0, &grad);
 
                 // Get the index of the intersecting face
-                if (icos_hist_bin(extractor, &grad_rot, &bary, &bin))
+                if (icos_hist_bin(sift3d, &grad_rot, &bary, &bin))
                         continue;
 
                 // Initialize each vertex
@@ -2091,7 +2080,7 @@ static int hist2vox(Hist *const hist, const Image *const im, const int x,
 }
 
 /* As in extract_dense_descrip, but with rotation invariance */
-static int extract_dense_descriptors_rotate(SIFT3D_Extractor *const extractor,
+static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
         const Image *const in, Image *const desc) {
 
         Hist hist;
@@ -2120,7 +2109,7 @@ static int extract_dense_descriptors_rotate(SIFT3D_Extractor *const extractor,
                                       (float) y + 0.5f, 
                                       (float) z + 0.5f};
 
-                const double sigma = extractor->dense_sigma;
+                const double sigma = sift3d->dense_sigma;
 
                 // Attempt to assign an orientation
                 switch(assign_eig_ori(in, &vcenter, sigma, &R)) {
@@ -2138,7 +2127,7 @@ static int extract_dense_descriptors_rotate(SIFT3D_Extractor *const extractor,
                 }
 
                 // Extract the descriptor
-                extract_dense_descrip(extractor, in, &vcenter, sigma, ori,
+                extract_dense_descrip(sift3d, in, &vcenter, sigma, ori,
                                       &hist);
 
                 // Copy the descriptor to the image channels

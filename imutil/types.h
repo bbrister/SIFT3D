@@ -288,8 +288,11 @@ typedef struct _SIFT3D_Descriptor_store {
 } SIFT3D_Descriptor_store;
 
 /* Struct to hold all parameters and internal data of the 
- * SIFT detector */
-typedef struct _SIFT3D_Detector {
+ * SIFT3D algorithms */
+typedef struct _SIFT3D {
+
+        // Triange mesh
+	Mesh mesh;
 
 	// Filters and filtering programs
 	SIFT_filters filters;
@@ -306,30 +309,16 @@ typedef struct _SIFT3D_Detector {
 	// Image to process
 	Image *im;
 
-	// Keypoint thresholds
-	double peak_thresh;
-	double corner_thresh;
+	// Parameters
+	double peak_thresh; // Keypoint peak threshold
+	double corner_thresh; // Keypoint corner threshold
+        double dense_sigma; // Gaussian window parameter for dense descriptors
+        int dense_rotate; // If true, dense descriptors are rotation-invariant
 
 	// Profiling info
 	//timer_t start;
 
-} SIFT3D_Detector;
-
-/* Struct to hold all parameters and internal data of the
- * SIFT descriptor extraction algorithm. */
-typedef struct _SIFT3D_Extractor {
-
-	Mesh mesh;	// Triangle mesh 
-
-	// Lookup tables
-
-	// OpenCL kernels
-
-	// Parameters
-        double dense_sigma; // Gaussian window parameter for dense descriptors
-        int dense_rotate; // If true, dense descriptors are rotation-invariant
-	
-} SIFT3D_Extractor;
+} SIFT3D;
 
 /* Geometric transformations that can be applied by this library. */
 typedef enum _tform_type {

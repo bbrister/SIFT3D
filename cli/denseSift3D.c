@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
 
         char out_name[BUF_SIZE], chan_str[BUF_SIZE];
         Image im, desc, chan;
-        SIFT3D_Extractor extractor;
+        SIFT3D sift3d;
         char *in_path, *out_path, *marker;
         size_t len;
         int c, marker_pos;
@@ -32,8 +32,8 @@ int main(int argc, char **argv) {
         init_im(&im);
         init_im(&desc);
         init_im(&chan);
-        if (init_SIFT3D_Extractor(&extractor))
-                err_exit("initalize extractor \n");
+        if (init_SIFT3D(&sift3d))
+                err_exit("initalize sift3d \n");
 
         /* Read the image */        
         if (read_nii(in_path, &im))
@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
         }
 
         /* Extract the descriptors */
-        if (SIFT3D_extract_dense_descriptors(&extractor, &im, &desc))
+        if (SIFT3D_extract_dense_descriptors(&sift3d, &im, &desc))
                 err_exit("extract descriptors \n");
         
 

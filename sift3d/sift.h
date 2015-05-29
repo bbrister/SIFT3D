@@ -2,7 +2,7 @@
  * ----------------------------------------------------------------
  * Rice MRI Team
  * ----------------------------------------------------------------
- * Internal header for detector.c
+ * Internal header for sift.c
  *-----------------------------------------------------------------
  * Created: Blaine Rister 12/26/2013
  * Last updated: Blaine Rister 2/19/2014
@@ -50,43 +50,40 @@ void init_Keypoint_store(Keypoint_store *kp);
 
 void init_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *desc);
 
-void set_first_octave_SIFT3D_Detector(SIFT3D_Detector *const detector, 
+void set_first_octave_SIFT3D(SIFT3D *const sift3d, 
                                 const int first_octave);
 
-void set_peak_thresh_SIFT3D_Detector(SIFT3D_Detector *const detector,
+void set_peak_thresh_SIFT3D(SIFT3D *const sift3d,
                                 const double peak_thresh);
 
-void set_corner_thresh_SIFT3D_Detector(SIFT3D_Detector *const detector,
+void set_corner_thresh_SIFT3D(SIFT3D *const sift3d,
                                 const double corner_thresh);
 
-void set_num_octaves_SIFT3D_Detector(SIFT3D_Detector *const detector,
+void set_num_octaves_SIFT3D(SIFT3D *const sift3d,
                                 const int num_octaves);
 
-void set_num_kp_levels_SIFT3D_Detector(SIFT3D_Detector *const detector,
+void set_num_kp_levels_SIFT3D(SIFT3D *const sift3d,
                                 const int num_kp_levels);
 
-void set_sigma_n_SIFT3D_Detector(SIFT3D_Detector *const detector,
+void set_sigma_n_SIFT3D(SIFT3D *const sift3d,
                                 const double sigma_n);
 
-void set_sigma0_SIFT3D_Detector(SIFT3D_Detector *const detector,
+void set_sigma0_SIFT3D(SIFT3D *const sift3d,
                                 const double sigma_n);
 
-int init_SIFT3D_Detector(SIFT3D_Detector *detector);
+int init_SIFT3D(SIFT3D *sift3d);
 
-int parse_args_SIFT3D_Detector(SIFT3D_Detector *const detector,
+int parse_args_SIFT3D(SIFT3D *const sift3d,
         const int argc, char *const *argv, int *optind_ret, 
         const int check_err);
 
-int SIFT3D_detect_keypoints(SIFT3D_Detector *const detector, Image *const im, 
+int SIFT3D_detect_keypoints(SIFT3D *const sift3d, Image *const im, 
 			    Keypoint_store *const kp);
 
-int init_SIFT3D_Extractor(SIFT3D_Extractor *const extractor);
-
-
-int SIFT3D_extract_descriptors(SIFT3D_Extractor *extractor, void *im,
+int SIFT3D_extract_descriptors(SIFT3D *sift3d, void *im,
  	Keypoint_store *kp, SIFT3D_Descriptor_store *desc, int use_gpyr);
 
-int SIFT3D_extract_dense_descriptors(SIFT3D_Extractor *const extractor, 
+int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d, 
         const Image *const in, Image *const desc);
 
 int SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
