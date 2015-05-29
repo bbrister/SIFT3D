@@ -97,7 +97,8 @@ extern CL_data cl_data;
 
 /* Helper routines */
 static int init_geometry(SIFT3D *sift3d);
-static int resize_SIFT3D(SIFT3D *sift3d);
+static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im);
+static int resize_SIFT3D(SIFT3D *const sift3d);
 static int build_gpyr(SIFT3D *sift3d);
 static int build_dog(SIFT3D *dog);
 static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp);
@@ -282,6 +283,12 @@ static int cart2bary(const Cvec * const cart, const Tri * const tri,
 	Cvec temp1, temp2, temp3;
         double residual;
 
+        if (isnan(bary->x) || isnan(bary->y) || isnan(bary->z)) {
+                printf("cart2bary: invalid bary (%f, %f, %f)\n", bary->x, 
+                        bary->y, bary->z);
+                //exit(1);
+        }
+
 	// Verify k * c = bary->x * v1 + bary->y * v2 + bary->z * v3
 	temp1 = v[0];
 	temp2 = v[1];
@@ -295,7 +302,7 @@ static int cart2bary(const Cvec * const cart, const Tri * const tri,
 	CVEC_OP(&temp1, cart, -, &temp1);
         residual = CVEC_L2_NORM(&temp1);
 	if (residual > BARY_EPS) {
-                printf("cart2bary: residual: %f", residual);
+                printf("cart2bary: residual: %f\n", residual);
                 exit(1);
         }
 #endif
@@ -352,21 +359,45 @@ void set_corner_thresh_SIFT3D(SIFT3D *const sift3d,
         sift3d->corner_thresh = corner_thresh;
 }
 
-void set_num_octaves_SIFT3D(SIFT3D *const sift3d,
-                                const int num_octaves) {
-	sift3d->dog.num_octaves = sift3d->gpyr.num_octaves = num_octaves;
+/* Sets the number octaves to be processed. If necessary, this function will 
+ * resize the internal data. */
+int set_num_octaves_SIFT3D(SIFT3D *const sift3d,
+                                const unsigned int num_octaves) {
+
+        const int num_octaves_old = sift3d->dog.num_octaves;
+
+        // Do nothing if the parameter is the same
+        if ((int) num_octaves == num_octaves_old) 
+                return SUCCESS; 
+
+        // Set the new parameter
+	sift3d->dog.num_octaves = sift3d->gpyr.num_octaves = (int) num_octaves;
+
+        // Resize the data
+        return resize_SIFT3D(sift3d);
 }
 
-void set_num_kp_levels_SIFT3D(SIFT3D *const sift3d,
-                                const int num_kp_levels) {
+/* Sets the number of levels per octave. This function will resize the
+ * internal data. */
+int set_num_kp_levels_SIFT3D(SIFT3D *const sift3d,
+                                const unsigned int num_kp_levels) {
 
-	const int num_dog_levels = num_kp_levels + 2;
+        const int num_kp_levels_old = sift3d->dog.num_kp_levels;
+	const int num_dog_levels = (int) num_kp_levels + 2;
 	const int num_gpyr_levels = num_dog_levels + 1;
 
+        // Do nothing if the parameter is the same
+        if ((int) num_kp_levels == num_kp_levels_old)
+                return SUCCESS;
+
+        // Set the new parameter
 	sift3d->dog.num_kp_levels = sift3d->gpyr.num_kp_levels = 
-                num_kp_levels;
+                (int) num_kp_levels;
 	sift3d->dog.num_levels = num_dog_levels;
 	sift3d->gpyr.num_levels = num_gpyr_levels;
+
+        // Resize the data
+        return resize_SIFT3D(sift3d);
 }
 
 void set_sigma_n_SIFT3D(SIFT3D *const sift3d,
@@ -633,15 +664,36 @@ parse_args_quit:
         return FAILURE;
 }
 
-/* Helper routine to resize a SIFT3D struct and recompile filters, 
- * according to the dimensions of im. */
-static int resize_SIFT3D(SIFT3D *sift3d) {
+/* Helper routine to begin processing a new image. If the dimensions differ
+ * from the last one, this function resizes the SIFT3D struct. */
+static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im) {
 
-	double nx, ny, nz;
+
+	Image const *im_old = sift3d->im;
+
+        // Set the image
+        sift3d->im = (Image *const) im;
+
+        // Resize the internal data, if necessary
+        if ((im_old == NULL || im->nx != im_old->nx || im->ny != im_old->ny || 
+            im->nz != im_old->nz) && resize_SIFT3D(sift3d))
+                return FAILURE;
+
+        return SUCCESS;
+}
+
+/* Resize a SIFT3D struct, allocating temporary storage and recompiling the 
+ * filters. Does nothing unless set_im_SIFT3D was previously called. */
+static int resize_SIFT3D(SIFT3D *const sift3d) {
+
 	int last_octave, num_octaves; 
 
-	Image const *im = sift3d->im;
+        const Image *const im = sift3d->im;
 	const int first_octave = sift3d->gpyr.first_octave;
+
+        // Do nothing if we have no image
+        if (im == NULL)
+                return SUCCESS;
 
 	// Compute the number of octaves, if not specified by user
 	if ((num_octaves = sift3d->gpyr.num_octaves) == -1) {
@@ -662,6 +714,8 @@ static int resize_SIFT3D(SIFT3D *sift3d) {
 	if (init_pyramid(&sift3d->gpyr, sift3d->im) ||
 		init_pyramid(&sift3d->dog, sift3d->im))
 		return FAILURE;
+
+        //FIXME: Clean up the old GSS
 
 	// Compute the Gaussian filters
 	if (init_gss(&sift3d->filters.gss, &sift3d->gpyr))
@@ -1468,8 +1522,6 @@ static int assign_orientations(SIFT3D *sift3d,
 int SIFT3D_detect_keypoints(SIFT3D *const sift3d, Image *const im, 
 			    Keypoint_store *const kp) {
 
-	Image im_old; 
-
         // Verify inputs
         if (im->nc != 1) {
                 fprintf(stderr, "SIFT3D_detect_keypoints: invalid number "
@@ -1478,20 +1530,9 @@ int SIFT3D_detect_keypoints(SIFT3D *const sift3d, Image *const im,
                 return FAILURE;
         }
 
-	// Copy the last image and load the new one
-	if (sift3d->im == NULL)
-		// The SIFT3D has not been used: initialize im_old
-		// to dummy values to mark for resizing.
-		im_old.nx = im_old.ny = im_old.nz = -1;
-	else
-		im_old = *sift3d->im;
-	sift3d->im = im;
-
-	// Resize sift3d, if necessary
-	if ((im->nx != im_old.nx || im->ny != im_old.ny ||
-		im->nz != im_old.nz) && 
-		resize_SIFT3D(sift3d))
-		return FAILURE;
+        // Set the image       
+        if (set_im_SIFT3D(sift3d, im))
+                return FAILURE;
 
 	// Build the GSS pyramid
 	if (build_gpyr(sift3d))
@@ -1720,7 +1761,7 @@ static void extract_descrip(SIFT3D *sift3d, Image *im,
 	int i, x, y, z, a, p;
 
 	// Compute basic parameters 
-        const float sigma = key->sd_rel;
+        const float sigma = key->sd_rel * DESC_SIG_FCTR;
 	const float win_radius = DESC_RAD_FCTR * sigma;
 	const float desc_width = win_radius / SQRT2_F;
 	const float desc_hw = desc_width / 2.0f;
@@ -1943,7 +1984,8 @@ static void extract_dense_descrip(SIFT3D *const sift3d,
 
 /* Get a descriptor with a single histogram at each voxel of an image.
  * The result is an image with HIST_NUMEL channels, where each channel is a
- * bin of the histogram. 
+ * bin of the histogram.
+ *
  * Parameters:
  * -sift3d The descriptor extractor.
  * -in The input image.
@@ -1951,6 +1993,13 @@ static void extract_dense_descrip(SIFT3D *const sift3d,
  */
 int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d, 
         const Image *const in, Image *const desc) {
+
+        int (*extract_fun)(SIFT3D *const, const Image *const, Image *const);
+        Image in_smooth;
+        Gauss_filter gauss;
+
+        const double sigma_n = sift3d->gpyr.sigma_n;
+        const double sigma0 = sift3d->gpyr.sigma0;
 
         // Verify inputs
         if (in->nc != 1) {
@@ -1960,6 +2009,10 @@ int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d,
                 return FAILURE;
         }
 
+        // Select the appropriate subroutine
+        extract_fun = sift3d->dense_rotate ? extract_dense_descriptors_rotate :
+                                             extract_dense_descriptors;
+
         // Resize the output image
         memcpy(desc->dims, in->dims, IM_NDIMS * sizeof(int));
         desc->nc = HIST_NUMEL;
@@ -1967,10 +2020,33 @@ int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d,
         if (im_resize(desc))
                 return FAILURE;
 
+        // Initialize the smoothing filter
+        if (init_Gauss_incremental_filter(&gauss, sigma_n, sigma0, 3))
+                return FAILURE;
+
+        // Initialize the smoothed input image
+        init_im(&in_smooth);
+        if (im_copy_dims(in, &in_smooth))
+                return FAILURE;
+
+        // Smooth the input image
+        if (apply_Sep_FIR_filter(in, &in_smooth, &gauss.f))
+                goto extract_dense_quit;
+
         // Extract the descriptors
-        return sift3d->dense_rotate ? 
-                extract_dense_descriptors_rotate(sift3d, in, desc) :
-                extract_dense_descriptors(sift3d, in, desc);
+        if (extract_fun(sift3d, &in_smooth, desc))
+                return FAILURE;
+
+        // Clean up
+        cleanup_Gauss_filter(&gauss);
+        im_free(&in_smooth);
+
+        return SUCCESS;
+
+extract_dense_quit:
+        cleanup_Gauss_filter(&gauss);
+        im_free(&in_smooth);
+        return FAILURE;
 }
 
 /* Helper function for extract_dense_descriptors, without rotation invariance.
@@ -1981,7 +2057,7 @@ static int extract_dense_descriptors(SIFT3D *const sift3d,
 
         Image temp; 
         Gauss_filter gauss;
-	Cvec grad, grad_rot, bary;
+	Cvec grad, bary;
 	float sq_dist, mag, weight;
         int i, x, y, z, bin, vert;
 
@@ -1993,7 +2069,7 @@ static int extract_dense_descriptors(SIFT3D *const sift3d,
         const int z_end = in->nz - 2;
 
         Mesh * const mesh = &sift3d->mesh;
-        const double sigma_win = sift3d->dense_sigma * DESC_SIG_FCTR;
+        const double sigma_win = sift3d->gpyr.sigma0 * DESC_SIG_FCTR;
 
         // Initialize the intermediate image
         init_im(&temp);
@@ -2015,7 +2091,7 @@ static int extract_dense_descriptors(SIFT3D *const sift3d,
 		IM_GET_GRAD(in, x, y, z, 0, &grad);
 
                 // Get the index of the intersecting face
-                if (icos_hist_bin(sift3d, &grad_rot, &bary, &bin))
+                if (icos_hist_bin(sift3d, &grad, &bary, &bin))
                         continue;
 
                 // Initialize each vertex
@@ -2109,7 +2185,7 @@ static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
                                       (float) y + 0.5f, 
                                       (float) z + 0.5f};
 
-                const double sigma = sift3d->dense_sigma;
+                const double sigma = sift3d->gpyr.sigma0;
 
                 // Attempt to assign an orientation
                 switch(assign_eig_ori(in, &vcenter, sigma, &R)) {

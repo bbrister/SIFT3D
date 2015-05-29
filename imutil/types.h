@@ -312,7 +312,6 @@ typedef struct _SIFT3D {
 	// Parameters
 	double peak_thresh; // Keypoint peak threshold
 	double corner_thresh; // Keypoint corner threshold
-        double dense_sigma; // Gaussian window parameter for dense descriptors
         int dense_rotate; // If true, dense descriptors are rotation-invariant
 
 	// Profiling info

@@ -65,9 +65,6 @@ static double resample_linear(Image *in, const double x, const double y,
 static double resample_lanczos2(Image *in, const double x, const double y, 
                         const double z, const int c);
 static double lanczos(double x, double a);
-static int init_gauss_incremental_filter(Gauss_filter *gauss,
-								  double s_cur, double s_next,
-								  int dim);
 static int check_cl_image_support(cl_context context, cl_mem_flags mem_flags,
 						   cl_image_format image_format, 
 						   cl_mem_object_type image_type);
@@ -3070,12 +3067,9 @@ int init_Gauss_filter(Gauss_filter *gauss, double sigma, int dim) {
 	return init_Sep_FIR_filter(&gauss->f, dim, half_width, width, kernel, TRUE);
 }
 
-/* Helper routine to initialize a Gaussian filter to go from
- * scale s_cur to s_next. 
- */
-static int init_gauss_incremental_filter(Gauss_filter *gauss,
-					  double s_cur, double s_next,
-					  int dim) {
+/* Initialize a Gaussian filter to go from scale s_cur to s_next. */
+int init_Gauss_incremental_filter(Gauss_filter *const gauss, 
+                const double s_cur, const double s_next, const int dim) {
 	double sigma;
 	
 	assert(s_cur < s_next);
@@ -3118,7 +3112,7 @@ int init_gss(GSS_filters *gss, Pyramid *pyr) {
 
 	// Initialize filter for the very first blur
 	next = PYR_IM_GET(pyr, pyr->first_octave, first_level);
-	if (init_gauss_incremental_filter(&gss->first_gauss, pyr->sigma_n,
+	if (init_Gauss_incremental_filter(&gss->first_gauss, pyr->sigma_n,
 									  next->s, dim))
 		return FAILURE;
 
@@ -3127,7 +3121,7 @@ int init_gss(GSS_filters *gss, Pyramid *pyr) {
 	for (s = first_level; s < last_level; s++) {
 		cur = PYR_IM_GET(pyr, o, s);
 		next = PYR_IM_GET(pyr, o, s + 1);
-		if (init_gauss_incremental_filter(GAUSS_GET(gss, s),
+		if (init_Gauss_incremental_filter(GAUSS_GET(gss, s),
 										  cur->s, next->s, dim))
 			return FAILURE;
 	}

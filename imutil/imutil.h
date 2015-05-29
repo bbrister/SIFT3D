@@ -188,6 +188,9 @@ void init_im(Image *im);
 
 int init_Gauss_filter(Gauss_filter *gauss, double sigma, int dim);
 
+int init_Gauss_incremental_filter(Gauss_filter *const gauss, 
+                const double s_cur, const double s_next, const int dim);
+
 int init_Sep_FIR_filter(Sep_FIR_filter *f, int dim, int half_width, int width, 
 						float *kernel, int symmetric);
 
