@@ -217,6 +217,10 @@ int main(int argc, char *argv[]) {
 	im_free(&src);
 	im_free(&ref);
 
+        // Start the benchmark
+        printf("Starting the benchmark...\n");
+	clock_gettime(CLOCK_MONOTONIC, &reg_start);
+
 	// Extract features from reference image
 	if (SIFT3D_detect_keypoints(&detector, &refp, &kp_ref))
 		err_exit("detect source keypoints\n");
@@ -258,9 +262,6 @@ int main(int argc, char *argv[]) {
 	cleanup_Mat_rm(&kp_ref_mat);
 }
 #endif
-
-        // Start the benchmark
-	clock_gettime(CLOCK_MONOTONIC, &reg_start);
 
 	// Extract source keypoints
 	if (SIFT3D_detect_keypoints(&detector, &srcp, &kp_src))
@@ -359,18 +360,15 @@ int main(int argc, char *argv[]) {
 	if (write_nii(IM_OUT_PATH, &srcp_reg))
 		err_exit("write registered image\n");
 
-#ifdef VERBOSE
-    {   
-	Image grid, grid_deformed;
-	double precision, recall;
-	int i, j, num_false_neg, num_true_pos, num_true_neg;
-
-	const int num_ref = desc_ref.num;
-	const int num_src = desc_src.num;
-	const int num_pos = match_src.num_rows;
-	const int num_neg = num_src - num_pos;
-
 	if (syn_mode) {
+
+                double precision, recall;
+                int i, j, num_false_neg, num_true_pos, num_true_neg;
+
+                const int num_ref = desc_ref.num;
+                const int num_src = desc_src.num;
+                const int num_pos = match_src.num_rows;
+                const int num_neg = num_src - num_pos;
 
 	    // Count the number of true classifications
 	    num_true_pos = num_true_neg = 0;
@@ -463,6 +461,10 @@ int main(int argc, char *argv[]) {
 	    printf("Negatives: (%d / %d) true \n", num_true_neg, num_neg);
 	    printf("Precision: %f \nRecall: %f \n\n", precision, recall);
 	}
+
+#ifdef VERBOSE
+ {
+	Image grid, grid_deformed;
 
 	// Write the transformation matrix
 	if (write_Mat_rm(TFORM_REG_PATH, &aff_reg.A))

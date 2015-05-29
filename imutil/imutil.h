@@ -121,8 +121,8 @@ int init_Sep_FIR_filter(Sep_FIR_filter *f, int dim, int half_width, int width,
 
 void cleanup_Sep_FIR_filter(Sep_FIR_filter *f);
 
-int apply_Sep_FIR_filter(Image *src, Image *dst,
-	Sep_FIR_filter *f, int dim);
+int apply_Sep_FIR_filter(const Image *const src, Image *const dst, 
+        Sep_FIR_filter *const f);
 
 int draw_grid(Image *grid, int nx, int ny, int nz, int spacing, 
 					   int line_width);
@@ -145,9 +145,9 @@ int init_im_first_time(Image *im, const int nx, const int ny, const int nz,
 
 int im_load_cl(Image *im, int blocking);
 
-int im_copy_dims(Image *src, Image *dst);
+int im_copy_dims(const Image *const src, Image *dst);
 
-int im_copy_data(Image *src, Image *dst);
+int im_copy_data(const Image *const src, Image *const dst);
 
 void im_free(Image *im);
 
@@ -183,15 +183,6 @@ void im_Hessian(Image *im, int x, int y, int z, Mat_rm *H);
 
 int im_inv_transform(Image *in, Image *out, tform_type type, 
 		        void *tform, interp_type interp);
-
-int convolve_sep(const Image *const src,
-	Image *const dst, const Sep_FIR_filter *const f, int dim);
-
-int convolve_sep_cl (const Image *const src, Image *const dst, 
-		     const Sep_FIR_filter *const f, const int dim);
-
-int convolve_sep_sym(const Image *const src, Image *const dst, 
-		     const Sep_FIR_filter *const f, const int dim);
 
 void init_im(Image *im);
 

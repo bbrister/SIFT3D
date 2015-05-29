@@ -90,6 +90,12 @@ static double tform_err_sq(void* tform, Mat_rm* src, Mat_rm* ref, int i,
 			   tform_type type);
 static int ransac(Mat_rm* src, Mat_rm* ref, Ransac* ran, const int dim, void *tform, 
            tform_type type, int **cset, int *len);
+static int convolve_sep(const Image *const src,
+	Image *const dst, const Sep_FIR_filter *const f, int dim);
+static int convolve_sep_cl (const Image *const src, Image *const dst, 
+		     const Sep_FIR_filter *const f, const int dim);
+static int convolve_sep_sym(const Image *const src, Image *const dst, 
+		     const Sep_FIR_filter *const f, const int dim);
 
 /* Unfinished public routines */
 int init_Tps(Tps *tps, int dim, int terms);
@@ -1461,7 +1467,7 @@ int im_set_kernel_arg(cl_kernel kernel, int n, Image *im) {
  * @param dst The destination image.
  * @return Returns SUCCESS or FAILURE.
  */
-int im_copy_dims(Image *src, Image *dst) {
+int im_copy_dims(const Image *const src, Image *dst) {
 
 	dst->nx = src->nx;
 	dst->ny = src->ny;
@@ -1477,7 +1483,7 @@ int im_copy_dims(Image *src, Image *dst) {
 /* Copy an image's data into another. This function
  * changes the dimensions and stride of dst,
  * and allocates memory. */
-int im_copy_data(Image *src, Image *dst) {
+int im_copy_data(const Image *const src, Image *const dst) {
 
 	float *dst_data;
 	int i;
@@ -1752,7 +1758,7 @@ static double lanczos(double x, double a) {
  * f - filter to be applied
  * dim - dimension in which to convolve
  */
-int convolve_sep(const Image *const src,
+static int convolve_sep(const Image *const src,
 	Image *const dst, const Sep_FIR_filter *const f, int dim) {
 
         Image pad;
@@ -1774,19 +1780,6 @@ int convolve_sep(const Image *const src,
         //TODO: Convert this to convolve_x, which only convolves in x,
         // then make a wrapper to restride, transpose, convolve x, and transpose 
         // back
-
-        // Verify inputs
-	if (dim < 0 || dim > 2) {
-		fprintf(stderr, "convole_sep: invalid dimension: %d \n", dim);
-		return FAILURE;
-	}
-
-	// Resize the output, with the default stride
-	memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));	
-        dst->nc = src->nc;
-	im_default_stride(dst);
-	if (im_resize(dst))
-	    return FAILURE;
 
         // Initialize the output to zeros
         im_zero(dst);
@@ -1861,7 +1854,7 @@ int convolve_sep(const Image *const src,
 
 /* Same as convolve_sep, but with OpenCL acceleration. This does NOT
  * read back the results to C-accessible data. Use im_read_back for that. */
-int convolve_sep_cl (const Image *const src, Image *const dst, 
+static int convolve_sep_cl (const Image *const src, Image *const dst, 
 		     const Sep_FIR_filter *const f, const int dim) {
 #ifdef USE_OPENCL
 	cl_kernel kernel;
@@ -1926,7 +1919,7 @@ int convolve_sep_cl (const Image *const src, Image *const dst,
  *
  * This version is for symmetric filters.
  */
-int convolve_sep_sym(const Image *const src, Image *const dst, 
+static int convolve_sep_sym(const Image *const src, Image *const dst, 
 		     const Sep_FIR_filter *const f, const int dim) {
 
 	// TODO: Symmetry-specific function
@@ -2854,9 +2847,9 @@ DET_SYMM_QUIT:
     return FAILURE;
 }
 
-/* Apply a separable filter in multiple dimensions. 
- */
-int apply_Sep_FIR_filter(Image *src, Image *dst, Sep_FIR_filter *f, int dim) {
+/* Apply a separable filter in multiple dimensions. */
+int apply_Sep_FIR_filter(const Image *const src, Image *const dst, 
+        Sep_FIR_filter *const f) {
 	
 	int (*filter_fun)(const Image *const,
 		Image *const, const Sep_FIR_filter *const, const int);
@@ -2865,8 +2858,6 @@ int apply_Sep_FIR_filter(Image *src, Image *dst, Sep_FIR_filter *f, int dim) {
 	Image *cur_src, *cur_dst;
 	int i;
 
-	assert(dim > 0);
-
 	// Choose a filtering function
 #ifdef USE_OPENCL
 	filter_fun = convolve_sep_cl;
@@ -2874,6 +2865,13 @@ int apply_Sep_FIR_filter(Image *src, Image *dst, Sep_FIR_filter *f, int dim) {
 	filter_fun = f->symmetric ? convolve_sep_sym : convolve_sep;
 #endif
 	
+	// Resize the output, with the default stride
+	memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));	
+        dst->nc = src->nc;
+	im_default_stride(dst);
+	if (im_resize(dst))
+	    return FAILURE;
+
 	// Allocate temporary storage
 	init_im(&temp);
 	if (im_copy_data(src, &temp)) 
@@ -2889,9 +2887,9 @@ int apply_Sep_FIR_filter(Image *src, Image *dst, Sep_FIR_filter *f, int dim) {
     }
 
 	// Apply in n dimensions
-	cur_src = src;
+	cur_src = (Image *) src;
 	cur_dst = &temp;
-	for (i = 0; i < dim; i++) {
+	for (i = 0; i < IM_NDIMS; i++) {
 		filter_fun(cur_src, cur_dst, f, i);
 		SWAP_BUFFERS
 #if 0
@@ -2912,6 +2910,7 @@ int apply_Sep_FIR_filter(Image *src, Image *dst, Sep_FIR_filter *f, int dim) {
 
 		// Transpose back
 		if (i != 0) {
+                        //FIXME: should be cur_dst to cur_src
 		    if (im_transpose(cur_src, 0, i, cur_dst))
 			goto apply_sep_f_quit;
 
@@ -3286,8 +3285,12 @@ int mkpath(const char *path, mode_t mode)
 		status = -1;
 
 	/* Ignore everything after the last '/' */
-	if ((sp = strrchr(copypath, '/')) != NULL)
+	if ((sp = strrchr(copypath, '/')) != NULL) {
 		*sp = '\0';
+        } else {
+                /* If there is no '/', we have nothing to do */
+                return SUCCESS;
+        }
 
 	status = 0;
 	pp = copypath;

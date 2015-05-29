@@ -41,12 +41,17 @@
 /* Internal return codes */
 #define REJECT 1
 
-/* Math constants */
-#define GR 1.6180339887		// Golden ratio
+/* Internal constants */
+#define GR 1.6180339887	// Golden ratio
+#define PRECOMP_NC 4    // Number of channels in precomputed gradient image
+
+/* Get the index of bin j from triangle i */
+#define MESH_GET_IDX(mesh, i, j) \
+	((mesh)->tri[i].idx[j])
 
 /* Get bin j from triangle i */
 #define MESH_HIST_GET(mesh, hist, i, j) \
-	((hist)->bins[(mesh)->tri[i].idx[j]])
+	((hist)->bins[MESH_GET_IDX(mesh, i, j)])
 
 /* Clamp out of bounds polar accesses to the first or last element.
  * Note that the polar histogram is NOT circular. */
@@ -116,6 +121,14 @@ static void extract_descrip(SIFT3D_Extractor *extractor, Image *im,
 static int argv_permute(const int argc, char *const *argv, 
                         const unsigned char *processed, 
                         const int optind_start);
+static int extract_dense_descriptors(SIFT3D_Extractor *const extractor,
+        const Image *const in, Image *const desc);
+static int extract_dense_descriptors_rotate(SIFT3D_Extractor *const extractor,
+        const Image *const in, Image *const desc);
+static int vox2hist(const Image *const im, const int x, const int y,
+        const int z, Hist *const hist);
+static int hist2vox(Hist *const hist, const Image *const im, const int x, 
+        const int y, const int z);
 
 /* Initialize geometry tables. */
 static int init_geometry(SIFT3D_Extractor *extractor) {
@@ -267,6 +280,7 @@ static int cart2bary(const Cvec * const cart, const Tri * const tri,
 
 #ifndef NDEBUG
 	Cvec temp1, temp2, temp3;
+        double residual;
 
 	// Verify k * c = bary->x * v1 + bary->y * v2 + bary->z * v3
 	temp1 = v[0];
@@ -279,7 +293,11 @@ static int cart2bary(const Cvec * const cart, const Tri * const tri,
 	CVEC_OP(&temp1, &temp3, +, &temp1);
 	CVEC_SCALE(&temp1, 1.0f / *k);
 	CVEC_OP(&temp1, cart, -, &temp1);
-	assert(CVEC_L2_NORM(&temp1) < BARY_EPS);
+        residual = CVEC_L2_NORM(&temp1);
+	if (residual > BARY_EPS) {
+                printf("cart2bary: residual: %f", residual);
+                exit(1);
+        }
 #endif
 	return SUCCESS;
 }
@@ -670,7 +688,7 @@ static int build_gpyr(SIFT3D_Detector *detector) {
 #endif
 
 	f = (Sep_FIR_filter *) &gss->first_gauss.f;
-	if (apply_Sep_FIR_filter(prev, cur, f, 3))
+	if (apply_Sep_FIR_filter(prev, cur, f))
 		return FAILURE;
 
 	// Build the rest of the pyramid
@@ -678,7 +696,7 @@ static int build_gpyr(SIFT3D_Detector *detector) {
 			cur = PYR_IM_GET(gpyr, o, s);
 			prev = PYR_IM_GET(gpyr, o, s - 1);
 			f = &gss->gauss_octave[s].f;
-			if (apply_Sep_FIR_filter(prev, cur, f, 3))
+			if (apply_Sep_FIR_filter(prev, cur, f))
 				return FAILURE;
 #ifdef USE_OPENCL
 			if (im_read_back(cur, FALSE))
@@ -1254,7 +1272,7 @@ static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
     double d, cos_ang;
     float weight, sq_dist, sgn;
     int i, x, y, z, m;
-   
+  
     const double win_radius = sigma * ORI_RAD_FCTR; 
 
     // Initialize the intermediates
@@ -1500,7 +1518,7 @@ int init_SIFT3D_Extractor(SIFT3D_Extractor *const extractor) {
 		return FAILURE;
 
         // Default parameters
-        extractor->dense_sigma = ORI_SIG_FCTR;
+        extractor->dense_sigma = DEFAULT_SIGMA0;
         extractor->dense_rotate = FALSE;
 
 	return SUCCESS;
@@ -1690,13 +1708,22 @@ static void normalize_desc(SIFT3D_Descriptor * const desc) {
 	}
 }
 
+/* Set a histogram to zero */
+static void hist_zero(Hist *hist) {
+
+        int a, p;
+
+        HIST_LOOP_START(a, p)
+                HIST_GET(hist, a, p) = 0.0f;
+        HIST_LOOP_END
+}
+
 /* Helper routine to extract a single SIFT3D descriptor */
 static void extract_descrip(SIFT3D_Extractor *extractor, Image *im,
 	   Keypoint *key, SIFT3D_Descriptor *desc) {
 
 	Cvec vcenter, vim, vkp, vbins, grad, grad_rot;
 	Hist *hist;
-	double factor;
 	float weight, sq_dist;
 	int i, x, y, z, a, p;
 
@@ -1706,13 +1733,12 @@ static void extract_descrip(SIFT3D_Extractor *extractor, Image *im,
 	const float desc_width = win_radius / SQRT2_F;
 	const float desc_hw = desc_width / 2.0f;
 	const float desc_bin_fctr = (float) NHIST_PER_DIM / desc_width;
+	const double coord_factor = pow(2.0, key->o);
 
 	// Zero the descriptor
 	for (i = 0; i < DESC_NUM_TOTAL_HIST; i++) {
 		hist = desc->hists + i;
-		HIST_LOOP_START(a, p)
-			HIST_GET(hist, a, p) = 0.0f; 
-		HIST_LOOP_END
+                hist_zero(hist);
 	}
 
 	// Iterate over a sphere window in image space
@@ -1772,10 +1798,9 @@ static void extract_descrip(SIFT3D_Extractor *extractor, Image *im,
 
 	// Save the descriptor location in the original image
 	// coordinates
-	factor = pow(2.0, key->o);
-	desc->xd = key->xd * factor;
-	desc->yd = key->yd * factor;
-	desc->zd = key->zd * factor;
+	desc->xd = key->xd * coord_factor;
+	desc->yd = key->yd * coord_factor;
+	desc->zd = key->zd * coord_factor;
 	desc->sd = key->sd;
 }
 
@@ -1856,28 +1881,45 @@ static void normalize_hist(Hist *const hist) {
         HIST_LOOP_END 
 }
 
+/* Dense gradient histogram postprocessing steps */
+static void postproc_Hist(Hist *const hist) {
+
+        int a, p;
+
+        const float hist_trunc = TRUNC_THRESH * DESC_NUMEL / HIST_NUMEL;
+
+	// Histogram refinement steps
+	refine_Hist(hist);
+
+	// Normalize the descriptor
+	normalize_hist(hist);
+
+	// Truncate
+	HIST_LOOP_START(a, p)
+		HIST_GET(hist, a, p) = MIN(HIST_GET(hist, a, p), 
+					   hist_trunc);
+	HIST_LOOP_END
+
+	// Normalize again
+	normalize_hist(hist);
+}
+
 /* Helper routine to extract a single SIFT3D histogram. */
 static void extract_dense_descrip(SIFT3D_Extractor *const extractor, 
            const Image *const im, const Cvec *const vcenter, 
            const double sigma, const Mat_rm *const R, Hist *const hist) {
 
-	Cvec vim, vkp, vbins, grad, grad_rot, bary;
-	double factor;
+	Cvec grad, grad_rot, bary, vim;
 	float sq_dist, mag, weight;
-	int x, y, z, a, p, bin;
+	int a, p, x, y, z, bin;
 
         const Mesh *const mesh = &extractor->mesh;
 	const float win_radius = DESC_RAD_FCTR * sigma;
 	const float desc_width = win_radius / SQRT2_F;
 	const float desc_hw = desc_width / 2.0f;
-	const float desc_bin_fctr = 1.0f / desc_width;
-
-        const float hist_trunc = TRUNC_THRESH * DESC_NUMEL / HIST_NUMEL;
 
 	// Zero the descriptor
-	HIST_LOOP_START(a, p)
-		HIST_GET(hist, a, p) = 0.0f; 
-	HIST_LOOP_END
+        hist_zero(hist);
 
 	// Iterate over a sphere window in image space
 	IM_LOOP_SPHERE_START(im, x, y, z, vcenter, win_radius, &vim, sq_dist)
@@ -1903,20 +1945,8 @@ static void extract_dense_descrip(SIFT3D_Extractor *const extractor,
 
 	IM_LOOP_END
 
-	// Histogram refinement steps
-	refine_Hist(hist);
-
-	// Normalize the descriptor
-	normalize_hist(hist);
-
-	// Truncate
-	HIST_LOOP_START(a, p)
-		HIST_GET(hist, a, p) = MIN(HIST_GET(hist, a, p), 
-					   hist_trunc);
-	HIST_LOOP_END
-
-	// Normalize again
-	normalize_hist(hist);
+        // Histogram postprocessing
+        postproc_Hist(hist);
 }
 
 /* Get a descriptor with a single histogram at each voxel of an image.
@@ -1929,11 +1959,6 @@ static void extract_dense_descrip(SIFT3D_Extractor *const extractor,
  */
 int SIFT3D_extract_dense_descriptors(SIFT3D_Extractor *const extractor, 
         const Image *const in, Image *const desc) {
-
-        Hist hist;
-        Mat_rm R, Id;
-        Mat_rm *ori;
-        int i, x, y, z, c;
 
         // Verify inputs
         if (in->nc != 1) {
@@ -1949,6 +1974,130 @@ int SIFT3D_extract_dense_descriptors(SIFT3D_Extractor *const extractor,
         im_default_stride(desc);
         if (im_resize(desc))
                 return FAILURE;
+
+        // Extract the descriptors
+        return extractor->dense_rotate ? 
+                extract_dense_descriptors_rotate(extractor, in, desc) :
+                extract_dense_descriptors(extractor, in, desc);
+}
+
+/* Helper function for extract_dense_descriptors, without rotation invariance.
+ * This function is much faster than its rotation-invariant counterpart 
+ * because histogram bins are pre-computed. */
+static int extract_dense_descriptors(SIFT3D_Extractor *const extractor,
+        const Image *const in, Image *const desc) {
+
+        Image temp; 
+        Gauss_filter gauss;
+	Cvec grad, grad_rot, bary;
+	float sq_dist, mag, weight;
+        int i, x, y, z, bin, vert;
+
+        const int x_start = 1;
+        const int y_start = 1;
+        const int z_start = 1;
+        const int x_end = in->nx - 2;
+        const int y_end = in->ny - 2;
+        const int z_end = in->nz - 2;
+
+        Mesh * const mesh = &extractor->mesh;
+        const double sigma_win = extractor->dense_sigma * DESC_SIG_FCTR;
+
+        // Initialize the intermediate image
+        init_im(&temp);
+        memcpy(temp.dims, desc->dims, IM_NDIMS * sizeof(int));
+        temp.nc = in->nc;
+        im_default_stride(&temp);
+        if (im_resize(&temp))
+                return FAILURE;
+
+        // Initialize the filter
+        if (init_Gauss_filter(&gauss, sigma_win, 3)) {
+                im_free(&temp);
+                return FAILURE;
+        }
+
+        // Initialize the descriptors for each voxel
+        im_zero(&temp);
+        IM_LOOP_LIMITED_START(in, x, y, z, x_start, x_end, y_start, y_end, 
+                              z_start, z_end)
+
+                // Take the gradient
+		IM_GET_GRAD(in, x, y, z, 0, &grad);
+
+                // Get the index of the intersecting face
+                if (icos_hist_bin(extractor, &grad_rot, &bary, &bin))
+                        continue;
+
+                // Initialize each vertex
+                IM_GET_VOX(&temp, x, y, z, MESH_GET_IDX(mesh, bin, 0)) = bary.x;
+                IM_GET_VOX(&temp, x, y, z, MESH_GET_IDX(mesh, bin, 1)) = bary.y;
+                IM_GET_VOX(&temp, x, y, z, MESH_GET_IDX(mesh, bin, 2)) = bary.z;
+
+        IM_LOOP_END
+
+        // Filter the descriptors
+	if (apply_Sep_FIR_filter(&temp, desc, &gauss.f))
+                goto dense_extract_quit;
+
+        // Post-process the descriptors
+        IM_LOOP_START(desc, x, y, z)
+
+                Hist hist;
+
+                // Copy to a Hist
+                vox2hist(desc, x, y, z, &hist);
+
+                // Post-process
+                postproc_Hist(&hist);
+
+                // Copy back to the image
+                hist2vox(&hist, desc, x, y, z);
+
+        IM_LOOP_END
+
+        // Clean up
+        im_free(&temp);
+        cleanup_Gauss_filter(&gauss);
+
+        return SUCCESS;
+
+dense_extract_quit:
+        im_free(&temp);
+        cleanup_Gauss_filter(&gauss);
+        return FAILURE;
+}
+
+/* Copy a voxel to a Hist. Does no bounds checking. */
+static int vox2hist(const Image *const im, const int x, const int y,
+        const int z, Hist *const hist) {
+
+        int c;
+
+        for (c = 0; c < HIST_NUMEL; c++) {
+                hist->bins[c] = IM_GET_VOX(im, x, y, z, c);
+        }
+}
+
+/* Copy a Hist to a voxel. Does no bounds checking. */
+static int hist2vox(Hist *const hist, const Image *const im, const int x, 
+        const int y, const int z) {
+
+        int c;
+        
+        for (c = 0; c < HIST_NUMEL; c++) {
+                IM_GET_VOX(im, x, y, z, c) = hist->bins[c];
+        }
+}
+
+/* As in extract_dense_descrip, but with rotation invariance */
+static int extract_dense_descriptors_rotate(SIFT3D_Extractor *const extractor,
+        const Image *const in, Image *const desc) {
+
+        Hist hist;
+        Mat_rm R, Id;
+        Mat_rm *ori;
+        int i, x, y, z, c;
 
         // Initialize the identity matrix
         if (init_Mat_rm(&Id, 3, 3, FLOAT, TRUE)) {
@@ -1972,38 +2121,28 @@ int SIFT3D_extract_dense_descriptors(SIFT3D_Extractor *const extractor,
                                       (float) z + 0.5f};
 
                 const double sigma = extractor->dense_sigma;
-                const double ori_sigma = sigma * ORI_SIG_FCTR;
-                const double desc_sigma = sigma * DESC_SIG_FCTR / 
-                                          NHIST_PER_DIM;
 
-                // Optionally assign an orientation
-                if (extractor->dense_rotate) {
-                        switch(assign_eig_ori(in, &vcenter, ori_sigma, &R)) {
-                                case SUCCESS:
-                                        // Use the assigned orientation
-                                        ori = &R;
-                                        break;
-                                case REJECT:
-                                        // Default to identity
-                                        ori = &Id;
-                                        break;
-                                default:
-                                        // Unexpected error
-                                        goto dense_descrip_quit;
-                        }
-                } else {
-                       // No rotation
-                       ori = &Id; 
+                // Attempt to assign an orientation
+                switch(assign_eig_ori(in, &vcenter, sigma, &R)) {
+                        case SUCCESS:
+                                // Use the assigned orientation
+                                ori = &R;
+                                break;
+                        case REJECT:
+                                // Default to identity
+                                ori = &Id;
+                                break;
+                        default:
+                                // Unexpected error
+                                goto dense_rotate_quit;
                 }
 
                 // Extract the descriptor
-                extract_dense_descrip(extractor, in, &vcenter, desc_sigma, ori,
+                extract_dense_descrip(extractor, in, &vcenter, sigma, ori,
                                       &hist);
 
                 // Copy the descriptor to the image channels
-                for (c = 0; c < HIST_NUMEL; c++) {
-                        IM_GET_VOX(desc, x, y, z, c) = hist.bins[c];
-                }
+                hist2vox(&hist, desc, x, y, z);
 
         IM_LOOP_END
 
@@ -2012,7 +2151,7 @@ int SIFT3D_extract_dense_descriptors(SIFT3D_Extractor *const extractor,
         cleanup_Mat_rm(&Id);
         return SUCCESS;
 
-dense_descrip_quit:
+dense_rotate_quit:
         // Clean up and return an error condition 
         cleanup_Mat_rm(&R);
         cleanup_Mat_rm(&Id);
