@@ -37,6 +37,7 @@
 #define DESC_SIG_FCTR 7.071067812 // See, ORI_SIG_FCTR, 5 * sqrt(2)
 #define DESC_RAD_FCTR 2.0  // See ORI_RAD_FCTR
 #define TRUNC_THRESH (0.2f * 128.0f / DESC_NUMEL) // Descriptor truncation threshold
+#define DENSE_SIG_FCTR (DESC_SIG_FCTR / NHIST_PER_DIM) // As in DESC_SIG_FCTR, but for dense descriptors
 
 /* Internal return codes */
 #define REJECT 1
@@ -1900,6 +1901,8 @@ static void normalize_hist(Hist *const hist) {
         float norm_inv;
         int a, p;
 
+        const double cutoff = 1E-5;
+
         norm = 0.0;
         HIST_LOOP_START(a, p)
                 const float el = HIST_GET(hist, a, p);
@@ -1947,7 +1950,8 @@ static void extract_dense_descrip(SIFT3D *const sift3d,
 	int a, p, x, y, z, bin;
 
         const Mesh *const mesh = &sift3d->mesh;
-	const float win_radius = DESC_RAD_FCTR * sigma;
+        const double sigma_win = sigma * DENSE_SIG_FCTR;
+	const float win_radius = DESC_RAD_FCTR * sigma_win;
 	const float desc_width = win_radius / SQRT2_F;
 	const float desc_hw = desc_width / 2.0f;
 
@@ -1969,7 +1973,7 @@ static void extract_dense_descrip(SIFT3D *const sift3d,
                 mag = CVEC_L2_NORM(&grad);
 
 		// Get the Gaussian window weight
-		weight = expf(-0.5f * sq_dist / (sigma * sigma));
+		weight = expf(-0.5f * sq_dist / (sigma_win * sigma_win));
 
                 // Interpolate over three vertices
                 MESH_HIST_GET(mesh, hist, bin, 0) += mag * weight * bary.x;
@@ -2069,7 +2073,7 @@ static int extract_dense_descriptors(SIFT3D *const sift3d,
         const int z_end = in->nz - 2;
 
         Mesh * const mesh = &sift3d->mesh;
-        const double sigma_win = sift3d->gpyr.sigma0 * DESC_SIG_FCTR;
+        const double sigma_win = sift3d->gpyr.sigma0 * DENSE_SIG_FCTR;
 
         // Initialize the intermediate image
         init_im(&temp);

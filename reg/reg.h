@@ -27,4 +27,6 @@ int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const src);
 
 int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const ref);
 
+int diffeo_reg(const Image *const src, const Image *const ref, 
+                Image *const trans);
 #endif

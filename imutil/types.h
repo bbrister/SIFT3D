@@ -322,7 +322,8 @@ typedef struct _SIFT3D {
 /* Geometric transformations that can be applied by this library. */
 typedef enum _tform_type {
 	AFFINE,         // Affine (linear + constant)
-	TPS             // Thin-plate spline	
+	TPS,            // Thin-plate spline	
+        WARP            // Free-form warp
 } tform_type;
 
 /* Interpolation algorithms that can be used by this library. */

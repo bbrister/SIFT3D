@@ -99,6 +99,10 @@ void apply_Tps_xyz(Tps *tps, double x_in, double y_in,
 					  double z_in, double *x_out, double *y_out, 
 					  double *z_out);
 
+void apply_Warp_xyz(Image *tform, double x_in, double y_in, 
+	double z_in, double *x_out, double *y_out, 
+	double *z_out);
+
 int apply_tform_Mat_rm(Mat_rm *mat_in, Mat_rm *mat_out, const tform_type type,
 					   void *tform);
 					   
@@ -175,14 +179,19 @@ int im_concat(const Image *const src1, const Image *const src2, const int dim,
 
 void im_scale(Image *im);
 
+int im_acc(const Image *const src, Image *const dst);
+
+int im_add(const Image *const src1, const Image *const src2, 
+        Image *const dst);
+
 int im_subtract(Image *src1, Image *src2, Image *dst);
 
 void im_zero(Image *im);
 
 void im_Hessian(Image *im, int x, int y, int z, Mat_rm *H);
 
-int im_inv_transform(Image *in, Image *out, tform_type type, 
-		        void *tform, interp_type interp);
+int im_inv_transform(const Image *const in, Image *const out, const tform_type type, 
+		        void *const tform, const interp_type interp);
 
 void init_im(Image *im);
 

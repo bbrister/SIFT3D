@@ -60,9 +60,9 @@ extern void dsyevd_(const char *, const char *, const int *, double *,
 /* Internal helper routines */
 static char *read_file(const char *path);
 static int do_mkdir(const char *path, mode_t mode);
-static double resample_linear(Image *in, const double x, const double y, 
+static double resample_linear(const Image *const in, const double x, const double y, 
                         const double z, const int c);
-static double resample_lanczos2(Image *in, const double x, const double y, 
+static double resample_lanczos2(const Image *const in, const double x, const double y, 
                         const double z, const int c);
 static double lanczos(double x, double a);
 static int check_cl_image_support(cl_context context, cl_mem_flags mem_flags,
@@ -1564,6 +1564,50 @@ void im_scale(Image *im) {
 	IM_LOOP_END_C
 }
 
+/* Add src to dst */
+int im_acc(const Image *const src, Image *const dst) {
+
+	int x, y, z, c;
+
+	// Verify inputs
+	if (src->nx != dst->nx ||
+	        src->ny != dst->ny ||
+		src->nz != dst->nz)
+		return FAILURE; 
+
+	IM_LOOP_START_C(dst, x, y, z, c)	
+		IM_GET_VOX(dst, x, y, z, c) +=
+			IM_GET_VOX(src, x, y, z, c);
+	IM_LOOP_END_C
+
+        return SUCCESS;
+}
+
+/* Add src2 to src1, saving the result in dst. Resizes set. */
+int im_add(const Image *const src1, const Image *const src2, 
+        Image *const dst) {
+
+	int x, y, z, c;
+
+	// Verify inputs
+	if (src1->nx != src2->nx ||	src1->nx != dst->nx ||
+		src1->ny != src2->ny ||	src1->ny != dst->ny ||
+		src1->nz != src2->nz ||	src1->nz != dst->nz)
+		return FAILURE; 
+
+	// Resize the output image
+	if (im_copy_dims(src1, dst))
+		return FAILURE;
+
+	IM_LOOP_START_C(dst, x, y, z, c)	
+		IM_GET_VOX(dst, x, y, z, c) =
+			IM_GET_VOX(src1, x, y, z, c) - 
+			IM_GET_VOX(src2, x, y, z, c);
+	IM_LOOP_END_C
+
+        return SUCCESS;
+}
+
 /* Subtract src2 from src1, saving the result in
  * dst.
  * Resizes dst. 
@@ -1603,9 +1647,8 @@ void im_zero(Image *im) {
 
 /* Transform an image according to the inverse of the provided tform. 
  * Resizes im_out. */
-
-int im_inv_transform(Image *in, Image *out, tform_type type, 
-		        void *tform, interp_type interp) {
+int im_inv_transform(const Image *const in, Image *const out, const tform_type type, 
+		        void *const tform, const interp_type interp) {
 
 	int x, y, z, c;
         double transx, transy, transz;
@@ -1647,7 +1690,7 @@ int im_inv_transform(Image *in, Image *out, tform_type type,
 
 /* Helper routine for image transformation. Performs trilinear
  * interpolation, setting out-of-bounds voxels to zero. */
-static double resample_linear(Image *in, const double x, const double y, 
+static double resample_linear(const Image *const in, const double x, const double y, 
                         const double z, const int c) {
 
 	// Detect out-of-bounds
@@ -1689,7 +1732,7 @@ static double resample_linear(Image *in, const double x, const double y,
 }
 
 /* Helper routine to resample an image at a point, using the Lanczos kernel */
-static double resample_lanczos2(Image *im, const double x, const double y, 
+static double resample_lanczos2(const Image *const im, const double x, const double y, 
                         const double z, const int c) {
 
         double val;
@@ -1826,13 +1869,22 @@ static int convolve_sep(const Image *const src,
 
                                 // Adjust the sampling coordinates
                                 coords[dim] -= d;
-
+#if 0
                                 // Clamp coordinates to the edge
                                 if (coords[dim] < 0) {
                                         coords[dim] = 0;
                                 } else if (coords[dim] > dim_end) {
                                         coords[dim] = dim_end;
                                 }
+                                //FIXME: reset the coordinates to the right place even if they are clamped
+#else
+                                // Out-of-bounds values are zero
+                                if (coords[dim] < 0 || coords[dim] > dim_end) {
+                                        // Reset the sampling coordinates
+                                        coords[dim] += d;
+                                        continue;
+                                }
+#endif
 
                                 // Sample
                                 IM_GET_VOX(dst, x, y, z, c) += 
@@ -2097,6 +2149,11 @@ int apply_tform_xyz(double x_in, double y_in, double z_in,
 	case TPS:
 	    apply_Tps_xyz((Tps *) tform, x_in, y_in, z_in,
 		    x_out, y_out, z_out);
+            break;
+        case WARP:
+            apply_Warp_xyz((Image *) tform, x_in, y_in, z_in,
+                    x_out, y_out, z_out);
+            break;
 	default:
 	    return FAILURE;
     }
@@ -2173,6 +2230,28 @@ void apply_Tps_xyz(Tps *tps, double x_in, double y_in,
     y_out[0]=temp_y;
     z_out[0]=temp_z;
 
+}
+
+/* Apply an warp to an [x, y, z] triple. */
+void apply_Warp_xyz(Image *tform, double x_in, double y_in, 
+	double z_in, double *const x_out, double *const y_out, 
+	double *const z_out) {
+
+        const int x = (int) x_in;
+        const int y = (int) y_in;
+        const int z = (int) z_in;
+
+        *x_out = x_in + (double) IM_GET_VOX(tform, x, y, z, 0);
+        *y_out = y_in + (double) IM_GET_VOX(tform, x, y, z, 1);
+        *z_out = z_in + (double) IM_GET_VOX(tform, x, y, z, 2);
+#if 0
+#ifndef NDEBUG
+        if (*x_out < 0 || *y_out < 0 || *z_out < 0) {
+                printf("in: (%f, %f, %f) out: (%f, %f, %f) \n", 
+                        x_in, y_in, z_in, *x_out, *y_out, *z_out);
+        }
+#endif
+#endif
 }
 
 /* Apply an arbitrary transform to a matrix. See apply_Affine_Mat_rm for
