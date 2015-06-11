@@ -1,12 +1,7 @@
-/* siftreg.c
+/* reg.h
  * ----------------------------------------------------------------
- * Rice MRI Team
+ * Header file for reg.c. 
  * ----------------------------------------------------------------
- * Complete registration pipeline with synthetically generated 
- * source images.
- * ----------------------------------------------------------------
- * Created: Blaine Rister 2/17/2014
- * Last updated: Blaine Rister 11/18/2014
  */
 
 #include <stdio.h>
@@ -28,13 +23,13 @@ int init_Reg_SIFT3D(Reg_SIFT3D *const reg) {
 	init_Ransac(&reg->ran);
         init_im(&reg->src);
         init_im(&reg->ref);
-	if (init_Mat_rm(&reg->match_src, 0, 0, DOUBLE, FALSE) ||
-		init_Mat_rm(&reg->match_ref, 0, 0, DOUBLE, FALSE)) {
+	if (init_Mat_rm(&reg->match_src, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+		init_Mat_rm(&reg->match_ref, 0, 0, DOUBLE, SIFT3D_FALSE)) {
                 fprintf(stderr, "register_SIFT3D: unexpected error \n");
-                return FAILURE;
+                return SIFT3D_FAILURE;
         }
 
-        return SUCCESS;
+        return SIFT3D_SUCCESS;
 }
 
 /* Set the source image. This makes a deep copy of the data, so you are free
@@ -70,33 +65,33 @@ int register_SIFT3D(Reg_SIFT3D *const reg, const tform_type type,
 	if (SIFT3D_detect_keypoints(sift3d, ref, kp_ref)) {
 		fprintf(stderr, "register_SIFT3D: failed to detect reference "
                         "keypoints\n");
-                return FAILURE;
+                return SIFT3D_FAILURE;
         }
 	if (SIFT3D_extract_descriptors(sift3d, (void *const) gpyr,
-                                       kp_ref, desc_ref, TRUE)) {
+                                       kp_ref, desc_ref, SIFT3D_TRUE)) {
 		fprintf(stderr, "register_SIFT3D: failed to extract reference "
                         "descriptors\n");
-                return FAILURE;
+                return SIFT3D_FAILURE;
         }
 
 	// Extract source features 
 	if (SIFT3D_detect_keypoints(sift3d, src, kp_src)) {
 		fprintf(stderr, "register_SIFT3D: failed to detect source "
                         "keypoints\n");
-                return FAILURE;
+                return SIFT3D_FAILURE;
         }
 	if (SIFT3D_extract_descriptors(sift3d, (void *const) gpyr,
-                                       kp_src, desc_src, TRUE)) {
+                                       kp_src, desc_src, SIFT3D_TRUE)) {
                 fprintf(stderr, "register_SIFT3D: failed to extract source "
                                 "descriptors \n");
-                return FAILURE;
+                return SIFT3D_FAILURE;
         }
 
 	// Match features
 	if (SIFT3D_nn_match_fb(desc_src, desc_ref, nn_thresh, matches)) {
 		fprintf(stderr, "register_SIFT3D: failed to match "
                                 "keypoints \n");
-                return FAILURE;
+                return SIFT3D_FAILURE;
         }
 
         // Convert matches to coordinate matrices
@@ -104,12 +99,12 @@ int register_SIFT3D(Reg_SIFT3D *const reg, const tform_type type,
 				     match_src, match_ref)) {
 		fprintf(stderr, "register_SIFT3D: failed to extract "
                                 "coordinate matrices \n");
-                return FAILURE;
+                return SIFT3D_FAILURE;
         }
 
 	// Find the transformation 
 	if (find_tform_ransac(ran, match_src, match_ref, 3, type, tform))
 		err_exit("fit transform\n");
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }

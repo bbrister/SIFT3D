@@ -1,11 +1,7 @@
 /* imutil.c
  * ----------------------------------------------------------------
- * Rice MRI Team
- * ----------------------------------------------------------------
  * Miscellaneous utility routines for image processing
  *-----------------------------------------------------------------
- * Created: Blaine Rister 12/27/2013
- * Last updated: Blaine Rister 11/18/2014
  */
 
 #include <assert.h>
@@ -21,10 +17,14 @@
 #include "imutil.h"
 #include "types.h"
 
-/* Constants */
-#define TEMPLATE_ROOT "../util/templates"
-#define KERNELS_PATH "../util/kernels.cl" // File containing the OpenCL kernels
-#define SEP_FIR_3D_PATH TEMPLATE_ROOT "/sep_fir_3d.template" 
+/* Implementation parameters */
+//#define SIFT3D_USE_OPENCL // Use OpenCL acceleration
+#define SIFT3D_RANSAC_REFINE	// Use least-squares refinement in RANSAC
+
+/* Default parameters */
+const double min_inliers_default = 0.01;
+const double err_thresh_default = 5.0;
+const int num_iter_default = 500;
 
 /* Global data */
 CL_data cl_data;
@@ -100,7 +100,7 @@ int resize_Tps(Tps* tps, int num_pts, int dim);
 
 /* Finish all OpenCL command queues. */
 void clFinish_all() {
-#ifdef USE_OPENCL
+#ifdef SIFT3D_USE_OPENCL
 	int i;
 	for (i = 0; i < cl_data.num_devices; i++) {
 		clFinish(cl_data.queues[i]);
@@ -125,12 +125,12 @@ void check_cl_error(int err, const char *msg) {
 	exit(1);
 }
 
-/* Returns SUCCESS if the specified format is supported for this context,
- * or FAILURE if it is not. */
+/* Returns SIFT3D_SUCCESS if the specified format is supported for this context,
+ * or SIFT3D_FAILURE if it is not. */
 static int check_cl_image_support(cl_context context, cl_mem_flags mem_flags,
 						   cl_image_format image_format,
 						   cl_mem_object_type image_type) {
-#ifdef USE_OPENCl
+#ifdef SIFT3D_USE_OPENCL
 	cl_image_format *image_formats;
 	cl_int err;
 	cl_uint num_image_formats;
@@ -139,28 +139,28 @@ static int check_cl_image_support(cl_context context, cl_mem_flags mem_flags,
 	err = clGetSupportedImageFormats(context, mem_flags, image_type,
 							   0, NULL, &num_image_formats);
 	if ((image_formats = malloc(num_image_formats * sizeof(cl_image_format))) == NULL)
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	err |= clGetSupportedImageFormats(context, mem_flags, image_type,
 							   num_image_formats, image_formats, NULL);
 	check_cl_error(err, "2D image formats");
-	support = FALSE;
+	support = SIFT3D_FALSE;
 	for (i = 0; i < num_image_formats; i++) {
 		if (memcmp(image_formats + i, &image_format, sizeof(cl_image_format))) {
-			support = TRUE;
+			support = SIFT3D_TRUE;
 			break;	
 		}
 	}
 
-	return (support == TRUE) ? SUCCESS : FAILURE;
+	return (support == SIFT3D_TRUE) ? SIFT3D_SUCCESS : SIFT3D_FAILURE;
 #else
 	printf("check_cl_image_support: This version was not compiled with OpenCL!\n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
 #endif
 }
 
 /* Initialize the relevant OpenCL data, using the specified device type,
  * memory flags, and image format. If no such devices are found, or these
- * settings are not supported on the device, returns FAILURE. Returns SUCCESS
+ * settings are not supported on the device, returns SIFT3D_FAILURE. Returns SIFT3D_SUCCESS
  * when userData is initialized. 
  *
  * This library saves a copy of UserData for use with future calls. To change 
@@ -169,7 +169,7 @@ static int check_cl_image_support(cl_context context, cl_mem_flags mem_flags,
 int init_cl(CL_data *user_cl_data, const char *platform_name, 
 			cl_device_type device_type,	cl_mem_flags mem_flags, 
 			cl_image_format image_format) {	
-#ifdef USE_OPENCL
+#ifdef SIFT3D_USE_OPENCL
 	Kernels kernels;
 	cl_platform_id *platforms;
 	cl_device_id *devices;
@@ -302,10 +302,10 @@ int init_cl(CL_data *user_cl_data, const char *platform_name,
 	cl_data.queues = queues;
 	cl_data.num_devices = num_devices;
 	cl_data.image_format = image_format;
-	cl_data.valid = TRUE;
+	cl_data.valid = SIFT3D_TRUE;
 	cl_data.kernels = kernels;
 	*user_cl_data = cl_data;
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 
 init_cl_quit:
 	if (devices != NULL)
@@ -314,10 +314,10 @@ init_cl_quit:
 		free(queues);
 	if (src != NULL)
 		free(src);
-	return FAILURE;
+	return SIFT3D_FAILURE;
 #else
 	printf("init_cl: This version was not compiled with OpenCL!\n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
 #endif
 }
 
@@ -326,7 +326,7 @@ init_cl_quit:
 static int compile_cl_program_from_source(cl_program *program, cl_context context,
 								   		  cl_device_id *devices, int num_devices, 
 								   		  char **src, int num_str) {
-#ifdef USE_OPENCL
+#ifdef SIFT3D_USE_OPENCL
 	cl_int err;
 	int i;
 
@@ -334,7 +334,7 @@ static int compile_cl_program_from_source(cl_program *program, cl_context contex
 	*program = clCreateProgramWithSource(context, 1, (const char **) src, NULL, &err);
 	if (*program == NULL || err != CL_SUCCESS) {
 		puts("Error creating program for static kernels \n");
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	}
 	if ((err = clBuildProgram(*program, 0, NULL, NULL, NULL, NULL)) != CL_SUCCESS) {
 		char log[1 << 15];
@@ -344,14 +344,14 @@ static int compile_cl_program_from_source(cl_program *program, cl_context contex
 								sizeof(log), log, NULL);
 			printf("\n-------Build log for device %d-------\n %s", i, log);
 		}
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	}
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 #else
 	printf("compile_cl_program_from_source: This verison was not compiled with "
 	       "OpenCL!\n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
 #endif
 }
 
@@ -370,7 +370,7 @@ static int compile_cl_program_from_source(cl_program *program, cl_context contex
 double robust_error(double err, double cutoff) {
 
 	// Truncate
-	return MIN(err, cutoff);
+	return SIFT3D_MIN(err, cutoff);
 }
 
 /* Compare two spherical coordinate vectors. 
@@ -404,13 +404,13 @@ int convert_Mat_rm(Mat_rm *in, Mat_rm *out, data_type type) {
     out->num_cols = in->num_cols;
     out->type = type;
     if (resize_Mat_rm(out))
-	return FAILURE;
+	return SIFT3D_FAILURE;
    
 #define CONVERT_TYPE(type_in, type_out) \
-    MAT_RM_LOOP_START(in, i, j) \
-	MAT_RM_GET(out, i, j, type_out) = (type_out) \
-	    MAT_RM_GET(in, i, j, type_in); \
-    MAT_RM_LOOP_END
+    SIFT3D_MAT_RM_LOOP_START(in, i, j) \
+	SIFT3D_MAT_RM_GET(out, i, j, type_out) = (type_out) \
+	    SIFT3D_MAT_RM_GET(in, i, j, type_in); \
+    SIFT3D_MAT_RM_LOOP_END
 
 #define CONVERT_TYPE_OUTER(type_out) \
     switch (in->type) { \
@@ -425,7 +425,7 @@ int convert_Mat_rm(Mat_rm *in, Mat_rm *out, data_type type) {
 	    break; \
 	default: \
 	    puts("convert_Mat_rm: unknown type of input matrix \n"); \
-	    return FAILURE; \
+	    return SIFT3D_FAILURE; \
     }
  
     // Convert to the specified type
@@ -441,13 +441,13 @@ int convert_Mat_rm(Mat_rm *in, Mat_rm *out, data_type type) {
 	    break;
 	default:
 	    puts("convert_Mat_rm: unknown destination type \n");
-	    return FAILURE;
+	    return SIFT3D_FAILURE;
     }
 
 #undef CONVERT_TYPE_OUTER
 #undef CONVERT_TYPE
 
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 }
 
 /* Shortcut function to initalize a matrix. data_type is the type
@@ -467,7 +467,7 @@ int init_Mat_rm(Mat_rm *mat, int num_rows, int num_cols,
 			mat->type = INT;
 			break;
 		default:
-			return FAILURE;
+			return SIFT3D_FAILURE;
 	}
 
 	mat->num_rows = num_rows;
@@ -475,12 +475,12 @@ int init_Mat_rm(Mat_rm *mat, int num_rows, int num_cols,
 	mat->u.data_double = NULL;
 
 	if (resize_Mat_rm(mat))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	
 	if (set_zero && zero_Mat_rm(mat))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 /* As above, but aliases data memory with pointer p. */ 
 int init_Mat_rm_p(Mat_rm *mat, const void *p, int num_rows, 
@@ -488,7 +488,7 @@ int init_Mat_rm_p(Mat_rm *mat, const void *p, int num_rows,
 
 	// Perform normal initialization
 	if (init_Mat_rm(mat, num_rows, num_cols, type, set_zero))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
 	// Clean up memory
 	cleanup_Mat_rm(mat);
@@ -498,9 +498,9 @@ int init_Mat_rm_p(Mat_rm *mat, const void *p, int num_rows,
 
 	// Re-zero
 	if (set_zero && zero_Mat_rm(mat))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 /* Copies a matrix. dst will be resized. */
 int copy_Mat_rm(const Mat_rm *const src, Mat_rm *const dst) {
@@ -510,13 +510,13 @@ int copy_Mat_rm(const Mat_rm *const src, Mat_rm *const dst) {
 	dst->num_rows = src->num_rows;
 	dst->num_cols = src->num_cols;
 	if (resize_Mat_rm(dst))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
 	// Copy the data
 	memcpy(dst->u.data_double, src->u.data_double, 
 		   src->size);
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Print a matrix to stdout. The matrix must be initialized. */
@@ -525,11 +525,11 @@ int print_Mat_rm(Mat_rm *mat) {
 	int i, j;
 
 #define PRINT_MAT_RM(type, format) \
-	MAT_RM_LOOP_START(mat, i, j) \
-		printf("%" #format " ", MAT_RM_GET(mat, i, j, type)); \
-		MAT_RM_LOOP_COL_END \
+	SIFT3D_MAT_RM_LOOP_START(mat, i, j) \
+		printf("%" #format " ", SIFT3D_MAT_RM_GET(mat, i, j, type)); \
+		SIFT3D_MAT_RM_LOOP_COL_END \
 		puts("\n"); \
-	MAT_RM_LOOP_ROW_END
+	SIFT3D_MAT_RM_LOOP_ROW_END
 
 	switch (mat->type) {
 		case DOUBLE:
@@ -543,11 +543,11 @@ int print_Mat_rm(Mat_rm *mat) {
 			break;
 		default:
 			puts("print_Mat_rm: unknown type \n");
-			return FAILURE;
+			return SIFT3D_FAILURE;
 	}
 #undef PRINT_MAT_RM
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Re-sizes a matrix. The following fields
@@ -578,7 +578,7 @@ int resize_Mat_rm(Mat_rm *mat) {
 	    *data = NULL;
 	    mat->numel = 0;
 	    mat->size = 0;
-	    return SUCCESS;
+	    return SIFT3D_SUCCESS;
 	}
 
 	switch (mat->type) {
@@ -595,7 +595,7 @@ int resize_Mat_rm(Mat_rm *mat) {
 #ifndef NDEBUG
 			puts("resize_Mat_rm: unknown type! \n");
 #endif
-			return FAILURE;
+			return SIFT3D_FAILURE;
 	}
 
 	total_size = type_size * numel;
@@ -603,7 +603,7 @@ int resize_Mat_rm(Mat_rm *mat) {
 
 	mat->numel = numel;
 	mat->size = total_size;
-	return *data == NULL ? FAILURE : SUCCESS;
+	return *data == NULL ? SIFT3D_FAILURE : SIFT3D_SUCCESS;
 }
 
 /* Set all elements to zero */
@@ -612,9 +612,9 @@ int zero_Mat_rm(Mat_rm *mat) {
 	int i, j;
 
 #define SET_ZERO(type) \
-	MAT_RM_LOOP_START(mat, i, j) \
-		MAT_RM_GET(mat, i, j, type) = (type) 0; \
-	MAT_RM_LOOP_END
+	SIFT3D_MAT_RM_LOOP_START(mat, i, j) \
+		SIFT3D_MAT_RM_GET(mat, i, j, type) = (type) 0; \
+	SIFT3D_MAT_RM_LOOP_END
 
 	switch (mat->type) {
 		case DOUBLE:
@@ -627,9 +627,9 @@ int zero_Mat_rm(Mat_rm *mat) {
 			SET_ZERO(int);
 			break;
 		default:
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	}
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* De-allocate the memory for a Mat_rm struct. */
@@ -651,36 +651,36 @@ int draw_grid(Image *grid, int nx, int ny, int nz, int spacing,
 
 	// Verify inputs
 	if (spacing < 2 || line_width < 1 || line_width > spacing)
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
 	if (init_im_first_time(grid, nx, ny, nz, 1))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
-	IM_LOOP_START(grid, x, y, z)
+	SIFT3D_IM_LOOP_START(grid, x, y, z)
 		if (x % spacing == 0 || y % spacing == 0 || z % spacing == 0) {
 			int x_draw, y_draw, z_draw, x_start, x_end, y_start, 
 				y_end, z_start, z_end;
 
 			// Draw a line	
-			x_start = MAX(x - line_half_width, 0);	
-			y_start = MAX(y - line_half_width, 0);	
-			z_start = MAX(z - line_half_width, 0);	
-			x_end = MIN(x + line_half_width + 1, nx - 1);
-			y_end = MIN(y + line_half_width + 1, ny - 1);
-			z_end = MIN(z + line_half_width + 1, nz - 1);
-			IM_LOOP_LIMITED_START(grid, x_draw, y_draw, z_draw, 
+			x_start = SIFT3D_MAX(x - line_half_width, 0);	
+			y_start = SIFT3D_MAX(y - line_half_width, 0);	
+			z_start = SIFT3D_MAX(z - line_half_width, 0);	
+			x_end = SIFT3D_MIN(x + line_half_width + 1, nx - 1);
+			y_end = SIFT3D_MIN(y + line_half_width + 1, ny - 1);
+			z_end = SIFT3D_MIN(z + line_half_width + 1, nz - 1);
+			SIFT3D_IM_LOOP_LIMITED_START(grid, x_draw, y_draw, z_draw, 
                                               x_start, x_end, 
 				y_start, y_end, z_start, z_end)
 				if (abs(x_draw - x) < line_half_width && 
 					abs(y_draw - y) < line_half_width && 
 					abs(z_draw - z) < line_half_width)  
-					IM_GET_VOX(grid, x_draw, y_draw, 
+					SIFT3D_IM_GET_VOX(grid, x_draw, y_draw, 
                                                    z_draw, 0) = 1.0f;
-			IM_LOOP_END
+			SIFT3D_IM_LOOP_END
 		}
-	IM_LOOP_END	
+	SIFT3D_IM_LOOP_END	
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 } 
 
 /* Draw points in in image*/
@@ -694,27 +694,27 @@ int draw_points(const Mat_rm *const in, int nx, int ny, int nz, int radius, Imag
         out->nc = 1;
 	im_default_stride(out);
 	if(im_resize(out))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	im_zero(out);
 
 	for (i = 0; i < in->num_rows; i++) {
-		const int cx = round(MAT_RM_GET(in, i, 0, double));
-		const int cy = round(MAT_RM_GET(in, i, 1, double));
-		const int cz = round(MAT_RM_GET(in, i, 2, double));
-		const int x_start = MAX(cx - radius, 0);
-		const int y_start = MAX(cy - radius, 0);
-		const int z_start = MAX(cz - radius, 0);
-		const int x_end = MIN(cx + radius, nx - 1);
-		const int y_end = MIN(cy + radius, ny - 1);
-		const int z_end = MIN(cz + radius, nz - 1);
+		const int cx = round(SIFT3D_MAT_RM_GET(in, i, 0, double));
+		const int cy = round(SIFT3D_MAT_RM_GET(in, i, 1, double));
+		const int cz = round(SIFT3D_MAT_RM_GET(in, i, 2, double));
+		const int x_start = SIFT3D_MAX(cx - radius, 0);
+		const int y_start = SIFT3D_MAX(cy - radius, 0);
+		const int z_start = SIFT3D_MAX(cz - radius, 0);
+		const int x_end = SIFT3D_MIN(cx + radius, nx - 1);
+		const int y_end = SIFT3D_MIN(cy + radius, ny - 1);
+		const int z_end = SIFT3D_MIN(cz + radius, nz - 1);
 
 		// Draw the point
-		IM_LOOP_LIMITED_START(out, x, y, z, x_start, x_end, y_start, 
+		SIFT3D_IM_LOOP_LIMITED_START(out, x, y, z, x_start, x_end, y_start, 
 				      y_end, z_start, z_end)
-			IM_GET_VOX(out, x, y, z, 0) = 1.0f;
-		IM_LOOP_END
+			SIFT3D_IM_GET_VOX(out, x, y, z, 0) = 1.0f;
+		SIFT3D_IM_LOOP_END
 	}
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Draw lines between two sets of points.
@@ -733,7 +733,7 @@ int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2,
 	    points1->num_cols != points2->num_cols ||
 	    points1->num_cols != IM_NDIMS) {
 		puts("draw_lines: invalid points dimensions \n");
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	}
 
 	// Initialize the output image
@@ -743,16 +743,16 @@ int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2,
         out->nc = 1;
 	im_default_stride(out);
 	if(im_resize(out))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	im_zero(out);
 
 	for (i = 0; i < points1->num_rows; i++) {
-		const double p1x = MAT_RM_GET(points1, i, 0, double);
-		const double p2x = MAT_RM_GET(points2, i, 0, double);
-		const double p1y = MAT_RM_GET(points1, i, 1, double);
-		const double p2y = MAT_RM_GET(points2, i, 1, double);
-		const double p1z = MAT_RM_GET(points1, i, 2, double);
-		const double p2z = MAT_RM_GET(points2, i, 2, double);
+		const double p1x = SIFT3D_MAT_RM_GET(points1, i, 0, double);
+		const double p2x = SIFT3D_MAT_RM_GET(points2, i, 0, double);
+		const double p1y = SIFT3D_MAT_RM_GET(points1, i, 1, double);
+		const double p2y = SIFT3D_MAT_RM_GET(points2, i, 1, double);
+		const double p1z = SIFT3D_MAT_RM_GET(points1, i, 2, double);
+		const double p2z = SIFT3D_MAT_RM_GET(points2, i, 2, double);
 
 		// Check the bounds
 		if (p1x < 0 || p2x < 0 || p1y < 0 || p2y < 0 || p1z < 0 || 
@@ -761,8 +761,8 @@ int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2,
 			continue;
 
 		// Get the bounds of the line
-		const double x_start = MIN(p1x, p2x) + 0.5;
-		const double x_end = MAX(p1x, p2x) + 0.5;
+		const double x_start = SIFT3D_MIN(p1x, p2x) + 0.5;
+		const double x_end = SIFT3D_MAX(p1x, p2x) + 0.5;
 		const int zi = (int) p1z;
 
 		// Check if the line is vertical
@@ -772,11 +772,11 @@ int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2,
 		if (vert) {
 		
 			const int xi = (int) x_start;	
-			const int y_start = (int) MIN(p1y, p2y);
-			const int y_end = (int) MAX(p1y, p2y);
+			const int y_start = (int) SIFT3D_MIN(p1y, p2y);
+			const int y_end = (int) SIFT3D_MAX(p1y, p2y);
 
 			for (y = y_start; y <= y_end; y++) {
-				IM_GET_VOX(out, xi, y, zi, 0) = 1.0f;
+				SIFT3D_IM_GET_VOX(out, xi, y, zi, 0) = 1.0f;
 			}
 		} else {
 
@@ -794,12 +794,12 @@ int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2,
 				if (yi < 0 || yi > ny - 1)
 					continue;
 	
-				IM_GET_VOX(out, xi, yi, zi, 0) = 1.0f;
+				SIFT3D_IM_GET_VOX(out, xi, yi, zi, 0) = 1.0f;
 			}
 		}
 	}
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Load a file into the specific Image object.
@@ -842,10 +842,10 @@ int read_nii(const char *path, Image *im) {
 	im_resize(im);
 
 #define IM_COPY_FROM_TYPE(type) \
-	IM_LOOP_START(im, x, y, z)	\
-		IM_GET_VOX(im, x, y, z, 0) = (float) ((type *)nifti->data)[ \
-		IM_GET_IDX(im, x, y, z, 0)]; \
-	IM_LOOP_END
+	SIFT3D_IM_LOOP_START(im, x, y, z)	\
+		SIFT3D_IM_GET_VOX(im, x, y, z, 0) = (float) ((type *)nifti->data)[ \
+		SIFT3D_IM_GET_IDX(im, x, y, z, 0)]; \
+	SIFT3D_IM_LOOP_END
 
 	// Copy into im
 	switch (nifti->datatype) {
@@ -887,7 +887,7 @@ int read_nii(const char *path, Image *im) {
 	default:
 		fprintf(stderr, "\nWarning, cannot support %s yet.\n", 
 				nifti_datatype_string(nifti->datatype));
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	}
 #undef IM_COPY_FROM_TYPE
 
@@ -898,14 +898,14 @@ int read_nii(const char *path, Image *im) {
 	nifti_free_extensions(nifti);
 	nifti_image_free(nifti);
 		
-	return SUCCESS;	
+	return SIFT3D_SUCCESS;	
 
 read_nii_quit:
 	if (nifti != NULL) {
 		nifti_free_extensions(nifti);
 		nifti_image_free(nifti);
 	}
-	return FAILURE;
+	return SIFT3D_FAILURE;
 }
 
 /* Write an Image to the specified path.
@@ -923,12 +923,12 @@ int write_nii(const char *path, Image *im) {
                 fprintf(stderr, "write_nii: unsupported number of "
                         "channels: %d. This function only supports single-"
                         "channel images.", im->nc);
-                return FAILURE;
+                return SIFT3D_FAILURE;
         }
 
 	// Create the path
 	if (mkpath(path, 0777))
-	    return FAILURE;
+	    return SIFT3D_FAILURE;
 
 	// Init a nifti struct and allocate memory
 	if ((nifti = nifti_make_new_nim(dims, DT_FLOAT32, 1))
@@ -951,14 +951,14 @@ int write_nii(const char *path, Image *im) {
 	nifti_free_extensions(nifti);
 	nifti_image_free(nifti);
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 
 write_nii_quit:
 	if (nifti != NULL) {
 		nifti_free_extensions(nifti);
 		nifti_image_free(nifti);
 	}
-	return FAILURE;
+	return SIFT3D_FAILURE;
 }
 
 /* Write a Keypoint_store to a text file. Currently,
@@ -979,7 +979,7 @@ int write_Keypoint_store(const char *path, Keypoint_store *kp) {
 
 	// Validate or create output directory
 	if (mkpath(path, 0777))
-		return FAILURE;	
+		return SIFT3D_FAILURE;	
 
 	if (((file = fopen(path, "w")) == NULL))
 		goto write_kp_quit;		
@@ -1001,11 +1001,11 @@ int write_Keypoint_store(const char *path, Keypoint_store *kp) {
 		goto write_kp_quit;	
 
 	fclose(file);
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 
 write_kp_quit:
 	fclose(file);
-	return FAILURE; 
+	return SIFT3D_FAILURE; 
 }
 
 /* Write a matrix to a text file. Rows are separated by
@@ -1017,18 +1017,18 @@ int write_Mat_rm(const char *path, Mat_rm *mat) {
 
 	// Validate or create output directory
 	if (mkpath(path, 0777))
-		return FAILURE;	
+		return SIFT3D_FAILURE;	
 
 	if (((file = fopen(path, "w")) == NULL))
 		goto write_mat_quit;		
 
 #define WRITE_MAT(mat, format, type) \
-	MAT_RM_LOOP_START(mat, i, j) \
-		fprintf(file, format, MAT_RM_GET(mat, i, j, \
+	SIFT3D_MAT_RM_LOOP_START(mat, i, j) \
+		fprintf(file, format, SIFT3D_MAT_RM_GET(mat, i, j, \
 				 type)); \
-		MAT_RM_LOOP_ROW_END \
+		SIFT3D_MAT_RM_LOOP_ROW_END \
 		fputc('\n', file); \
-	MAT_RM_LOOP_COL_END
+	SIFT3D_MAT_RM_LOOP_COL_END
 
 	// Write the matrix
 	switch (mat->type) {
@@ -1050,11 +1050,11 @@ int write_Mat_rm(const char *path, Mat_rm *mat) {
 		goto write_mat_quit;	
 
 	fclose(file);
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 
 write_mat_quit:
 	fclose(file);
-	return FAILURE;
+	return SIFT3D_FAILURE;
 }
 
 /* Shortcut to initialize an image for first-time use.
@@ -1072,13 +1072,13 @@ int init_im_first_time(Image *im, const int nx, const int ny, const int nz,
         im->nc = nc;
 	im_default_stride(im);
 	if (im_resize(im))
-		return FAILURE;	
+		return SIFT3D_FAILURE;	
 
-	IM_LOOP_START_C(im, x, y, z, c)
-		IM_GET_VOX(im, x, y, z, c) = 0.0f;
-	IM_LOOP_END_C
+	SIFT3D_IM_LOOP_START_C(im, x, y, z, c)
+		SIFT3D_IM_GET_VOX(im, x, y, z, c) = 0.0f;
+	SIFT3D_IM_LOOP_END_C
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Calculate the strides of an image object in the default
@@ -1112,31 +1112,31 @@ int im_pad(Image *im, Image *pad) {
     const int pad_y_end = pad->ny - 1;
     const int pad_z_end = pad->nz - 1;
 
-    const int data_x_end = MIN(im->nx - 1, pad_x_end);
-    const int data_y_end = MIN(im->ny - 1, pad_y_end);
-    const int data_z_end = MIN(im->nz - 1, pad_z_end);
+    const int data_x_end = SIFT3D_MIN(im->nx - 1, pad_x_end);
+    const int data_y_end = SIFT3D_MIN(im->ny - 1, pad_y_end);
+    const int data_z_end = SIFT3D_MIN(im->nz - 1, pad_z_end);
 
     // Resize the output 
     if (im_resize(pad))
-	return FAILURE;
+	return SIFT3D_FAILURE;
 
     // Copy the image 
-    IM_LOOP_LIMITED_START_C(im, x, y, z, c, 0, data_x_end, 0, data_y_end, 
+    SIFT3D_IM_LOOP_LIMITED_START_C(im, x, y, z, c, 0, data_x_end, 0, data_y_end, 
 			  0, data_z_end)
 
-        IM_GET_VOX(pad, x, y, z, c) = IM_GET_VOX(im, x, y, z, c);
+        SIFT3D_IM_GET_VOX(pad, x, y, z, c) = SIFT3D_IM_GET_VOX(im, x, y, z, c);
 
-    IM_LOOP_END_C
+    SIFT3D_IM_LOOP_END_C
 
     // Pad the remaining data with zeros
-    IM_LOOP_LIMITED_START_C(im, x, y, z, c, data_x_end, pad_x_end, data_y_end, 
+    SIFT3D_IM_LOOP_LIMITED_START_C(im, x, y, z, c, data_x_end, pad_x_end, data_y_end, 
 			  pad_y_end, data_z_end, pad_z_end)
         
-        IM_GET_VOX(pad, x, y, z, c) = 0.0f;
+        SIFT3D_IM_GET_VOX(pad, x, y, z, c) = 0.0f;
 
-    IM_LOOP_END_C
+    SIFT3D_IM_LOOP_END_C
 
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 }
 
 /* Resize an image according to the current nx, ny,
@@ -1171,22 +1171,22 @@ int im_resize(Image *im) {
 
                 fprintf(stderr, "im_resize: invalid dimension %d: %d \n", i, 
                         dim);
-                return FAILURE;
+                return SIFT3D_FAILURE;
         }
         if (im->nc < 1) {
                 fprintf(stderr, "im_resize: invalid number of channels: %d",
                         im->nc);
-                return FAILURE;
+                return SIFT3D_FAILURE;
         }
 
 	// Check for the trivial case
 	if (im->size == size)
-	    return SUCCESS;
+	    return SIFT3D_SUCCESS;
 
 	im->size = size;
 	im->data = realloc(im->data, im->size * sizeof(float));
 
-#ifdef USE_OPENCL
+#ifdef SIFT3D_USE_OPENCL
 	{
 		cl_int err;
 		int initialized;
@@ -1211,15 +1211,15 @@ int im_resize(Image *im) {
 			}
 
 			if (err != CL_SUCCESS) {
-				im->cl_valid = FALSE;
-				return FAILURE;
+				im->cl_valid = SIFT3D_FALSE;
+				return SIFT3D_FAILURE;
 			}
 
-			im->cl_valid = TRUE;
+			im->cl_valid = SIFT3D_TRUE;
 		}
 	}
 #endif
-	return im->data == NULL ? FAILURE : SUCCESS;
+	return im->data == NULL ? SIFT3D_FAILURE : SIFT3D_SUCCESS;
 }
 
 /* Concatenate two images in dimension dim. Resizes dst. */
@@ -1243,14 +1243,14 @@ int im_concat(const Image *const src1, const Image *const src2, const int dim,
 			fprintf(stderr, "im_concat: dimension %d must be "
                                 "equal in input images. src1: %d src2: %d \n", 
                                 i, src1d, src2d);
-			return FAILURE;
+			return SIFT3D_FAILURE;
 		}
 	}	
         if (src1->nc != src2->nc) {
                 fprintf(stderr, "im_concat: images must have an equal number "
                         "of channels. src1: %d src2: %d \n", src1->nc, 
                         src2->nc);
-                return FAILURE;
+                return SIFT3D_FAILURE;
         }
 
 	// Get the output dimensions
@@ -1273,14 +1273,14 @@ int im_concat(const Image *const src1, const Image *const src2, const int dim,
         dst->nc = nc; 
 	im_default_stride(dst);
 	if (im_resize(dst))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
 	// Copy the data
-	IM_LOOP_START_C(src1, x, y, z, c)
-		        IM_GET_VOX(dst, x, y, z, c) = 
-                                IM_GET_VOX(src1, x, y, z, c);
-	IM_LOOP_END_C
-	IM_LOOP_START_C(src2, x, y, z, c)
+	SIFT3D_IM_LOOP_START_C(src1, x, y, z, c)
+		        SIFT3D_IM_GET_VOX(dst, x, y, z, c) = 
+                                SIFT3D_IM_GET_VOX(src1, x, y, z, c);
+	SIFT3D_IM_LOOP_END_C
+	SIFT3D_IM_LOOP_START_C(src2, x, y, z, c)
 
 		 // Get the destination coordinates
 		 const int x_dst = x + off[0];
@@ -1288,11 +1288,11 @@ int im_concat(const Image *const src1, const Image *const src2, const int dim,
 		 const int z_dst = z + off[2];
 
 		 // Write the pixels
-		IM_GET_VOX(dst, x_dst, y_dst, z_dst, c) = 
-			        IM_GET_VOX(src2, x, y, z, c);
-	IM_LOOP_END_C
+		SIFT3D_IM_GET_VOX(dst, x_dst, y_dst, z_dst, c) = 
+			        SIFT3D_IM_GET_VOX(src2, x, y, z, c);
+	SIFT3D_IM_LOOP_END_C
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Upsample an image by a factor of 2 in each dimension.
@@ -1311,10 +1311,10 @@ int im_upsample_2x(Image *src, Image *dst) {
         dst->nc = src->nc;
 	im_default_stride(dst);
 	if (im_resize(dst))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
 	// Upsample
-	IM_LOOP_START(dst, x, y, z)
+	SIFT3D_IM_LOOP_START(dst, x, y, z)
 		const int sx_start = x >> 1;
 		const int sy_start = y >> 1;
 		const int sz_start = z >> 1;
@@ -1323,17 +1323,17 @@ int im_upsample_2x(Image *src, Image *dst) {
 		const int sy_end = sy_start + w - 1;
 		const int sz_end = sz_start + w - 1;
 
-		IM_GET_VOX(dst, x, y, z, c) = 0;
-		IM_LOOP_LIMITED_START_C(dst, sx, sy, sz, c, sx_start, 
+		SIFT3D_IM_GET_VOX(dst, x, y, z, c) = 0;
+		SIFT3D_IM_LOOP_LIMITED_START_C(dst, sx, sy, sz, c, sx_start, 
 			sx_end, sy_start, sy_end, sz_start, sz_end)
 
-                        IM_GET_VOX(dst, x, y, z, c) += 
-                                IM_GET_VOX(src, sx, sy, sz, c) * weight;
+                        SIFT3D_IM_GET_VOX(dst, x, y, z, c) += 
+                                SIFT3D_IM_GET_VOX(src, sx, sy, sz, c) * weight;
 
-		IM_LOOP_END_C
-	IM_LOOP_END
+		SIFT3D_IM_LOOP_END_C
+	SIFT3D_IM_LOOP_END
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Downsample an image by a factor of 2 in each dimension.
@@ -1350,27 +1350,27 @@ int im_downsample_2x(Image *src, Image *dst) {
         dst->nc = src->nc;
 	im_default_stride(dst);
 	if (im_resize(dst))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
 	// TODO: 3-pass downsample might be faster
 
 	// Downsample
-	IM_LOOP_START_C(dst, x, y, z, c)
+	SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
 		const int src_x = x << 1;
 		const int src_y = y << 1;
 		const int src_z = z << 1;
                 
-                IM_GET_VOX(dst, x, y, z, c) = 
-                        IM_GET_VOX(src, src_x, src_y, src_z, c);
-	IM_LOOP_END_C
+                SIFT3D_IM_GET_VOX(dst, x, y, z, c) = 
+                        SIFT3D_IM_GET_VOX(src, src_x, src_y, src_z, c);
+	SIFT3D_IM_LOOP_END_C
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Same as im_downsample_2x, but with OpenCL acceleration. This function DOES NOT
  * read the results back dst->data. Use im_read_back for that. */
 int im_downsample_2x_cl(Image *src, Image *dst) {
-#ifdef USE_OPENCL
+#ifdef SIFT3D_USE_OPENCL
 	size_t global_work_size[3];
 	cl_int err, dim;
 	cl_kernel kernel;
@@ -1378,7 +1378,7 @@ int im_downsample_2x_cl(Image *src, Image *dst) {
 	// Verify image dimensions
 	if (src->nx % 2 != 0 || src->ny % 2 != 0 || 
 		src->nz % 2 != 0)
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
 	// Initialize dst dimensions, resized in im_set_kernel_arg
 	dst->nx = src->nx / 2;
@@ -1403,14 +1403,14 @@ int im_downsample_2x_cl(Image *src, Image *dst) {
 	return (int) err;
 #else
 	printf("im_downsample_2x_cl: This version was not compiled with OpenCL!\n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
 #endif
 }
 
 /* Loads the C-accessible data of an image into its OpenCL data. If blocking is set,
  * block the function until the load is complete. */
 int im_load_cl(Image *im, int blocking) {
-#ifdef USE_OPENCL
+#ifdef SIFT3D_USE_OPENCL
 	const size_t origin[] = {0, 0, 0};
 	const size_t region[] = {im->nx, im->ny, im->nz}; 
 	const cl_bool cl_blocking = (blocking) ? CL_TRUE : CL_FALSE;
@@ -1419,14 +1419,14 @@ int im_load_cl(Image *im, int blocking) {
 							   NULL);
 #else
 	printf("im_load_cl: This version was not compiled with OpenCL!\n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
 #endif
 }
 
 /* Reads the OpenCL data of an image back to its C-accessible data. If blocking is set,
  * block the function until the read is complete. */ 
 int im_read_back(Image *im, int blocking) {
-#ifdef USE_OPENCL
+#ifdef SIFT3D_USE_OPENCL
 	const size_t origin[] = {0, 0, 0};
 	const size_t region[] = {im->nx, im->ny, im->nz}; 
 	const cl_bool cl_blocking = (blocking) ? CL_TRUE : CL_FALSE;
@@ -1435,25 +1435,25 @@ int im_read_back(Image *im, int blocking) {
 							  NULL); 
 #else
 	printf("im_read_back: This version was not compiled with OpenCL!\n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
 #endif
 }
 
 /* Updates an Image struct's OpenCL data, if neccessary, and sets it as argument n
  * in the provided kernel. */
 int im_set_kernel_arg(cl_kernel kernel, int n, Image *im) {
-#ifdef USE_OPENCL
+#ifdef SIFT3D_USE_OPENCL
 	cl_int err;
 
 	if (!im->cl_valid && im_resize(im))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	err = clSetKernelArg(kernel, n, sizeof(cl_mem), &im->cl_image);
 	check_cl_error(err, "im_set_kernel_arg");
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 #else
 	printf("im_set_kernel_arg: This version was not compiled with OpenCL!\n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
 #endif
 }
 
@@ -1462,7 +1462,7 @@ int im_set_kernel_arg(cl_kernel kernel, int n, Image *im) {
  * 
  * @param src The source image.
  * @param dst The destination image.
- * @return Returns SUCCESS or FAILURE.
+ * @return Returns SIFT3D_SUCCESS or SIFT3D_FAILURE.
  */
 int im_copy_dims(const Image *const src, Image *dst) {
 
@@ -1489,19 +1489,19 @@ int im_copy_data(const Image *const src, Image *const dst) {
 
 	// Initialize dst
 	if (im_copy_dims(src, dst))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
 	// Return if src and dst are the same
 	dst_data = dst->data;
 	if (dst_data == src_data)
-		return SUCCESS;
+		return SIFT3D_SUCCESS;
 
 	// Copy data
 	for (i = 0; i < src->size; i++) {
 		dst_data[i] = src_data[i];
 	}
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Clean up memory for an Image */
@@ -1522,7 +1522,7 @@ int im_channel(const Image *const src, Image *const dst,
         if (c >= src->nc) {
                 fprintf(stderr, "im_channel: invalid channel: %d, image has "
                         "%d channels", c, src->nc); 
-                return FAILURE;
+                return SIFT3D_FAILURE;
         }
 
         // Resize the output
@@ -1530,14 +1530,14 @@ int im_channel(const Image *const src, Image *const dst,
         dst->nc = 1;
         im_default_stride(dst); 
         if (im_resize(dst))
-                return FAILURE;
+                return SIFT3D_FAILURE;
 
         // Copy the channel
-        IM_LOOP_START(dst, x, y, z)
-                IM_GET_VOX(dst, x, y, z, 0) = IM_GET_VOX(src, x, y, z, c);
-        IM_LOOP_END
+        SIFT3D_IM_LOOP_START(dst, x, y, z)
+                SIFT3D_IM_GET_VOX(dst, x, y, z, 0) = SIFT3D_IM_GET_VOX(src, x, y, z, c);
+        SIFT3D_IM_LOOP_END
 
-        return SUCCESS;
+        return SIFT3D_SUCCESS;
 }
 
 /* Scale an image to the [0, 1] range, where
@@ -1549,19 +1549,19 @@ void im_scale(Image *im) {
 
 	// Find max (absolute value) 
 	max = 0.0f;
-	IM_LOOP_START_C(im, x, y, z, c)
-		samp = fabs(IM_GET_VOX(im, x, y, z, c));
-		max = MAX(max, samp);
-	IM_LOOP_END_C
+	SIFT3D_IM_LOOP_START_C(im, x, y, z, c)
+		samp = fabs(SIFT3D_IM_GET_VOX(im, x, y, z, c));
+		max = SIFT3D_MAX(max, samp);
+	SIFT3D_IM_LOOP_END_C
 
 	// Do nothing if all data is zero
 	if (max == 0.0f)
 		return; 
 	
 	// Divide by max 
-	IM_LOOP_START_C(im, x, y, z, c)
-		IM_GET_VOX(im, x, y, z, c) /= max;
-	IM_LOOP_END_C
+	SIFT3D_IM_LOOP_START_C(im, x, y, z, c)
+		SIFT3D_IM_GET_VOX(im, x, y, z, c) /= max;
+	SIFT3D_IM_LOOP_END_C
 }
 
 /* Subtract src2 from src1, saving the result in
@@ -1573,22 +1573,23 @@ int im_subtract(Image *src1, Image *src2, Image *dst) {
 	int x, y, z, c;
 
 	// Verify inputs
-	if (src1->nx != src2->nx ||	src1->nx != dst->nx ||
-		src1->ny != src2->ny ||	src1->ny != dst->ny ||
-		src1->nz != src2->nz ||	src1->nz != dst->nz)
-		return FAILURE; 
+	if (src1->nx != src2->nx ||
+		src1->ny != src2->ny ||
+		src1->nz != src2->nz ||
+                src1->nc != src2->nc)
+		return SIFT3D_FAILURE; 
 
 	// Resize the output image
 	if (im_copy_dims(src1, dst))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
-	IM_LOOP_START_C(dst, x, y, z, c)	
-		IM_GET_VOX(dst, x, y, z, c) =
-			IM_GET_VOX(src1, x, y, z, c) - 
-			IM_GET_VOX(src2, x, y, z, c);
-	IM_LOOP_END_C
+	SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)	
+		SIFT3D_IM_GET_VOX(dst, x, y, z, c) =
+			SIFT3D_IM_GET_VOX(src1, x, y, z, c) - 
+			SIFT3D_IM_GET_VOX(src2, x, y, z, c);
+	SIFT3D_IM_LOOP_END_C
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Zero an image. */
@@ -1596,9 +1597,9 @@ void im_zero(Image *im) {
 
 	int x, y, z, c;	
 
-	IM_LOOP_START_C(im, x, y, z, c)
-		IM_GET_VOX(im, x, y, z, c) = 0.0f;
-	IM_LOOP_END_C
+	SIFT3D_IM_LOOP_START_C(im, x, y, z, c)
+		SIFT3D_IM_GET_VOX(im, x, y, z, c) = 0.0f;
+	SIFT3D_IM_LOOP_END_C
 }
 
 /* Transform an image according to the inverse of the provided tform. 
@@ -1612,19 +1613,19 @@ int im_inv_transform(Image *in, Image *out, tform_type type,
 
 	// Resize the output image
 	if (im_copy_dims(in, out))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
 #define IMUTIL_RESAMPLE(arg) \
-	IM_LOOP_START(in, x, y, z) \
+	SIFT3D_IM_LOOP_START(in, x, y, z) \
 		if (apply_tform_xyz((double)x, (double)y, (double)z, \
 			&transx, &transy, &transz, type, tform)) \
-			return FAILURE; \
+			return SIFT3D_FAILURE; \
                         \
                 for (c = 0; c < out->nc; c++) { \
-		        IM_GET_VOX(out, x, y, z, c) = resample_ ## arg(in, \
+		        SIFT3D_IM_GET_VOX(out, x, y, z, c) = resample_ ## arg(in, \
                                 transx, transy, transz, c); \
                 } \
-	IM_LOOP_END 
+	SIFT3D_IM_LOOP_END 
 
         // Transform
         switch (interp) {
@@ -1637,12 +1638,12 @@ int im_inv_transform(Image *in, Image *out, tform_type type,
                 default:
                         fprintf(stderr, "im_inv_transform: unrecognized "
                                 "interpolation type");
-                        return FAILURE;
+                        return SIFT3D_FAILURE;
         }
 
 #undef RESAMPLE
 
-        return SUCCESS;
+        return SIFT3D_SUCCESS;
 }
 
 /* Helper routine for image transformation. Performs trilinear
@@ -1667,14 +1668,14 @@ static double resample_linear(Image *in, const double x, const double y,
 	double dist_y = y - fy;
 	double dist_z = z - fz;
 	
-	double c0 = IM_GET_VOX(in, fx, fy, fz, c);
-	double c1 = IM_GET_VOX(in, fx, cy, fz, c);
-	double c2 = IM_GET_VOX(in, cx, fy, fz, c);
-	double c3 = IM_GET_VOX(in, cx, cy, fz, c);
-	double c4 = IM_GET_VOX(in, fx, fy, cz, c);
-	double c5 = IM_GET_VOX(in, fx, cy, cz, c);
-	double c6 = IM_GET_VOX(in, cx, fy, cz, c);
-	double c7 = IM_GET_VOX(in, cx, cy, cz, c);
+	double c0 = SIFT3D_IM_GET_VOX(in, fx, fy, fz, c);
+	double c1 = SIFT3D_IM_GET_VOX(in, fx, cy, fz, c);
+	double c2 = SIFT3D_IM_GET_VOX(in, cx, fy, fz, c);
+	double c3 = SIFT3D_IM_GET_VOX(in, cx, cy, fz, c);
+	double c4 = SIFT3D_IM_GET_VOX(in, fx, fy, cz, c);
+	double c5 = SIFT3D_IM_GET_VOX(in, fx, cy, cz, c);
+	double c6 = SIFT3D_IM_GET_VOX(in, cx, fy, cz, c);
+	double c7 = SIFT3D_IM_GET_VOX(in, cx, cy, cz, c);
 
 	double out = c0 * (1.0-dist_x) * (1.0-dist_y) * (1.0-dist_z) 
 	           + c1 * (1.0-dist_x) * dist_y       * (1.0-dist_z) 
@@ -1712,16 +1713,16 @@ static double resample_lanczos2(Image *im, const double x, const double y,
                 return 0.0;
 
         // Window 
-        const int x_start = MAX(floor(x) - a, xMin);
-        const int x_end = MIN(floor(x) + a, xMax);
-        const int y_start = MAX(floor(y) - a, yMin);
-        const int y_end = MIN(floor(y) + a, yMax);
-        const int z_start = MAX(floor(z) - a, zMin);
-        const int z_end = MIN(floor(z) + a, zMax);
+        const int x_start = SIFT3D_MAX(floor(x) - a, xMin);
+        const int x_end = SIFT3D_MIN(floor(x) + a, xMax);
+        const int y_start = SIFT3D_MAX(floor(y) - a, yMin);
+        const int y_end = SIFT3D_MIN(floor(y) + a, yMax);
+        const int z_start = SIFT3D_MAX(floor(z) - a, zMin);
+        const int z_end = SIFT3D_MIN(floor(z) + a, zMax);
        
         // Iterate through the window 
         val = 0.0;
-        IM_LOOP_LIMITED_START(in, xs, ys, zs, x_start, x_end, y_start, y_end, 
+        SIFT3D_IM_LOOP_LIMITED_START(in, xs, ys, zs, x_start, x_end, y_start, y_end, 
                                 z_start, z_end)
 
                 // Evalutate the kernel
@@ -1732,17 +1733,17 @@ static double resample_lanczos2(Image *im, const double x, const double y,
                                           lanczos(zs, a);
 
                 // Accumulate
-                val += kernel * IM_GET_VOX(im, xs, ys, zs, c);
+                val += kernel * SIFT3D_IM_GET_VOX(im, xs, ys, zs, c);
 
-        IM_LOOP_END
+        SIFT3D_IM_LOOP_END
 
         return val;
 }
 
 /* Lanczos kernel function */
 static double lanczos(double x, double a) {
-        const double pi_x = UTIL_PI * x;
-        return a * sin(pi_x) * sin(pi_x / a) / (UTIL_PI * UTIL_PI * x * x);
+        const double pi_x = M_PI * x;
+        return a * sin(pi_x) * sin(pi_x / a) / (pi_x * pi_x);
 }
 
 /* Horizontally convolves a separable filter with an image, 
@@ -1782,7 +1783,7 @@ static int convolve_sep(const Image *const src,
         im_zero(dst);
 
         // First pass: process the interior
-        IM_LOOP_LIMITED_START(dst, x, y, z, x_start, x_end, y_start, y_end, 
+        SIFT3D_IM_LOOP_LIMITED_START(dst, x, y, z, x_start, x_end, y_start, y_end, 
                 z_start, z_end)
                         
                 int coords[IM_NDIMS] = {x, y, z};
@@ -1796,8 +1797,8 @@ static int convolve_sep(const Image *const src,
                                 coords[dim] -= d;
 
                                 // Sample
-                                IM_GET_VOX(dst, x, y, z, c) += 
-                                        IM_GET_VOX(src, coords[0], coords[1], 
+                                SIFT3D_IM_GET_VOX(dst, x, y, z, c) += 
+                                        SIFT3D_IM_GET_VOX(src, coords[0], coords[1], 
                                                 coords[2], c) * tap;
 
                                 // Reset the sampling coordinates
@@ -1805,10 +1806,10 @@ static int convolve_sep(const Image *const src,
                         }
                 }
 
-        IM_LOOP_END
+        SIFT3D_IM_LOOP_END
 
         // Second pass: process the boundaries
-        IM_LOOP_START(dst, x, y, z)
+        SIFT3D_IM_LOOP_START(dst, x, y, z)
 
                 int coords[IM_NDIMS] = {x, y, z};
 
@@ -1835,8 +1836,8 @@ static int convolve_sep(const Image *const src,
                                 }
 
                                 // Sample
-                                IM_GET_VOX(dst, x, y, z, c) += 
-                                        IM_GET_VOX(src, coords[0], coords[1], 
+                                SIFT3D_IM_GET_VOX(dst, x, y, z, c) += 
+                                        SIFT3D_IM_GET_VOX(src, coords[0], coords[1], 
                                                 coords[2], c) * tap;
 
                                 // Reset the sampling coordinates
@@ -1844,16 +1845,16 @@ static int convolve_sep(const Image *const src,
                         }
                 }
 
-        IM_LOOP_END
+        SIFT3D_IM_LOOP_END
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Same as convolve_sep, but with OpenCL acceleration. This does NOT
  * read back the results to C-accessible data. Use im_read_back for that. */
 static int convolve_sep_cl (const Image *const src, Image *const dst, 
 		     const Sep_FIR_filter *const f, const int dim) {
-#ifdef USE_OPENCL
+#ifdef SIFT3D_USE_OPENCL
 	cl_kernel kernel;
 	cl_int dx, dy, dz, err;
 
@@ -1862,7 +1863,7 @@ static int convolve_sep_cl (const Image *const src, Image *const dst,
 	// Do not have a 2D kernel right now
 	if (dim != 3) {
 		printf("convolve_sep_cl: unsupported dimension: %d \n", dim);
-		return FAILURE
+		return SIFT3D_FAILURE
 	}
 
 	// Resize the output, with default stride
@@ -1870,7 +1871,7 @@ static int convolve_sep_cl (const Image *const src, Image *const dst,
         im->nc = src->nc;
 	im_default_stride(dst);
 	if (im_resize(dst))
-	    return FAILURE;
+	    return SIFT3D_FAILURE;
 
 	// Form the dimension offsets
 	dx = dy = dz = 0;
@@ -1885,7 +1886,7 @@ static int convolve_sep_cl (const Image *const src, Image *const dst,
 			dz = 1;
 			break;
 		default:
-			return FAILURE;
+			return SIFT3D_FAILURE;
 	}
 
 	kernel = f->cl_apply_unrolled;
@@ -1901,7 +1902,7 @@ static int convolve_sep_cl (const Image *const src, Image *const dst,
 	return (int) err;
 #else
 	printf("colvolve_sep_cl: This version was not compiled with OpenCL!\n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
 #endif
 }
 
@@ -1947,12 +1948,12 @@ int im_transpose(const Image *const src, const int dim1, const int dim2,
 	if (dim1 < 0 || dim2 < 0 || dim1 > 3 || dim2 > 3) {
 	    printf("im_transpose: invalid dimensions: dim1 %d dim2 %d \n",
 		   dim1, dim2);
-	    return FAILURE;
+	    return SIFT3D_FAILURE;
 	}   
 
 	// Check for the trivial case
 	if (dim1 == dim2)
-	    return SUCCESS;
+	    return SIFT3D_SUCCESS;
 
 	// Resize the output
 	memcpy(dims, src->dims, IM_NDIMS * sizeof(int));
@@ -1962,7 +1963,7 @@ int im_transpose(const Image *const src, const int dim1, const int dim2,
         dst->nc = src->nc;
 	im_default_stride(dst);
 	if (im_resize(dst))
-	    return FAILURE;
+	    return SIFT3D_FAILURE;
 
 	// Make a copy of the source strides
 	memcpy(strides, src->strides, IM_NDIMS * sizeof(int));
@@ -1973,12 +1974,12 @@ int im_transpose(const Image *const src, const int dim1, const int dim2,
 	strides[dim2] = temp;
 
 	// Transpose the data
-	IM_LOOP_START_C(dst, x, y, z, c)
-	    IM_GET_VOX(dst, x, y, z, c) = 
+	SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
+	    SIFT3D_IM_GET_VOX(dst, x, y, z, c) = 
 		data[x * strides[0] + y * strides[1] + z * strides[2]];
-	IM_LOOP_END_C
+	SIFT3D_IM_LOOP_END_C
 
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 }
 
 /* Change an image's stride, preserving its data. 
@@ -1988,7 +1989,7 @@ int im_transpose(const Image *const src, const int dim1, const int dim2,
  *  -strides: an array of length IM_NDIMS specifying the new strides
  *  -dst: The destination image. Must be initialized
  * 
- * Return: SUCCESS (0) on success, nonzero otherwise. */
+ * Return: SIFT3D_SUCCESS (0) on success, nonzero otherwise. */
 int im_restride(const Image *const src, const int *const strides, 
 		Image *const dst) {
 
@@ -1999,14 +2000,14 @@ int im_restride(const Image *const src, const int *const strides,
     memcpy(dst->strides, strides, IM_NDIMS * sizeof(int));
     dst->nc = src->nc;
     if (im_resize(dst))
-	return FAILURE;
+	return SIFT3D_FAILURE;
 
     // Copy the data
-    IM_LOOP_START_C(dst, x, y, z, c)
-	IM_GET_VOX(dst, x, y, z, c) = IM_GET_VOX(src, x, y, z, c);
-    IM_LOOP_END_C
+    SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
+	SIFT3D_IM_GET_VOX(dst, x, y, z, c) = SIFT3D_IM_GET_VOX(src, x, y, z, c);
+    SIFT3D_IM_LOOP_END_C
 
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 }
 
 /* Initializes a tform to ensure memory safety. 
@@ -2016,17 +2017,17 @@ int init_tform(void *tform, const tform_type type) {
     switch (type) {
         case TPS:
             puts("init_tform: TPS not yet implemented \n");
-            return FAILURE;
+            return SIFT3D_FAILURE;
         case AFFINE:
             if (init_Affine((Affine *) tform, 2))
-                return FAILURE;
+                return SIFT3D_FAILURE;
             break;
         default:
             puts("init_tform: unrecognized type \n");
-            return FAILURE;
+            return SIFT3D_FAILURE;
     }
 
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 }
 
 /* Initialize an Affine struct. This initializes
@@ -2035,14 +2036,14 @@ int init_tform(void *tform, const tform_type type) {
 int init_Affine(Affine *affine, int dim) {
 	// Verify inputs
 	if (dim < 2)
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	
 	// Initialize the matrix
 	if (init_Mat_rm(&affine->A, dim, dim + 1,
-		    DOUBLE, TRUE))
-	    return FAILURE;
+		    DOUBLE, SIFT3D_TRUE))
+	    return SIFT3D_FAILURE;
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Deep copy of a tform. Both src and dst must be initialized. */
@@ -2051,17 +2052,17 @@ int copy_tform(void *src, void *dst, const tform_type type) {
       switch (type) {
           case TPS:
               puts("copy_tform: TPS not yet implemented \n");
-              return FAILURE;
+              return SIFT3D_FAILURE;
           case AFFINE:
               if (copy_Affine((Affine *) src, (Affine *) dst))
-                  return FAILURE;
+                  return SIFT3D_FAILURE;
               break;
           default:
               puts("copy_tform: unrecognized type \n");
-              return FAILURE;
+              return SIFT3D_FAILURE;
       }
 
-      return SUCCESS;
+      return SIFT3D_SUCCESS;
 }
 
 /* Deep copy of one Affine to another. Both must be initialized. */
@@ -2077,12 +2078,12 @@ int Affine_set_mat(Mat_rm *mat, Affine *affine) {
     // Verify inputs
     if (mat->num_cols != mat->num_rows + 1 ||
 	    mat->num_rows < 2) 		
-	return FAILURE;
+	return SIFT3D_FAILURE;
 
     affine->dim = mat->num_rows;
     copy_Mat_rm(mat, &affine->A);
 
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 }
 
 /* Apply an arbitrary transformation to an [x, y, z] triple. */
@@ -2098,9 +2099,9 @@ int apply_tform_xyz(double x_in, double y_in, double z_in,
 	    apply_Tps_xyz((Tps *) tform, x_in, y_in, z_in,
 		    x_out, y_out, z_out);
 	default:
-	    return FAILURE;
+	    return SIFT3D_FAILURE;
     }
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 }
 
 /* Apply an Affine transformation to an [x, y, z] triple. */
@@ -2110,18 +2111,18 @@ void apply_Affine_xyz(Affine *affine, double x_in, double y_in,
 
     const Mat_rm const *A = &affine->A;
     assert(affine->dim == 3);
-    *x_out = MAT_RM_GET(A, 0, 0, double) * x_in + 
-	MAT_RM_GET(A, 0, 1, double) * y_in + 
-	MAT_RM_GET(A, 0, 2, double) * z_in + 
-	MAT_RM_GET(A, 0, 3, double);
-    *y_out = MAT_RM_GET(A, 1, 0, double) * x_in + 
-	MAT_RM_GET(A, 1, 1, double) * y_in + 
-	MAT_RM_GET(A, 1, 2, double) * z_in + 
-	MAT_RM_GET(A, 1, 3, double);
-    *z_out = MAT_RM_GET(A, 2, 0, double) * x_in +
-	MAT_RM_GET(A, 2, 1, double) * y_in + 
-	MAT_RM_GET(A, 2, 2, double) * z_in + 
-	MAT_RM_GET(A, 2, 3, double);
+    *x_out = SIFT3D_MAT_RM_GET(A, 0, 0, double) * x_in + 
+	SIFT3D_MAT_RM_GET(A, 0, 1, double) * y_in + 
+	SIFT3D_MAT_RM_GET(A, 0, 2, double) * z_in + 
+	SIFT3D_MAT_RM_GET(A, 0, 3, double);
+    *y_out = SIFT3D_MAT_RM_GET(A, 1, 0, double) * x_in + 
+	SIFT3D_MAT_RM_GET(A, 1, 1, double) * y_in + 
+	SIFT3D_MAT_RM_GET(A, 1, 2, double) * z_in + 
+	SIFT3D_MAT_RM_GET(A, 1, 3, double);
+    *z_out = SIFT3D_MAT_RM_GET(A, 2, 0, double) * x_in +
+	SIFT3D_MAT_RM_GET(A, 2, 1, double) * y_in + 
+	SIFT3D_MAT_RM_GET(A, 2, 2, double) * z_in + 
+	SIFT3D_MAT_RM_GET(A, 2, 3, double);
 }
 
 /* Apply a thin-plate spline transformation to an [x, y, z] triple. */
@@ -2138,9 +2139,9 @@ void apply_Tps_xyz(Tps *tps, double x_in, double y_in,
     double temp_x = 0.0, temp_y = 0.0, temp_z = 0.0;
 
     for (n=0;n<ctrl_pts;n++){
-	x_c=MAT_RM_GET(kp_src, n, 0, double);
-	y_c=MAT_RM_GET(kp_src, n, 1, double);
-	z_c=MAT_RM_GET(kp_src, n, 2, double);
+	x_c=SIFT3D_MAT_RM_GET(kp_src, n, 0, double);
+	y_c=SIFT3D_MAT_RM_GET(kp_src, n, 1, double);
+	z_c=SIFT3D_MAT_RM_GET(kp_src, n, 2, double);
 	r_sq=(x_in-x_c)*(x_in-x_c)+(y_in-y_c)*(y_in-y_c)+(z_in-z_c)*(z_in-z_c);
 	if(r_sq==0){
 	    U=0.0;
@@ -2148,25 +2149,25 @@ void apply_Tps_xyz(Tps *tps, double x_in, double y_in,
 	else{
 	    U=r_sq*log(r_sq);
 	}	
-	temp_x += U*MAT_RM_GET(params, 0, n, double);	
-	temp_y += U*MAT_RM_GET(params, 1, n, double);	
-	temp_z += U*MAT_RM_GET(params, 2, n, double);			
+	temp_x += U*SIFT3D_MAT_RM_GET(params, 0, n, double);	
+	temp_y += U*SIFT3D_MAT_RM_GET(params, 1, n, double);	
+	temp_z += U*SIFT3D_MAT_RM_GET(params, 2, n, double);			
     }
 
-    temp_x += MAT_RM_GET(params, 0, ctrl_pts, double);
-    temp_x += MAT_RM_GET(params, 0, ctrl_pts+1, double)*x_in;
-    temp_x += MAT_RM_GET(params, 0, ctrl_pts+2, double)*y_in;
-    temp_x += MAT_RM_GET(params, 0, ctrl_pts+3, double)*z_in;	
+    temp_x += SIFT3D_MAT_RM_GET(params, 0, ctrl_pts, double);
+    temp_x += SIFT3D_MAT_RM_GET(params, 0, ctrl_pts+1, double)*x_in;
+    temp_x += SIFT3D_MAT_RM_GET(params, 0, ctrl_pts+2, double)*y_in;
+    temp_x += SIFT3D_MAT_RM_GET(params, 0, ctrl_pts+3, double)*z_in;	
 
-    temp_y += MAT_RM_GET(params, 1, ctrl_pts, double);
-    temp_y += MAT_RM_GET(params, 1, ctrl_pts+1, double)*x_in;
-    temp_y += MAT_RM_GET(params, 1, ctrl_pts+2, double)*y_in;
-    temp_y += MAT_RM_GET(params, 1, ctrl_pts+3, double)*z_in;
+    temp_y += SIFT3D_MAT_RM_GET(params, 1, ctrl_pts, double);
+    temp_y += SIFT3D_MAT_RM_GET(params, 1, ctrl_pts+1, double)*x_in;
+    temp_y += SIFT3D_MAT_RM_GET(params, 1, ctrl_pts+2, double)*y_in;
+    temp_y += SIFT3D_MAT_RM_GET(params, 1, ctrl_pts+3, double)*z_in;
 
-    temp_z += MAT_RM_GET(params, 2, ctrl_pts, double);
-    temp_z += MAT_RM_GET(params, 2, ctrl_pts+1, double)*x_in;
-    temp_z += MAT_RM_GET(params, 2, ctrl_pts+2, double)*y_in;
-    temp_z += MAT_RM_GET(params, 2, ctrl_pts+3, double)*z_in;
+    temp_z += SIFT3D_MAT_RM_GET(params, 2, ctrl_pts, double);
+    temp_z += SIFT3D_MAT_RM_GET(params, 2, ctrl_pts+1, double)*x_in;
+    temp_z += SIFT3D_MAT_RM_GET(params, 2, ctrl_pts+2, double)*y_in;
+    temp_z += SIFT3D_MAT_RM_GET(params, 2, ctrl_pts+3, double)*z_in;
 
     //Save results
     x_out[0]=temp_x;
@@ -2183,17 +2184,17 @@ int apply_tform_Mat_rm(Mat_rm *mat_in, Mat_rm *mat_out, const tform_type type,
     switch (type) {
 	case AFFINE:
 	    if (apply_Affine_Mat_rm((Affine *) tform, mat_in, mat_out))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	    break;
 	case TPS:
 	    if (apply_Tps_Mat_rm((Tps *) tform, mat_in, mat_out))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	    break;
 	default:
-	    return FAILURE;
+	    return SIFT3D_FAILURE;
     }	
 
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 }
 
 /* Apply a spline transformation to a matrix, 
@@ -2214,14 +2215,14 @@ int apply_Tps_Mat_rm(Tps *tps, Mat_rm *mat_in, Mat_rm *mat_out) {
     //for each point
     for(q=0;q<num_pts;q++){
 	//extract the coordinates
-	x=MAT_RM_GET(mat_in, 0, q, double);
-	y=MAT_RM_GET(mat_in, 1, q, double);
-	z=MAT_RM_GET(mat_in, 2, q, double);
+	x=SIFT3D_MAT_RM_GET(mat_in, 0, q, double);
+	y=SIFT3D_MAT_RM_GET(mat_in, 1, q, double);
+	z=SIFT3D_MAT_RM_GET(mat_in, 2, q, double);
 	//Calculate U function for each control point
 	for (n=0;n<ctrl_pts;n++){
-	    x_c=MAT_RM_GET(kp_src, n, 0, double);
-	    y_c=MAT_RM_GET(kp_src, n, 1, double);
-	    z_c=MAT_RM_GET(kp_src, n, 2, double);
+	    x_c=SIFT3D_MAT_RM_GET(kp_src, n, 0, double);
+	    y_c=SIFT3D_MAT_RM_GET(kp_src, n, 1, double);
+	    z_c=SIFT3D_MAT_RM_GET(kp_src, n, 2, double);
 	    r_sq=(x-x_c)*(x-x_c)+(y-y_c)*(y-y_c)+(z-z_c)*(z-z_c);
 	    if(r_sq==0){
 		U[n]=0.0;
@@ -2234,19 +2235,19 @@ int apply_Tps_Mat_rm(Tps *tps, Mat_rm *mat_in, Mat_rm *mat_out) {
 	for (m=0;m<3;m++){ //For 3D!
 	    temp=0.0;
 	    for (n=0;n<ctrl_pts;n++){
-		temp += U[n]*MAT_RM_GET(params, m, n, double);		
+		temp += U[n]*SIFT3D_MAT_RM_GET(params, m, n, double);		
 	    }	
-	    temp += MAT_RM_GET(params, m, ctrl_pts, double);
-	    temp += MAT_RM_GET(params, m, ctrl_pts+1, double)*x;
-	    temp += MAT_RM_GET(params, m, ctrl_pts+2, double)*y;
-	    temp += MAT_RM_GET(params, m, ctrl_pts+3, double)*z;
+	    temp += SIFT3D_MAT_RM_GET(params, m, ctrl_pts, double);
+	    temp += SIFT3D_MAT_RM_GET(params, m, ctrl_pts+1, double)*x;
+	    temp += SIFT3D_MAT_RM_GET(params, m, ctrl_pts+2, double)*y;
+	    temp += SIFT3D_MAT_RM_GET(params, m, ctrl_pts+3, double)*z;
 
 	    //Store results
-	    MAT_RM_GET(mat_out, m, q, double) = temp;
+	    SIFT3D_MAT_RM_GET(mat_out, m, q, double) = temp;
 	}
 
     }	
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 }
 
 /* Get the size of a tform by its type. */
@@ -2266,7 +2267,7 @@ size_t tform_get_size(tform_type type) {
 int cleanup_tform(void *tform, tform_type type) {
 
     if (tform == NULL)
-      return SUCCESS;
+      return SIFT3D_SUCCESS;
 
     switch (type) {
 	case AFFINE:
@@ -2277,10 +2278,10 @@ int cleanup_tform(void *tform, tform_type type) {
 	    break;
 	default:
 	    puts("cleanup_tform: unknown transformation type \n");
-	    return FAILURE;
+	    return SIFT3D_FAILURE;
     }
 
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 }
 
 /* Free the memory associated with an Affine transformation. */
@@ -2311,7 +2312,8 @@ void cleanup_Tps(Tps *tps) {
  * All matrices must be initialized with init_Mat_rm prior to use. */
 int apply_Affine_Mat_rm(Affine *affine, Mat_rm *mat_in, Mat_rm *mat_out) {
 
-    return mul_Mat_rm(&affine->A, mat_in, mat_out) ? FAILURE : SUCCESS;
+    return mul_Mat_rm(&affine->A, mat_in, mat_out) ? 
+                SIFT3D_FAILURE : SIFT3D_SUCCESS;
 }
 
 /* Computes mat_in1 * mat_in2 = mat_out. mat_out will be resized
@@ -2325,24 +2327,24 @@ int mul_Mat_rm(Mat_rm *mat_in1, Mat_rm *mat_in2, Mat_rm *mat_out) {
     // Verify inputs
     if (mat_in1->num_cols != mat_in2->num_rows ||
 	    mat_in1->type != mat_in2->type)
-	return FAILURE;
+	return SIFT3D_FAILURE;
 
     // Resize mat_out
     mat_out->type = mat_in1->type;
     mat_out->num_rows = mat_in1->num_rows;
     mat_out->num_cols = mat_in2->num_cols;
     if (resize_Mat_rm(mat_out))
-	return FAILURE;
+	return SIFT3D_FAILURE;
 
 #define MAT_RM_MULTIPLY(type) \
-    MAT_RM_LOOP_START(mat_out, i, j) \
+    SIFT3D_MAT_RM_LOOP_START(mat_out, i, j) \
     type acc = 0; \
     for (k = 0; k < mat_in1->num_cols; k++) { \
-	acc += MAT_RM_GET(mat_in1, i, k, type) * \
-	MAT_RM_GET(mat_in2, k, j, type); \
+	acc += SIFT3D_MAT_RM_GET(mat_in1, i, k, type) * \
+	SIFT3D_MAT_RM_GET(mat_in2, k, j, type); \
     } \
-    MAT_RM_GET(mat_out, i, j, type) = acc; \
-    MAT_RM_LOOP_END
+    SIFT3D_MAT_RM_GET(mat_out, i, j, type) = acc; \
+    SIFT3D_MAT_RM_LOOP_END
 
     // Row-major multiply
     switch (mat_out->type) {
@@ -2357,11 +2359,11 @@ int mul_Mat_rm(Mat_rm *mat_in1, Mat_rm *mat_in2, Mat_rm *mat_out) {
 		break;
 	default:
 	    puts("mul_Mat_rm: unknown type \n");
-	    return FAILURE;
+	    return SIFT3D_FAILURE;
     }	
 #undef MAT_RM_MULTIPLY
 
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 }
 
 /* Computes the eigendecomposition of a real symmetric matrix, 
@@ -2406,11 +2408,11 @@ int eigen_Mat_rm(Mat_rm *A, Mat_rm *Q, Mat_rm *L) {
     // Verify inputs
     if (A->num_rows != n) {
 	puts("eigen_Mat_rm: A be square \n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
     }
     if (A->type != DOUBLE) {
 	puts("eigen_Mat_rm: A must have type double \n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
     }
 
     // Resize outputs
@@ -2418,12 +2420,12 @@ int eigen_Mat_rm(Mat_rm *A, Mat_rm *Q, Mat_rm *L) {
     L->num_cols = 1;
     L->type = DOUBLE;
     if (resize_Mat_rm(L))
-	return FAILURE;
+	return SIFT3D_FAILURE;
 
     // Initialize intermediate matrices and buffers
     work = NULL;
     iwork = NULL;
-    if (init_Mat_rm(&A_trans, 0, 0, DOUBLE, FALSE))
+    if (init_Mat_rm(&A_trans, 0, 0, DOUBLE, SIFT3D_FALSE))
 	goto EIGEN_MAT_RM_QUIT;
 
     // Copy the input matrix (A = A')
@@ -2462,7 +2464,7 @@ int eigen_Mat_rm(Mat_rm *A, Mat_rm *Q, Mat_rm *L) {
     free(work);
     free(iwork);
     cleanup_Mat_rm(&A_trans);
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 
 EIGEN_MAT_RM_QUIT: 
     if (work != NULL)
@@ -2470,12 +2472,12 @@ EIGEN_MAT_RM_QUIT:
     if (iwork != NULL)
 	free(iwork);
     cleanup_Mat_rm(&A_trans);
-    return FAILURE;
+    return SIFT3D_FAILURE;
 }
 
 /* Solves the system AX=B exactly. A must be a square matrix.
  * This function first computes the reciprocal condition number of A.
- * If it is below the parameter "limit", it returns SINGULAR. If limit 
+ * If it is below the parameter "limit", it returns SIFT3D_SINGULAR. If limit 
  * is less than 0, a default value of 100 * eps is used.
  *
  * The system is solved by LU decomposition.
@@ -2508,19 +2510,19 @@ int solve_Mat_rm(Mat_rm *A, Mat_rm *B, double limit, Mat_rm *X) {
     // Verify inputs
     if (m != n || ldb != m) {
 	puts("solve_Mat_rm: invalid dimensions! \n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
     }	
     if (A->type != DOUBLE || B->type != DOUBLE) {
 	puts("solve_mat_rm: All matrices must have type double \n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
     }
     
     // Initialize intermediate matrices and buffers
     ipiv = NULL;
     work = NULL;
     iwork = NULL;
-    if (init_Mat_rm(&A_trans, 0, 0, DOUBLE, FALSE) ||
-	init_Mat_rm(&B_trans, 0, 0, DOUBLE, FALSE) ||
+    if (init_Mat_rm(&A_trans, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+	init_Mat_rm(&B_trans, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 	(work = (double *) malloc(n * 4 * sizeof(double))) == NULL ||
 	(iwork = (int *) malloc(n * sizeof(int))) == NULL ||
 	(ipiv = (int *) calloc(m, sizeof(int))) == NULL)
@@ -2573,7 +2575,7 @@ int solve_Mat_rm(Mat_rm *A, Mat_rm *B, double limit, Mat_rm *X) {
     free(iwork);
     cleanup_Mat_rm(&A_trans);
     cleanup_Mat_rm(&B_trans);
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 
 SOLVE_MAT_RM_SINGULAR:
     free(ipiv);	
@@ -2581,7 +2583,7 @@ SOLVE_MAT_RM_SINGULAR:
     free(iwork);
     cleanup_Mat_rm(&A_trans);
     cleanup_Mat_rm(&B_trans);
-    return SINGULAR;
+    return SIFT3D_SINGULAR;
 
 SOLVE_MAT_RM_QUIT:
     if (ipiv != NULL) 
@@ -2592,7 +2594,7 @@ SOLVE_MAT_RM_QUIT:
 	free(iwork);
     cleanup_Mat_rm(&A_trans);
     cleanup_Mat_rm(&B_trans);
-    return FAILURE;
+    return SIFT3D_FAILURE;
 }
 
 /* Solves the system AX=B by least-squares.
@@ -2623,11 +2625,11 @@ int solve_Mat_rm_ls(Mat_rm *A, Mat_rm *B, Mat_rm *X) {
     // Verify inputs 
     if (m != ldb) {
 	puts("solve_Mat_rm_ls: invalid dimensions \n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
     }
     if (A->type != DOUBLE || B->type != DOUBLE) {
 	puts("solve_mat_rm_ls: All matrices must have type double \n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
     }
 
     // Resize the output 
@@ -2635,14 +2637,14 @@ int solve_Mat_rm_ls(Mat_rm *A, Mat_rm *B, Mat_rm *X) {
     X->num_rows = A->num_cols;
     X->num_cols = B->num_cols;
     if (resize_Mat_rm(X))
-	return FAILURE;
+	return SIFT3D_FAILURE;
 
     // Initialize intermediate matrices and buffers
     s = NULL;
     work = NULL;
-    if (init_Mat_rm(&A_trans, 0, 0, DOUBLE, FALSE) ||
-	init_Mat_rm(&B_trans, 0, 0, DOUBLE, FALSE) ||
-	(s = (double *) calloc(MAX(m, n), sizeof(double))) == NULL)
+    if (init_Mat_rm(&A_trans, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+	init_Mat_rm(&B_trans, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+	(s = (double *) calloc(SIFT3D_MAX(m, n), sizeof(double))) == NULL)
 	goto SOLVE_MAT_RM_LS_QUIT;
 
     // Transpose matrices for LAPACK
@@ -2671,15 +2673,16 @@ int solve_Mat_rm_ls(Mat_rm *A, Mat_rm *B, Mat_rm *X) {
     }
 
     // Transpose results to the new leading dimension
-    MAT_RM_LOOP_START(X, i, j)
-	MAT_RM_GET(X, i, j, double) = MAT_RM_GET(&B_trans, j, i, double);
-    MAT_RM_LOOP_END
+    SIFT3D_MAT_RM_LOOP_START(X, i, j)
+	SIFT3D_MAT_RM_GET(X, i, j, double) = 
+                SIFT3D_MAT_RM_GET(&B_trans, j, i, double);
+    SIFT3D_MAT_RM_LOOP_END
 
     free(s);
     free(work);
     cleanup_Mat_rm(&A_trans);
     cleanup_Mat_rm(&B_trans);
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 
 SOLVE_MAT_RM_LS_QUIT:
     if (s != NULL)
@@ -2688,7 +2691,7 @@ SOLVE_MAT_RM_LS_QUIT:
 	free(work);
     cleanup_Mat_rm(&A_trans);
     cleanup_Mat_rm(&B_trans);
-    return FAILURE;
+    return SIFT3D_FAILURE;
 }
 
 /* Computes the trace of a matrix. trace is assumed to be the same type as
@@ -2702,14 +2705,14 @@ int trace_Mat_rm(Mat_rm *mat, void *trace) {
 
     // Verify inputs
     if (mat->num_rows != mat->num_cols || mat->num_rows < 1) {
-	return FAILURE;
+	return SIFT3D_FAILURE;
     }
 
 #define TRACE_MAT_RM(type) \
     {\
 	type acc = 0; \
 	for (i = 0; i < mat->num_rows; i++) { \
-	    acc += MAT_RM_GET(mat, i, i, type); \
+	    acc += SIFT3D_MAT_RM_GET(mat, i, i, type); \
 	} \
 	*((type *) trace) = acc; \
     }
@@ -2727,11 +2730,11 @@ int trace_Mat_rm(Mat_rm *mat, void *trace) {
 	    break;
 	default:
 	    puts("trace_Mat_rm: unknown type \n");
-	    return FAILURE;
+	    return SIFT3D_FAILURE;
     }	
 #undef TRACE_MAT_RM 
 
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 } 
 
 /* Tranposes a matrix. Resizes dst with the type of src. 
@@ -2742,19 +2745,20 @@ int transpose_Mat_rm(Mat_rm *src, Mat_rm *dst) {
 
     // Verify inputs
     if (src->num_rows < 1 || src->num_cols < 1)
-	return FAILURE;
+	return SIFT3D_FAILURE;
 
     // Resize the output
     dst->type = src->type;
     dst->num_rows = src->num_cols;
     dst->num_cols = src->num_rows;
     if (resize_Mat_rm(dst))
-	return FAILURE;
+	return SIFT3D_FAILURE;
 
 #define TRANSPOSE_MAT_RM(type) \
-    MAT_RM_LOOP_START(src, i, j) \
-	MAT_RM_GET(dst, j, i, type) = MAT_RM_GET(src, i, j, type); \
-    MAT_RM_LOOP_END
+    SIFT3D_MAT_RM_LOOP_START(src, i, j) \
+	SIFT3D_MAT_RM_GET(dst, j, i, type) = \
+                SIFT3D_MAT_RM_GET(src, i, j, type); \
+    SIFT3D_MAT_RM_LOOP_END
 
     // Transpose
     switch(src->type) {
@@ -2771,11 +2775,11 @@ int transpose_Mat_rm(Mat_rm *src, Mat_rm *dst) {
 #ifndef NDEBUG
 	    puts("transpose_Mat_rm: unknown type \n");
 #endif
-	    return FAILURE;
+	    return SIFT3D_FAILURE;
     }
 #undef TRANSPOSE_MAT_RM
 
-    return SUCCESS;
+    return SIFT3D_SUCCESS;
 }
 
 /* Computes the determinant of a symmetric matrix. det is assumed to be the 
@@ -2796,12 +2800,12 @@ int det_symm_Mat_rm(Mat_rm *mat, void *det) {
     // Verify inputs
     if (n < 1 || mat->num_rows != n) {
 	puts("det_symm_Mat_rm: invalid dimensions \n");
-	return FAILURE;
+	return SIFT3D_FAILURE;
     }
 
     // Initialize intermediates
-    if (init_Mat_rm(&matd, 0, 0, mat->type, FALSE) ||
-	init_Mat_rm(&L, n, 1, DOUBLE, FALSE))
+    if (init_Mat_rm(&matd, 0, 0, mat->type, SIFT3D_FALSE) ||
+	init_Mat_rm(&L, n, 1, DOUBLE, SIFT3D_FALSE))
 	goto DET_SYMM_QUIT;
 
     // Convert the matrix to type double
@@ -2814,9 +2818,9 @@ int det_symm_Mat_rm(Mat_rm *mat, void *det) {
 
     // Take the determinant
     detd = 0.0;
-    MAT_RM_LOOP_START(&L, i, j)
-	detd += MAT_RM_GET(&L, i, j, double);
-    MAT_RM_LOOP_END
+    SIFT3D_MAT_RM_LOOP_START(&L, i, j)
+	detd += SIFT3D_MAT_RM_GET(&L, i, j, double);
+    SIFT3D_MAT_RM_LOOP_END
 
     // Convert the output to the correct type
     switch (mat->type) {
@@ -2836,12 +2840,12 @@ int det_symm_Mat_rm(Mat_rm *mat, void *det) {
    
     cleanup_Mat_rm(&matd);
     cleanup_Mat_rm(&L);
-    return SUCCESS; 
+    return SIFT3D_SUCCESS; 
 
 DET_SYMM_QUIT:
     cleanup_Mat_rm(&matd);
     cleanup_Mat_rm(&L);
-    return FAILURE;
+    return SIFT3D_FAILURE;
 }
 
 /* Apply a separable filter in multiple dimensions. */
@@ -2856,7 +2860,7 @@ int apply_Sep_FIR_filter(const Image *const src, Image *const dst,
 	int i;
 
 	// Choose a filtering function
-#ifdef USE_OPENCL
+#ifdef SIFT3D_USE_OPENCL
 	filter_fun = convolve_sep_cl;
 #else
 	filter_fun = f->symmetric ? convolve_sep_sym : convolve_sep;
@@ -2867,7 +2871,7 @@ int apply_Sep_FIR_filter(const Image *const src, Image *const dst,
         dst->nc = src->nc;
 	im_default_stride(dst);
 	if (im_resize(dst))
-	    return FAILURE;
+	    return SIFT3D_FAILURE;
 
 	// Allocate temporary storage
 	init_im(&temp);
@@ -2890,7 +2894,7 @@ int apply_Sep_FIR_filter(const Image *const src, Image *const dst,
 		filter_fun(cur_src, cur_dst, f, i);
 		SWAP_BUFFERS
 #if 0
-#ifdef USE_OPENCL
+#ifdef SIFT3D_USE_OPENCL
 		filter_fun(cur_src, cur_dst, f, i);
 		SWAP_BUFFERS
 #else
@@ -2928,11 +2932,11 @@ int apply_Sep_FIR_filter(const Image *const src, Image *const dst,
 
 	// Clean up
 	im_free(&temp);
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 
 apply_sep_f_quit:
 	im_free(&temp);
-	return FAILURE;
+	return SIFT3D_FAILURE;
 }
 
 /* Initialize a separable FIR filter struct with the given parameters. If OpenCL
@@ -2946,7 +2950,7 @@ int init_Sep_FIR_filter(Sep_FIR_filter *f, int dim, int half_width, int width,
 	f->kernel = kernel;
 	f->symmetric = symmetric;
 
-#ifdef USE_OPENCL
+#ifdef SIFT3D_USE_OPENCL
 	{
 		char src[1 << 15];
 		char *template;
@@ -2961,7 +2965,7 @@ int init_Sep_FIR_filter(Sep_FIR_filter *f, int dim, int half_width, int width,
 		// Load the template
 		if ((template = read_file(path)) == NULL) {
 			printf("init_Sep_FIR_Filter: error reading path %s \n", path);
-			return FAILURE;
+			return SIFT3D_FAILURE;
 		}
 		sprintf(src, "%s\n", template);
 
@@ -2980,13 +2984,13 @@ int init_Sep_FIR_filter(Sep_FIR_filter *f, int dim, int half_width, int width,
 		if (compile_cl_program_from_source(&program, cl_data.context, 
 										   cl_data.devices, cl_data.num_devices,
 			   							   (char **) &src, 1))
-			return FAILURE;
+			return SIFT3D_FAILURE;
 		f->cl_apply_unrolled = clCreateKernel(program, "sep_fir_3d", &err); 
 		check_cl_error(err, "init_Sep_FIR_Filter: create kernel");
 		clReleaseProgram(program);
 	}
 #endif
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Free a Sep_FIR_Filter. */
@@ -2997,7 +3001,7 @@ void cleanup_Sep_FIR_filter(Sep_FIR_filter *f) {
                 f->kernel = NULL; 
         }
 
-#ifdef USE_OPENCL
+#ifdef SIFT3D_USE_OPENCL
         //TODO release OpenCL program
 #endif
 }
@@ -3008,7 +3012,7 @@ void init_im(Image *im) {
 	im->data = NULL;
 	im->dims = &im->nx;
 	im->strides = &im->x_stride;
-	im->cl_valid = FALSE;
+	im->cl_valid = SIFT3D_FALSE;
 
 	im->size = 0;
 	im->s = -1.0;
@@ -3032,10 +3036,10 @@ int init_Gauss_filter(Gauss_filter *gauss, double sigma, int dim) {
 	int i, width, half_width;
 
 	// Compute dimensions and initialize kernel
-	half_width = MAX((int) ceil(sigma * GAUSS_RATIO_WIDTH_SIGMA), 1);
+	half_width = SIFT3D_MAX((int) ceil(sigma * GAUSS_RATIO_WIDTH_SIGMA), 1);
 	width = 2 * half_width + 1;
 	if ((kernel = (float *) malloc(width * sizeof(float))) == NULL)
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
 	// Calculate coefficients
 	acc = 0;
@@ -3058,13 +3062,13 @@ int init_Gauss_filter(Gauss_filter *gauss, double sigma, int dim) {
 		kernel[i] /= acc;
 	}
 
-#ifdef USE_OPENCL
+#ifdef SIFT3D_USE_OPENCL
 	// TODO: write and compile OpenCL program based on Sep_sym_FIR_filter
 #endif
 
 	// Save data
 	gauss->sigma = sigma;
-	return init_Sep_FIR_filter(&gauss->f, dim, half_width, width, kernel, TRUE);
+	return init_Sep_FIR_filter(&gauss->f, dim, half_width, width, kernel, SIFT3D_TRUE);
 }
 
 /* Initialize a Gaussian filter to go from scale s_cur to s_next. */
@@ -3080,9 +3084,9 @@ int init_Gauss_incremental_filter(Gauss_filter *const gauss,
 
 	// Initialize filter kernel
 	if (init_Gauss_filter(gauss, sigma, dim))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Free a Gauss_filter */
@@ -3108,25 +3112,25 @@ int init_gss(GSS_filters *gss, Pyramid *pyr) {
 	// Initialize filter array
 	if ((gss->gauss_octave = (Gauss_filter *) malloc(num_filters *
 		sizeof(Gauss_filter))) == NULL)
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
 	// Initialize filter for the very first blur
-	next = PYR_IM_GET(pyr, pyr->first_octave, first_level);
+	next = SIFT3D_PYR_IM_GET(pyr, pyr->first_octave, first_level);
 	if (init_Gauss_incremental_filter(&gss->first_gauss, pyr->sigma_n,
 									  next->s, dim))
-		return FAILURE;
+		return SIFT3D_FAILURE;
 
 	// Initialize one octave of filters (num_levels - 1)
 	o = pyr->first_octave;
 	for (s = first_level; s < last_level; s++) {
-		cur = PYR_IM_GET(pyr, o, s);
-		next = PYR_IM_GET(pyr, o, s + 1);
-		if (init_Gauss_incremental_filter(GAUSS_GET(gss, s),
+		cur = SIFT3D_PYR_IM_GET(pyr, o, s);
+		next = SIFT3D_PYR_IM_GET(pyr, o, s + 1);
+		if (init_Gauss_incremental_filter(SIFT3D_GAUSS_GET(gss, s),
 										  cur->s, next->s, dim))
-			return FAILURE;
+			return SIFT3D_FAILURE;
 	}
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Initialize scale-space pyramid according to the size of 
@@ -3160,17 +3164,17 @@ int init_pyramid(Pyramid *pyr, Image *im) {
 		// Pyramid has not been used before. Initialize buffers to NULL.
 		if ((pyr->levels = malloc(num_total_levels *
 			sizeof(Image))) == NULL)
-			return FAILURE;
-		PYR_LOOP_START(pyr, o, s)
-			level = PYR_IM_GET(pyr, o, s);
+			return SIFT3D_FAILURE;
+		SIFT3D_PYR_LOOP_START(pyr, o, s)
+			level = SIFT3D_PYR_IM_GET(pyr, o, s);
 			init_im(level);
-		PYR_LOOP_END
+		SIFT3D_PYR_LOOP_END
 	}
 	else {
 		// Array has been used before. Resize it.
 		if ((pyr->levels = realloc(pyr->levels, num_total_levels *
 			sizeof(Image))) == NULL)
-			return FAILURE;
+			return SIFT3D_FAILURE;
 	}
 
 	// Calculate base image dimensions
@@ -3180,9 +3184,9 @@ int init_pyramid(Pyramid *pyr, Image *im) {
 	nz = (int) (im->nz * factor);
 
 	// Initialize each level separately
-	PYR_LOOP_START(pyr, o, s)
+	SIFT3D_PYR_LOOP_START(pyr, o, s)
 			// Initialize Image fields
-			level = PYR_IM_GET(pyr, o, s);
+			level = SIFT3D_PYR_IM_GET(pyr, o, s);
 			level->s = factor * pyr->sigma0 * 
 				pow(2, o + (double)s / pyr->num_kp_levels);
 			level->nx = nx;
@@ -3193,14 +3197,14 @@ int init_pyramid(Pyramid *pyr, Image *im) {
 
 			// Re-size data memory
 			if (im_resize(level))
-				return FAILURE;
+				return SIFT3D_FAILURE;
 
-		PYR_LOOP_SCALE_END
+		SIFT3D_PYR_LOOP_SCALE_END
 		// Adjust dimensions and recalculate image size
 		nx /= 2; ny /= 2; nz /= 2;
-	PYR_LOOP_OCTAVE_END
+	SIFT3D_PYR_LOOP_OCTAVE_END
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Initialize a Slab for first use */
@@ -3225,18 +3229,18 @@ int write_pyramid(const char *path, Pyramid *pyr) {
 
 	// Validate or create output directory
 	if (mkpath(path, 0777))
-		return FAILURE;	
+		return SIFT3D_FAILURE;	
 
 	// Save each image a separate file
-	PYR_LOOP_START(pyr, o, s)
+	SIFT3D_PYR_LOOP_START(pyr, o, s)
 		sprintf(path_appended, "%s_o%i_s%i", path, 
 				o, s);
 		if (write_nii(path_appended, 
-			PYR_IM_GET(pyr, o, s)))
-			return FAILURE;	
-	PYR_LOOP_END
+			SIFT3D_PYR_IM_GET(pyr, o, s)))
+			return SIFT3D_FAILURE;	
+	SIFT3D_PYR_LOOP_END
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Exit and print a message to stdout. */
@@ -3283,7 +3287,7 @@ int mkpath(const char *path, mode_t mode)
 		*sp = '\0';
         } else {
                 /* If there is no '/', we have nothing to do */
-                return SUCCESS;
+                return SIFT3D_SUCCESS;
         }
 
 	status = 0;
@@ -3335,17 +3339,17 @@ static int do_mkdir(const char *path, mode_t mode)
 int init_Tps(Tps *tps, int dim, int terms) {
 	// Verify inputs
 	if (dim < 2)
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	
 	// Initialize the matrix
 	if (init_Mat_rm(&tps->params, dim, terms,
-					DOUBLE, TRUE))
-		return FAILURE;
+					DOUBLE, SIFT3D_TRUE))
+		return SIFT3D_FAILURE;
 		
 	if (init_Mat_rm(&tps->kp_src, terms-dim-1,dim,
-					DOUBLE, TRUE))
-		return FAILURE;
-	return SUCCESS;
+					DOUBLE, SIFT3D_TRUE))
+		return SIFT3D_FAILURE;
+	return SIFT3D_SUCCESS;
 	
 	tps->dim=dim;
 }
@@ -3354,11 +3358,11 @@ int init_Tps(Tps *tps, int dim, int terms) {
 int init_Ransac(Ransac *ran) { 
 
         /* Set the default parameters */
-	ran->min_inliers = MIN_INLIERS_DEFAULT; 
- 	ran->err_thresh = ERR_THRESH_DEFAULT;
-	ran->num_iter = NUM_ITER_DEFAULT;
+	ran->min_inliers = min_inliers_default; 
+ 	ran->err_thresh = err_thresh_default;
+	ran->num_iter = num_iter_default;
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 int set_min_inliers_Ransac(Ransac *ran, double min_inliers) {
@@ -3366,12 +3370,12 @@ int set_min_inliers_Ransac(Ransac *ran, double min_inliers) {
         if (min_inliers < 0.0) {
                 fprintf(stderr, "set_min_inliers_Ransac: invalid minimum "
                         "inlier ratio: %f", min_inliers);
-                return FAILURE;
+                return SIFT3D_FAILURE;
         }
 
         ran->min_inliers = min_inliers;
 
-        return SUCCESS;
+        return SIFT3D_SUCCESS;
 }
 
 int set_err_thresh_Ransac(Ransac *ran, double err_thresh) {
@@ -3379,12 +3383,12 @@ int set_err_thresh_Ransac(Ransac *ran, double err_thresh) {
         if (err_thresh < 0.0) {
                 fprintf(stderr, "set_err_thresh_Ransac: invalid error "
                         "threshold: %f", err_thresh);
-                return FAILURE;
+                return SIFT3D_FAILURE;
         }
 
         ran->err_thresh = err_thresh;
 
-        return SUCCESS;
+        return SIFT3D_SUCCESS;
 }
 
 void set_num_iter_Ransac(Ransac *ran, unsigned int num_iter) {
@@ -3413,19 +3417,19 @@ static int rand_rows(Mat_rm *in1, Mat_rm *in2, Mat_rm *out1, Mat_rm *out2,
         if (in2->num_rows != num_rows_in || 
             in2->num_cols != num_cols) {
           puts("rand_rows; inputs must have the same dimension \n");
-          return FAILURE;
+          return SIFT3D_FAILURE;
         }
         if (in1->num_rows > RAND_MAX) {
           puts("rand_rows: input matrix is too large \n");
-          return FAILURE;
+          return SIFT3D_FAILURE;
         }
         if (num_remove < 0) {
           puts("rand_rows: not enough rows in the matrix \n");
-          return FAILURE;
+          return SIFT3D_FAILURE;
         }
         if (in1->type != DOUBLE || in2->type != DOUBLE) {
           puts("rand_rows: inputs must have type int \n");
-          return FAILURE;
+          return SIFT3D_FAILURE;
         }
 
         // Resize the outputs
@@ -3433,15 +3437,15 @@ static int rand_rows(Mat_rm *in1, Mat_rm *in2, Mat_rm *out1, Mat_rm *out2,
         out1->num_rows = out2->num_rows = num_rows;
         out1->num_cols = out2->num_cols = num_cols;
         if (resize_Mat_rm(out1) || resize_Mat_rm(out2))
-          return FAILURE;
+          return SIFT3D_FAILURE;
 
         // Initialize a list with all of the row indices
         if (init_List(&row_indices, num_rows_in))
-          return FAILURE;
+          return SIFT3D_FAILURE;
 
         for (i = 0; i < num_rows_in; i++) {
           if (List_get(row_indices, i, &el))
-            return FAILURE;
+            return SIFT3D_FAILURE;
           el->idx = i;
         }
 
@@ -3453,26 +3457,28 @@ static int rand_rows(Mat_rm *in1, Mat_rm *in2, Mat_rm *out1, Mat_rm *out2,
 
 	  // Remove that element
           if (List_get(row_indices, idx, &el))
-		return FAILURE;
+		return SIFT3D_FAILURE;
           List_remove(&row_indices, el);
           list_size--;
         }
 
         // Build the output matrices
         el = row_indices;
-	MAT_RM_LOOP_START(out1, i, j)
-            MAT_RM_GET(out1, i, j, double) = MAT_RM_GET(in1, el->idx, j, double);
-            MAT_RM_GET(out2, i, j, double) = MAT_RM_GET(in2, el->idx, j, double);
-	    MAT_RM_LOOP_COL_END
+	SIFT3D_MAT_RM_LOOP_START(out1, i, j)
+            SIFT3D_MAT_RM_GET(out1, i, j, double) = 
+                SIFT3D_MAT_RM_GET(in1, el->idx, j, double);
+            SIFT3D_MAT_RM_GET(out2, i, j, double) = 
+                        SIFT3D_MAT_RM_GET(in2, el->idx, j, double);
+	    SIFT3D_MAT_RM_LOOP_COL_END
 
           // Get the next row
           el = el->next;
-	MAT_RM_LOOP_ROW_END
+	SIFT3D_MAT_RM_LOOP_ROW_END
 
         // Clean up
         cleanup_List(row_indices);
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 /* Initialize a list of num elements. */
@@ -3484,7 +3490,7 @@ static int init_List(List **list, const int num) {
   prev = NULL;
   for (i = 0; i < num; i++) {
     if ((cur = (List *) malloc(sizeof(List))) == NULL)
-      return FAILURE;
+      return SIFT3D_FAILURE;
 
     if (i == 0)
       *list = cur;
@@ -3498,11 +3504,11 @@ static int init_List(List **list, const int num) {
     prev = cur;
   }
 
-  return SUCCESS;
+  return SIFT3D_SUCCESS;
 }
 
 /* Get the element idx in list. Returns a pointer to the element in el.
- * Returns FAILURE if NULL is reached before idx elements have been 
+ * Returns SIFT3D_FAILURE if NULL is reached before idx elements have been 
  * traversed. */
 static int List_get(List *list, const int idx, List **el) {
 
@@ -3510,18 +3516,18 @@ static int List_get(List *list, const int idx, List **el) {
 
     // Verify inputs
     if (idx < 0)
-	return FAILURE;
+	return SIFT3D_FAILURE;
 
   // Traverse the list 
   for (i = 0; i < idx; i++) {
     list = list->next;
 
     if (list == NULL)
-      return FAILURE;
+      return SIFT3D_FAILURE;
   }
 
   *el = list;
-  return SUCCESS;
+  return SIFT3D_SUCCESS;
 }
 
 /* Remove an element from its list, freeing its memory. */
@@ -3563,64 +3569,64 @@ static int make_spline_matrix(Mat_rm* src, Mat_rm* src_in, Mat_rm* sp_src, int K
 	double x,y,z,x2,y2,z2,r_sq,U;
 	src_in->type = DOUBLE;
 	sp_src->type = DOUBLE;
- 	if (init_Mat_rm(src_in, K_terms+dim+1, K_terms+dim+1, DOUBLE, TRUE)){
-		return FAILURE;
+ 	if (init_Mat_rm(src_in, K_terms+dim+1, K_terms+dim+1, DOUBLE, SIFT3D_TRUE)){
+		return SIFT3D_FAILURE;
 	}
- 	if (init_Mat_rm(sp_src, K_terms, dim, DOUBLE, TRUE)){
-		return FAILURE;
+ 	if (init_Mat_rm(sp_src, K_terms, dim, DOUBLE, SIFT3D_TRUE)){
+		return SIFT3D_FAILURE;
 	}	
  	for (i=0;i<K_terms;i++){
 		//get the coordinate of current point
 		switch (dim) {
 			case 2:
-				x = MAT_RM_GET(src, r[i], 0, double);
-				y = MAT_RM_GET(src, r[i], 1, double);
+				x = SIFT3D_MAT_RM_GET(src, r[i], 0, double);
+				y = SIFT3D_MAT_RM_GET(src, r[i], 1, double);
 				break;
 			case 3:
-				x = MAT_RM_GET(src, r[i], 0, double);
-				y = MAT_RM_GET(src, r[i], 1, double);
-				z = MAT_RM_GET(src, r[i], 2, double);
+				x = SIFT3D_MAT_RM_GET(src, r[i], 0, double);
+				y = SIFT3D_MAT_RM_GET(src, r[i], 1, double);
+				z = SIFT3D_MAT_RM_GET(src, r[i], 2, double);
 				break;
 		}
 		for (d=0;d<i;d++){
 			//compute r
 			switch (dim) {
 				case 2:
-					x2 = MAT_RM_GET(src, r[d], 0, double);
-					y2 = MAT_RM_GET(src, r[d], 1, double);
+					x2 = SIFT3D_MAT_RM_GET(src, r[d], 0, double);
+					y2 = SIFT3D_MAT_RM_GET(src, r[d], 1, double);
 					r_sq=(x-x2)*(x-x2)+(y-y2)*(y-y2);
 					break;
 				case 3:
-					x2 = MAT_RM_GET(src, r[d], 0, double);
-					y2 = MAT_RM_GET(src, r[d], 1, double);
-					z2 = MAT_RM_GET(src, r[d], 2, double);
+					x2 = SIFT3D_MAT_RM_GET(src, r[d], 0, double);
+					y2 = SIFT3D_MAT_RM_GET(src, r[d], 1, double);
+					z2 = SIFT3D_MAT_RM_GET(src, r[d], 2, double);
 					r_sq=(x-x2)*(x-x2)+(y-y2)*(y-y2)+(z-z2)*(z-z2);
 					break;
 			}
 			//compute U
 			U=r_sq*log(r_sq);
 			//construct K
-			MAT_RM_GET(src_in, i, d, double)=U;
-			MAT_RM_GET(src_in, d, i, double)=U;				
+			SIFT3D_MAT_RM_GET(src_in, i, d, double)=U;
+			SIFT3D_MAT_RM_GET(src_in, d, i, double)=U;				
 		}
-		MAT_RM_GET(src_in, i, i, double)=0.0;
+		SIFT3D_MAT_RM_GET(src_in, i, i, double)=0.0;
 		//construct P and P'
-		MAT_RM_GET(src_in, i, K_terms, double)=1.0;
-		MAT_RM_GET(src_in, K_terms, i, double)=1.0;
+		SIFT3D_MAT_RM_GET(src_in, i, K_terms, double)=1.0;
+		SIFT3D_MAT_RM_GET(src_in, K_terms, i, double)=1.0;
 		switch (dim) {
 			case 2:
-				MAT_RM_GET(src_in, i, K_terms+1, double)=x;
-				MAT_RM_GET(src_in, i, K_terms+2, double)=y;
-				MAT_RM_GET(src_in, K_terms+1, i,double)=x;
-				MAT_RM_GET(src_in, K_terms+2, i,double)=y;
+				SIFT3D_MAT_RM_GET(src_in, i, K_terms+1, double)=x;
+				SIFT3D_MAT_RM_GET(src_in, i, K_terms+2, double)=y;
+				SIFT3D_MAT_RM_GET(src_in, K_terms+1, i,double)=x;
+				SIFT3D_MAT_RM_GET(src_in, K_terms+2, i,double)=y;
 				break;
 			case 3:
-				MAT_RM_GET(src_in, i, K_terms+1, double)=x;
-				MAT_RM_GET(src_in, i, K_terms+2, double)=y;
-				MAT_RM_GET(src_in, i, K_terms+3, double)=z;
-				MAT_RM_GET(src_in, K_terms+1, i, double)=x;
-				MAT_RM_GET(src_in, K_terms+2, i, double)=y;
-				MAT_RM_GET(src_in, K_terms+3, i, double)=z;				
+				SIFT3D_MAT_RM_GET(src_in, i, K_terms+1, double)=x;
+				SIFT3D_MAT_RM_GET(src_in, i, K_terms+2, double)=y;
+				SIFT3D_MAT_RM_GET(src_in, i, K_terms+3, double)=z;
+				SIFT3D_MAT_RM_GET(src_in, K_terms+1, i, double)=x;
+				SIFT3D_MAT_RM_GET(src_in, K_terms+2, i, double)=y;
+				SIFT3D_MAT_RM_GET(src_in, K_terms+3, i, double)=z;				
 				break;
 		}
 		
@@ -3628,13 +3634,13 @@ static int make_spline_matrix(Mat_rm* src, Mat_rm* src_in, Mat_rm* sp_src, int K
 		//construct sp_src matrix(matrix that stores control points)
 		switch (dim) {
 			case 2:
-				MAT_RM_GET(sp_src, i, 0, double)=x;
-				MAT_RM_GET(sp_src, i, 1, double)=y;
+				SIFT3D_MAT_RM_GET(sp_src, i, 0, double)=x;
+				SIFT3D_MAT_RM_GET(sp_src, i, 1, double)=y;
 				break;
 			case 3:
-				MAT_RM_GET(sp_src, i, 0, double)=x;
-				MAT_RM_GET(sp_src, i, 1, double)=y;
-				MAT_RM_GET(sp_src, i, 2, double)=z;
+				SIFT3D_MAT_RM_GET(sp_src, i, 0, double)=x;
+				SIFT3D_MAT_RM_GET(sp_src, i, 1, double)=y;
+				SIFT3D_MAT_RM_GET(sp_src, i, 2, double)=z;
 				break;
 		}
 		
@@ -3643,11 +3649,11 @@ static int make_spline_matrix(Mat_rm* src, Mat_rm* src_in, Mat_rm* sp_src, int K
 	//construct O
 	for (i=0;i<dim;i++){
 		for (d=0;d<dim;d++){
-			MAT_RM_GET(src_in, K_terms+i, K_terms+d, double)=0.0;
+			SIFT3D_MAT_RM_GET(src_in, K_terms+i, K_terms+d, double)=0.0;
 		}
 	}
  
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
  
 //make the system matrix for affine
@@ -3661,19 +3667,19 @@ static int make_affine_matrix(Mat_rm* pts_in, Mat_rm* mat_out, const int dim) {
         mat_out->num_rows = num_rows;
 	mat_out->num_cols = dim + 1;
         if (resize_Mat_rm(mat_out))
-		return FAILURE;
+		return SIFT3D_FAILURE;
         
 	for (i = 0; i < num_rows; i++){
 
 		//Add one row to the matrix
 		for (j = 0; j < dim; j++) {
-		    MAT_RM_GET(mat_out, i, j, double) =	
-			MAT_RM_GET(pts_in, i, j, double);
+		    SIFT3D_MAT_RM_GET(mat_out, i, j, double) =	
+			SIFT3D_MAT_RM_GET(pts_in, i, j, double);
 		}
-                MAT_RM_GET(mat_out, i, dim, double) = 1.0;
+                SIFT3D_MAT_RM_GET(mat_out, i, dim, double) = 1.0;
 	}
 
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 //extract the control matrix from tform struct (only valid for spline)
@@ -3710,7 +3716,7 @@ static int solve_system(void* tform, Mat_rm* src, Mat_rm* ref, const int dim,
 	//extract matrices from struct
 	//T = extract_params_Mat_rm(tform, type);
 			
-	init_Mat_rm(&ref_sys, 0, 0, DOUBLE, FALSE);
+	init_Mat_rm(&ref_sys, 0, 0, DOUBLE, SIFT3D_FALSE);
         init_Mat_rm(&X, 0, 0, DOUBLE, 0);
 
 	//construct source matrix and initialize reference vector
@@ -3735,9 +3741,9 @@ static int solve_system(void* tform, Mat_rm* src, Mat_rm* ref, const int dim,
           ret = solve_Mat_rm_ls(&ref_sys, src, &X);
         
         switch (ret) {
-	    case SUCCESS:	
+	    case SIFT3D_SUCCESS:	
 		break;
-	    case SINGULAR:
+	    case SIFT3D_SINGULAR:
 		goto SOLVE_SYSTEM_SINGULAR;
 	    default:
 		goto SOLVE_SYSTEM_FAIL;
@@ -3752,7 +3758,7 @@ static int solve_system(void* tform, Mat_rm* src, Mat_rm* ref, const int dim,
 
 		    Mat_rm X_trans;
 
-		    init_Mat_rm(&X_trans, 0, 0, DOUBLE, FALSE);
+		    init_Mat_rm(&X_trans, 0, 0, DOUBLE, SIFT3D_FALSE);
 
 		    ret = transpose_Mat_rm(&X, &X_trans) ||
 		          Affine_set_mat(&X_trans, (Affine *) tform);
@@ -3771,17 +3777,17 @@ static int solve_system(void* tform, Mat_rm* src, Mat_rm* ref, const int dim,
         cleanup_Mat_rm(&ref_sys);	
         cleanup_Mat_rm(&X);
 	
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 
 SOLVE_SYSTEM_SINGULAR:	
     cleanup_Mat_rm(&ref_sys);
     cleanup_Mat_rm(&X);
-    return SINGULAR;
+    return SIFT3D_SINGULAR;
 
 SOLVE_SYSTEM_FAIL:
     cleanup_Mat_rm(&X);
     cleanup_Mat_rm(&ref_sys);	
-    return FAILURE;
+    return SIFT3D_FAILURE;
 }
 
 //Find the SSD error for the i'th point
@@ -3796,9 +3802,9 @@ static double tform_err_sq(void* tform, Mat_rm* src, Mat_rm* ref, int i,
 	double x_in, y_in, z_in, x_r, y_r, z_r, x_out, y_out, z_out;
 	
 	//Find the source point
-	x_in = MAT_RM_GET(ref,i,0,double);
-	y_in = MAT_RM_GET(ref,i,1,double);
-	z_in = MAT_RM_GET(ref,i,2,double);
+	x_in = SIFT3D_MAT_RM_GET(ref,i,0,double);
+	y_in = SIFT3D_MAT_RM_GET(ref,i,1,double);
+	z_in = SIFT3D_MAT_RM_GET(ref,i,2,double);
 		
 	//Register
 	if(apply_tform_xyz(x_in, y_in, z_in, &x_out, &y_out, &z_out, type, 
@@ -3806,9 +3812,9 @@ static double tform_err_sq(void* tform, Mat_rm* src, Mat_rm* ref, int i,
 		return -1.0;
 		
 	//Find the reference point
-	x_r = MAT_RM_GET(src,i,0,double);
-	y_r = MAT_RM_GET(src,i,1,double);
-	z_r = MAT_RM_GET(src,i,2,double);		
+	x_r = SIFT3D_MAT_RM_GET(src,i,0,double);
+	y_r = SIFT3D_MAT_RM_GET(src,i,1,double);
+	z_r = SIFT3D_MAT_RM_GET(src,i,2,double);		
 	
 	//Find the SSD error
 	err = (x_r - x_out) * (x_r - x_out) + (y_r - y_out) * (y_r - y_out) +
@@ -3837,16 +3843,16 @@ static int ransac(Mat_rm* src, Mat_rm* ref, Ransac* ran, const int dim, void *tf
 	// Verify inputs
 	if (src->type != DOUBLE || src->type != ref->type) {
           puts("ransac: all matrices must have type double \n");
-          return FAILURE;
+          return SIFT3D_FAILURE;
 	}
 	if (src->num_rows != ref->num_rows || src->num_cols != ref->num_cols) {
 	  puts("ransac: src and ref must have the same dimensions \n");
-	  return FAILURE;
+	  return SIFT3D_FAILURE;
 	}
 	
         // Initialize
-        init_Mat_rm(&src_rand, 0, 0, INT, FALSE);
-        init_Mat_rm(&ref_rand, 0, 0, INT, FALSE);
+        init_Mat_rm(&src_rand, 0, 0, INT, SIFT3D_FALSE);
+        init_Mat_rm(&ref_rand, 0, 0, INT, SIFT3D_FALSE);
         
 	/*Fit random points*/
 	//number of points it randomly chooses
@@ -3865,9 +3871,9 @@ static int ransac(Mat_rm* src, Mat_rm* ref, Ransac* ran, const int dim, void *tf
 	
 	//solve the system
 	switch (solve_system(tform, &src_rand, &ref_rand, dim, type)) {
-		case SUCCESS:
+		case SIFT3D_SUCCESS:
 			break;
-		case SINGULAR:
+		case SIFT3D_SINGULAR:
 			goto RANSAC_SINGULAR;
 		default:
 			goto RANSAC_FAIL;
@@ -3898,17 +3904,17 @@ static int ransac(Mat_rm* src, Mat_rm* ref, Ransac* ran, const int dim, void *tf
 
         cleanup_Mat_rm(&src_rand);
         cleanup_Mat_rm(&ref_rand);
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 
 RANSAC_SINGULAR:
         cleanup_Mat_rm(&src_rand);
         cleanup_Mat_rm(&ref_rand);
-        return SINGULAR;
+        return SIFT3D_SINGULAR;
 
 RANSAC_FAIL:
         cleanup_Mat_rm(&src_rand);
         cleanup_Mat_rm(&ref_rand);
-        return FAILURE;
+        return SIFT3D_FAILURE;
 }
 
 
@@ -3921,14 +3927,14 @@ int resize_Tps(Tps* tps, int num_pts, int dim){
 	kp_src->num_rows = num_pts;
 	kp_src->num_cols = dim;
 	if (resize_Mat_rm(params)){
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	}
 	if (resize_Mat_rm(kp_src)){
-		return FAILURE;
+		return SIFT3D_FAILURE;
 	}
 	
 	tps->dim = dim;
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 }
 
 int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
@@ -3966,10 +3972,10 @@ int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
 		default:
 			puts("find_tform_ransac: unsupported transformation "
 			     "type \n");
-			return FAILURE;
+			return SIFT3D_FAILURE;
 	}
 
-        min_num_inliers = (int) MAX(ceil(ran->min_inliers * num_pts), 
+        min_num_inliers = (int) SIFT3D_MAX(ceil(ran->min_inliers * num_pts), 
 			      type_min_inliers);
 
 	 if (num_pts < num_terms) {
@@ -3982,9 +3988,9 @@ int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
 	    do {
 		ret = ransac(src, ref, ran, dim, tform_cur, type, &cset, 
 		             &len);
-	    } while(ret == SINGULAR);
+	    } while(ret == SIFT3D_SINGULAR);
 
-	    if (ret == FAILURE)
+	    if (ret == SIFT3D_FAILURE)
 		goto FIND_TFORM_FAIL;
 
 	    if (len > len_best) {
@@ -4004,31 +4010,31 @@ int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
         }
 
 	// Initialize the concensus set matrices
-	if (init_Mat_rm(&src_cset, len_best, IM_NDIMS, DOUBLE, FALSE) ||
-	    init_Mat_rm(&ref_cset, len_best, IM_NDIMS, DOUBLE, FALSE))
+	if (init_Mat_rm(&src_cset, len_best, IM_NDIMS, DOUBLE, SIFT3D_FALSE) ||
+	    init_Mat_rm(&ref_cset, len_best, IM_NDIMS, DOUBLE, SIFT3D_FALSE))
 	    goto FIND_TFORM_FAIL;
 
 	// extract the concensus set
-	MAT_RM_LOOP_START(&src_cset, i, j)
+	SIFT3D_MAT_RM_LOOP_START(&src_cset, i, j)
 	    
 	    const int idx = cset_best[i];
 
-	    MAT_RM_GET(&src_cset, i, j, double) = 
-		MAT_RM_GET(src, idx, j, double);
-	    MAT_RM_GET(&ref_cset, i, j, double) = 
-		MAT_RM_GET(ref, idx, j, double);
+	    SIFT3D_MAT_RM_GET(&src_cset, i, j, double) = 
+		SIFT3D_MAT_RM_GET(src, idx, j, double);
+	    SIFT3D_MAT_RM_GET(&ref_cset, i, j, double) = 
+		SIFT3D_MAT_RM_GET(ref, idx, j, double);
 
-	MAT_RM_LOOP_END
+	SIFT3D_MAT_RM_LOOP_END
 
-#ifdef RANSAC_REFINE
+#ifdef SIFT3D_RANSAC_REFINE
 	// Refine with least squares
 	switch (solve_system(tform_cur, &src_cset, &ref_cset, dim, type)) {
-	    case SUCCESS:
+	    case SIFT3D_SUCCESS:
 		// Copy the refined transformation to the output
 		if (copy_tform(tform_cur, tform, type))
 		    goto FIND_TFORM_FAIL;
 		break;
-	    case SINGULAR:
+	    case SIFT3D_SINGULAR:
 		// Stick with the old transformation 
 #ifdef VERBOSE
 		printf("find_tform_ransac: warning: least-squares refinement "
@@ -4045,7 +4051,7 @@ int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
         cleanup_tform(tform_cur, type);
 	if (tform_cur != NULL)
 	    free(tform_cur);
-	return SUCCESS;
+	return SIFT3D_SUCCESS;
 
 FIND_TFORM_FAIL:
         if (cset != NULL)
@@ -4055,6 +4061,6 @@ FIND_TFORM_FAIL:
         cleanup_tform(tform_cur, type);
 	if (tform_cur != NULL)
 	    free(tform_cur);
-	return FAILURE;
+	return SIFT3D_FAILURE;
  }
 

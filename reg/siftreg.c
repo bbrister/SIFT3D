@@ -27,14 +27,23 @@
 #define NUM_ITER 500
 
 /* Debugging file paths */
-#define TFORM_IN_PATH DEBUG_ROOT "affine_input.m"
-#define TFORM_REG_PATH DEBUG_ROOT "affine_inferred.m"
+#define DEBUG_ROOT "./debug/"
+#define TFORM_IN_PATH DEBUG_ROOT "affine_input.txt"
+#define TFORM_REG_PATH DEBUG_ROOT "affine_inferred.txt"
 #define IM_OUT_PATH DEBUG_ROOT "registered.nii"
 #define GRID_PATH DEBUG_ROOT "grid.nii"
 #define KP_SRC_IM_PATH DEBUG_ROOT "kp_src.nii"
 #define KP_REF_IM_PATH DEBUG_ROOT "kp_ref.nii"
 #define BG_PATH DEBUG_ROOT "background.nii"
 #define OVERLAY_PATH DEBUG_ROOT "overlay.nii"
+#define GPYR_REF_PATH DEBUG_ROOT "gpyr_ref/gpyr"
+#define DOG_REF_PATH DEBUG_ROOT "dog_ref/dog"
+#define GPYR_SRC_PATH DEBUG_ROOT "gpyr_src/gpyr"
+#define DOG_SRC_PATH DEBUG_ROOT "dog_src/dog"
+#define KP_REF_PATH DEBUG_ROOT "kp_ref.txt"
+#define KP_SRC_PATH DEBUG_ROOT "kp_src.txt"
+#define MATCH_REF_PATH DEBUG_ROOT "match_ref.txt"
+#define MATCH_SRC_PATH DEBUG_ROOT "match_src.txt"
 
 int main(int argc, char *argv[]) {
 
@@ -121,9 +130,9 @@ int main(int argc, char *argv[]) {
 	init_Affine(&aff_syn, 3);
 	init_Affine(&aff_reg, 3);
 	init_Ransac(&ran);
-	if (init_Mat_rm(&match_src, 0, 0, DOUBLE, FALSE) ||
-		init_Mat_rm(&match_ref, 0, 0, DOUBLE, FALSE) ||
-		init_Mat_rm(&A, 3, 4, DOUBLE, TRUE))
+	if (init_Mat_rm(&match_src, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+		init_Mat_rm(&match_ref, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+		init_Mat_rm(&A, 3, 4, DOUBLE, SIFT3D_TRUE))
 		err_exit("init data");
 
         // Set the RANSAC parameters
@@ -152,12 +161,12 @@ int main(int argc, char *argv[]) {
 
                 // Make a rotation matrix
 		double ang_deg = 10.0;
-		double ang_rad = ang_deg * UTIL_PI / 180.0;
-		MAT_RM_GET(&A, 0, 0, double) = cos(ang_rad);
-		MAT_RM_GET(&A, 0, 1, double) = -sin(ang_rad);
-		MAT_RM_GET(&A, 1, 0, double) = sin(ang_rad);
-		MAT_RM_GET(&A, 1, 1, double) = cos(ang_rad);
-		MAT_RM_GET(&A, 2, 2, double) = 1.0;
+		double ang_rad = ang_deg * M_PI / 180.0;
+		SIFT3D_MAT_RM_GET(&A, 0, 0, double) = cos(ang_rad);
+		SIFT3D_MAT_RM_GET(&A, 0, 1, double) = -sin(ang_rad);
+		SIFT3D_MAT_RM_GET(&A, 1, 0, double) = sin(ang_rad);
+		SIFT3D_MAT_RM_GET(&A, 1, 1, double) = cos(ang_rad);
+		SIFT3D_MAT_RM_GET(&A, 2, 2, double) = 1.0;
 		if (Affine_set_mat(&A, &aff_syn))
 			err_exit("set rotation matrix\n");
 
@@ -171,9 +180,9 @@ int main(int argc, char *argv[]) {
                         err_exit("get center translation");
 
                 // Apply the center translation and update the affine transformation
-                MAT_RM_GET(&A, 0, 3, double) = xc - xtrans;
-                MAT_RM_GET(&A, 1, 3, double) = yc - ytrans;
-                MAT_RM_GET(&A, 2, 3, double) = zc - ztrans;
+                SIFT3D_MAT_RM_GET(&A, 0, 3, double) = xc - xtrans;
+                SIFT3D_MAT_RM_GET(&A, 1, 3, double) = yc - ytrans;
+                SIFT3D_MAT_RM_GET(&A, 2, 3, double) = zc - ztrans;
 		if (Affine_set_mat(&A, &aff_syn))
 			err_exit("set affine matrix\n");
 
@@ -199,9 +208,9 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Zero-pad the images to have the same size
-	nx = MAX(src.nx, ref.nx);
-	ny = MAX(src.ny, ref.ny);
-	nz = MAX(src.nz, ref.nz);
+	nx = SIFT3D_MAX(src.nx, ref.nx);
+	ny = SIFT3D_MAX(src.ny, ref.ny);
+	nz = SIFT3D_MAX(src.nz, ref.nz);
 	if (init_im_first_time(&srcp, nx, ny, nz, 1) || 
 	    init_im_first_time(&refp, nx, ny, nz, 1) || 
 	    im_pad(&src, &srcp) || 
@@ -220,7 +229,7 @@ int main(int argc, char *argv[]) {
 	if (SIFT3D_detect_keypoints(&sift3d, &refp, &kp_ref))
 		err_exit("detect source keypoints\n");
 	if (SIFT3D_extract_descriptors(&sift3d, &sift3d.gpyr, &kp_ref,
-		&desc_ref, TRUE))
+		&desc_ref, SIFT3D_TRUE))
 		err_exit("extract source descriptors\n");
 
 
@@ -235,7 +244,7 @@ int main(int argc, char *argv[]) {
 	if (write_nii("../debug/src_im.nii", &srcp) ||
 		write_nii("../debug/ref_im.nii", &refp))
 		err_exit("write input images");
-	if (write_pyramid(GPYR_REF_PATH, &sift3d.gpyr))
+	if (write_pyramid("../debug/gpyr_ref", &sift3d.gpyr))
 		fprintf(stderr, "Failed to write reference GSS pyramid to"
 						" path %s \n", GPYR_REF_PATH);
 		printf("Reference GSS pyramid written to %s \n", GPYR_REF_PATH);
@@ -245,7 +254,7 @@ int main(int argc, char *argv[]) {
 		printf("Reference DoG pyramid written to %s \n", DOG_REF_PATH);
 	if (write_Keypoint_store(KP_REF_PATH, &kp_ref))
 		err_exit("write keypoints");
-	if (init_Mat_rm(&kp_ref_mat, 0, 0, DOUBLE, FALSE) ||
+	if (init_Mat_rm(&kp_ref_mat, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 	    Keypoint_store_to_Mat_rm(&kp_ref, &kp_ref_mat) ||
 	    draw_points(&kp_ref_mat, refp.nx, refp.ny, refp.nz, 1, &kp_ref_im) ||
 	    write_nii(KP_REF_IM_PATH, &kp_ref_im))
@@ -262,7 +271,7 @@ int main(int argc, char *argv[]) {
 	if (SIFT3D_detect_keypoints(&sift3d, &srcp, &kp_src))
 		err_exit("detect source keypoints\n");
 	if (SIFT3D_extract_descriptors(&sift3d, &sift3d.gpyr, &kp_src, 
-				       &desc_src, TRUE))
+				       &desc_src, SIFT3D_TRUE))
 		err_exit("extract source descriptors\n");
 
 #ifdef VERBOSE
@@ -283,7 +292,7 @@ int main(int argc, char *argv[]) {
 		printf("Source DoG pyramid written to %s \n", DOG_SRC_PATH);
 	if (write_Keypoint_store(KP_SRC_PATH, &kp_src))
 		err_exit("write keypoints");
-	if (init_Mat_rm(&kp_src_mat, 0, 0, DOUBLE, FALSE) ||
+	if (init_Mat_rm(&kp_src_mat, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 	    Keypoint_store_to_Mat_rm(&kp_src, &kp_src_mat) ||
 	    draw_points(&kp_src_mat, srcp.nx, srcp.ny, srcp.nz, 1, &kp_src_im) ||
 	    write_nii(KP_SRC_IM_PATH, &kp_src_im))
@@ -428,7 +437,7 @@ int main(int argc, char *argv[]) {
 		    const double err_sq = dx * dx + dy * dy + dz * dz;
 
 		    // Update the minimum error
-		    min_err_sq = MIN(min_err_sq, err_sq);
+		    min_err_sq = SIFT3D_MIN(min_err_sq, err_sq);
 		}
 
 		min_err = sqrt(min_err_sq);

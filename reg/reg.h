@@ -1,3 +1,9 @@
+/* reg.c
+ * ----------------------------------------------------------------
+ * This files contains routines for image registraion. 
+ * ----------------------------------------------------------------
+ */
+
 #include "types.h"
 
 #ifndef _REG_H

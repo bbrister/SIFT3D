@@ -14,23 +14,23 @@
 #define _MACROS_H
 
 // Function return macros
-#define SINGULAR 1
-#define SUCCESS 0
-#define FAILURE -1
+#define SIFT3D_SINGULAR 1
+#define SIFT3D_SUCCESS 0
+#define SIFT3D_FAILURE -1
 
 // Truth macros
-#define TRUE 1
-#define FALSE 0
+#define SIFT3D_TRUE 1
+#define SIFT3D_FALSE 0
 
 // Math macros
-#define MIN(x, y) ((x) < (y) ? (x) : (y))
-#define MAX(x, y) ((x) > (y) ? (x) : (y))
-#define AZ_MAX_F (2 * UTIL_PI_F)
-#define PO_MAX_F UTIL_PI_F
+#define SIFT3D_MIN(x, y) ((x) < (y) ? (x) : (y))
+#define SIFT3D_MAX(x, y) ((x) > (y) ? (x) : (y))
+#define SIFT3D_AZ_MAX_F (2 * (float) M_PI) // Maximum azimuth
+#define SIFT3D_PO_MAX_F ((float) M_PI) // Maximum polar angle
 
 // Compiler flags
 #ifdef __GNUC__
-#define IGNORE_UNUSED __attribute__((unused))
+#define SIFT3D_IGNORE_UNUSED __attribute__((unused))
 #else
 #warning("The internal macros of this library were not defined for " \
 	 "your compiler. The code will still work, but you may see " \
@@ -38,209 +38,216 @@
 #endif
 
 // Get the index of an [x,y,z] pair in an image 
-#define IM_GET_IDX(im, x, y, z, c) ((x) * (im)->x_stride + (y) * (im)->y_stride + \
-				(z) * (im)->z_stride + (c))
+#define SIFT3D_IM_GET_IDX(im, x, y, z, c) ((x) * (im)->x_stride + \
+        (y) * (im)->y_stride + (z) * (im)->z_stride + (c))
 
 // Get the value of voxel [x,y,z] in an image 
-#define IM_GET_VOX(im, x, y, z, c) ((im)->data[IM_GET_IDX((im), (x), (y), (z), (c))])
+#define SIFT3D_IM_GET_VOX(im, x, y, z, c) ((im)->data[ \
+        SIFT3D_IM_GET_IDX((im), (x), (y), (z), (c))])
 
-// Loop through an image in x, z, y order. Delmit with IM_LOOP_END
-#define IM_LOOP_START(im, x, y, z) \
+// Loop through an image in x, z, y order. Delmit with SIFT3D_IM_LOOP_END
+#define SIFT3D_IM_LOOP_START(im, x, y, z) \
 	for ((z) = 0; (z) < (im)->nz; (z)++) {	\
 	for ((y) = 0; (y) < (im)->ny; (y)++) {	\
 	for ((x) = 0; (x) < (im)->nx; (x)++) {
 
-/* As in IM_LOOP_START, but also loop through each channel */
-#define IM_LOOP_START_C(im, x, y, z, c) \
-        IM_LOOP_START(im, x, y, z) \
+/* As in SIFT3D_IM_LOOP_START, but also loop through each channel */
+#define SIFT3D_IM_LOOP_START_C(im, x, y, z, c) \
+        SIFT3D_IM_LOOP_START(im, x, y, z) \
         for ((c) = 0; (c) < (im)->nc; (c)++) {
 
 /* Loop through an image iterating with the (inclusive) x, y, z bounds given.
- * Delimit with IM_LOOP_END. */
-#define IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, \
+ * Delimit with SIFT3D_IM_LOOP_END. */
+#define SIFT3D_IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, \
 			      y_start, y_end, z_start, z_end) \
 	for ((z) = z_start; (z) <= z_end; (z)++) { \
 	for ((y) = y_start; (y) <= y_end; (y)++) { \
 	for ((x) = x_start; (x) <= x_end; (x)++) {		
 
-/* As in IM_LOOP_LIMITED_START, but also loop through each channel */
-#define IM_LOOP_LIMITED_START_C(im, x, y, z, c, x_start, x_end, \
+/* As in SIFT3D_IM_LOOP_LIMITED_START, but also loop through each channel */
+#define SIFT3D_IM_LOOP_LIMITED_START_C(im, x, y, z, c, x_start, x_end, \
 			      y_start, y_end, z_start, z_end) \
-        IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, \
+        SIFT3D_IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, \
 			      y_start, y_end, z_start, z_end) \
         for ((c) = 0; (c) < (im)->nc; (c)++) {
                                 
 
-// Delimit an IM_LOOP_START or IM_LOOP_LIMITED_START
-#define IM_LOOP_END }}}
+// Delimit an SIFT3D_IM_LOOP_START or SIFT3D_IM_LOOP_LIMITED_START
+#define SIFT3D_IM_LOOP_END }}}
 
-// Delimited an IM_LOOP_START_C or IM_LOOP_LIMITED_START_C
-#define IM_LOOP_END_C IM_LOOP_END }
+// Delimited an SIFT3D_IM_LOOP_START_C or SIFT3D_IM_LOOP_LIMITED_START_C
+#define SIFT3D_IM_LOOP_END_C SIFT3D_IM_LOOP_END }
 
 /* Take the Cartesian gradient of an image at [x, y, z, c]. The voxel cannot be
  * on the boundary. */
-#define IM_GET_GRAD(im, x, y, z, c, vd) \
-		(vd)->x = 0.5f * (IM_GET_VOX(im, (x) + 1, y, z, c) - \
-			   IM_GET_VOX(im, (x) - 1, y, z, c)); \
-		(vd)->y = 0.5f * (IM_GET_VOX(im, x, (y) + 1, z, c) - \
-			   IM_GET_VOX(im, x, (y) - 1, z, c)); \
-		(vd)->z = 0.5f * (IM_GET_VOX(im, x, y, (z) + 1, c) - \
-			   IM_GET_VOX(im, x, y, (z) - 1, c))
+#define SIFT3D_IM_GET_GRAD(im, x, y, z, c, vd) \
+		(vd)->x = 0.5f * (SIFT3D_IM_GET_VOX(im, (x) + 1, y, z, c) - \
+			   SIFT3D_IM_GET_VOX(im, (x) - 1, y, z, c)); \
+		(vd)->y = 0.5f * (SIFT3D_IM_GET_VOX(im, x, (y) + 1, z, c) - \
+			   SIFT3D_IM_GET_VOX(im, x, (y) - 1, z, c)); \
+		(vd)->z = 0.5f * (SIFT3D_IM_GET_VOX(im, x, y, (z) + 1, c) - \
+			   SIFT3D_IM_GET_VOX(im, x, y, (z) - 1, c))
 
 /* Get the Hessian of an image at [x, y, z]. The voxel cannot be on the 
  * boundary. */
-#define IM_GET_HESSIAN(im, x, y, z, c, H, type) \
+#define SIFT3D_IM_GET_HESSIAN(im, x, y, z, c, H, type) \
    /* Dxx */ \
-    MAT_RM_GET(H, 0, 0, type) = (type) (0.25f * (IM_GET_VOX(im, x + 1, y, z, c) - \
-				 2 * IM_GET_VOX(im, x, y, z, c) + \
-				 IM_GET_VOX(im, x - 1, y, z, c))); \
+    SIFT3D_MAT_RM_GET(H, 0, 0, type) = (type) (0.25f * \
+                                (SIFT3D_IM_GET_VOX(im, x + 1, y, z, c) - \
+				 2 * SIFT3D_IM_GET_VOX(im, x, y, z, c) + \
+				 SIFT3D_IM_GET_VOX(im, x - 1, y, z, c))); \
     /* Dxy */ \
-    MAT_RM_GET(H, 0, 1, type) = (type) (0.25f * (IM_GET_VOX(im, x + 1, y + 1, z, c) - \
-				 IM_GET_VOX(im, x - 1, y + 1, z, c) + \
-				 IM_GET_VOX(im, x - 1, y - 1, z, c) - \
-				 IM_GET_VOX(im, x + 1, y - 1, z, c))); \
+    SIFT3D_MAT_RM_GET(H, 0, 1, type) = (type) (0.25f * \\
+                                (SIFT3D_IM_GET_VOX(im, x + 1, y + 1, z, c) - \
+				 SIFT3D_IM_GET_VOX(im, x - 1, y + 1, z, c) + \
+				 SIFT3D_IM_GET_VOX(im, x - 1, y - 1, z, c) - \
+				 SIFT3D_IM_GET_VOX(im, x + 1, y - 1, z, c))); \
     /* Dxz */ \
-    MAT_RM_GET(H, 0, 2, type) = (type) (0.25f * (IM_GET_VOX(im, x + 1, y, z + 1, c) - \
-				 IM_GET_VOX(im, x - 1, y, z + 1, c) + \
-				 IM_GET_VOX(im, x - 1, y, z - 1, c) - \
-				 IM_GET_VOX(im, x + 1, y, z - 1, c))); \
+    SIFT3D_MAT_RM_GET(H, 0, 2, type) = (type) (0.25f * \
+                                (SIFT3D_IM_GET_VOX(im, x + 1, y, z + 1, c) - \
+				 SIFT3D_IM_GET_VOX(im, x - 1, y, z + 1, c) + \
+				 SIFT3D_IM_GET_VOX(im, x - 1, y, z - 1, c) - \
+				 SIFT3D_IM_GET_VOX(im, x + 1, y, z - 1, c))); \
     /* Dyx */ \
-    MAT_RM_GET(H, 1, 0, type) = MAT_RM_GET(H, 0, 1, type); \
+    SIFT3D_MAT_RM_GET(H, 1, 0, type) = SIFT3D_MAT_RM_GET(H, 0, 1, type); \
     /* Dyy */ \
-    MAT_RM_GET(H, 1, 1, type) = (type) (0.25f * (IM_GET_VOX(im, x, y + 1, z, c) - \
-				 2 * IM_GET_VOX(im, x, y, z, c) + \
-				 IM_GET_VOX(im, x, y - 1, z, c))); \
+    SIFT3D_MAT_RM_GET(H, 1, 1, type) = (type) (0.25f * \
+                                (SIFT3D_IM_GET_VOX(im, x, y + 1, z, c) - \
+				 2 * SIFT3D_IM_GET_VOX(im, x, y, z, c) + \
+				 SIFT3D_IM_GET_VOX(im, x, y - 1, z, c))); \
     /* Dyz */ \
-    MAT_RM_GET(H, 1, 2, type) = (type) (0.25f * (IM_GET_VOX(im, x, y + 1, z + 1, c) - \
-				 IM_GET_VOX(im, x, y - 1, z + 1, c) + \
-				 IM_GET_VOX(im, x, y - 1, z - 1, c) - \
-				 IM_GET_VOX(im, x, y + 1, z - 1, c))); \
+    SIFT3D_MAT_RM_GET(H, 1, 2, type) = (type) (0.25f * \
+                                (SIFT3D_IM_GET_VOX(im, x, y + 1, z + 1, c) - \
+				 SIFT3D_IM_GET_VOX(im, x, y - 1, z + 1, c) + \
+				 SIFT3D_IM_GET_VOX(im, x, y - 1, z - 1, c) - \
+				 SIFT3D_IM_GET_VOX(im, x, y + 1, z - 1, c))); \
     /* Dzx */ \
-    MAT_RM_GET(H, 2, 0, type) = MAT_RM_GET(H, 0, 2, type); \
+    SIFT3D_MAT_RM_GET(H, 2, 0, type) = SIFT3D_MAT_RM_GET(H, 0, 2, type); \
     /* Dzy */ \
-    MAT_RM_GET(H, 2, 1, type) = MAT_RM_GET(H, 1, 2, type); \
+    SIFT3D_MAT_RM_GET(H, 2, 1, type) = SIFT3D_MAT_RM_GET(H, 1, 2, type); \
     /* Dzz */ \
-    MAT_RM_GET(H, 2, 2, type) = (type) (0.25f * (IM_GET_VOX(im, x, y, z + 1, c) - \
-				 2 * IM_GET_VOX(im, x, y, z, c) + \
-				 IM_GET_VOX(im, x, y, z - 1, c)))
+    SIFT3D_MAT_RM_GET(H, 2, 2, type) = (type) (0.25f * \
+                                (SIFT3D_IM_GET_VOX(im, x, y, z + 1, c) - \
+				 2 * SIFT3D_IM_GET_VOX(im, x, y, z, c) + \
+				 SIFT3D_IM_GET_VOX(im, x, y, z - 1, c)))
 
 // Get a pointer to an image struct at pyramid level [o, s]
-#define PYR_IM_GET(pyr, o, s) ((pyr)->levels + \
+#define SIFT3D_PYR_IM_GET(pyr, o, s) ((pyr)->levels + \
 						((o) - (pyr)->first_octave) * \
 						(pyr)->num_levels + ((s) - (pyr)->first_level))
 
 // Loop through all levels of a given pyramid
-#define PYR_LOOP_START(pyr, o, s) \
+#define SIFT3D_PYR_LOOP_START(pyr, o, s) \
 	for ((o) = (pyr)->first_octave; (o) <= (pyr)->last_octave; (o)++) { \
 	for ((s) = (pyr)->first_level; (s) <= (pyr)->last_level; (s)++) {
 
 // Loop from the specified (inclusive) limits of a given pyramid
-#define PYR_LOOP_LIMITED_START(o, s, o_start, o_end, s_start, s_end) \
+#define SIFT3D_PYR_LOOP_LIMITED_START(o, s, o_start, o_end, s_start, s_end) \
 	for ((o) = (o_start); (o) <= (o_end); (o)++) {	\
 	for ((s) = (s_start); (s) <= (s_end); (s)++) {
 
-// Delimit a PYR_LOOP
-#define PYR_LOOP_END }}
+// Delimit a SIFT3D_PYR_LOOP
+#define SIFT3D_PYR_LOOP_END }}
 
-// Delimit the first level of a PYR_LOOP
-#define PYR_LOOP_SCALE_END }
+// Delimit the first level of a SIFT3D_PYR_LOOP
+#define SIFT3D_PYR_LOOP_SCALE_END }
 
 // Delimit the second level of a PYR_LOOP
-#define PYR_LOOP_OCTAVE_END }
+#define SIFT3D_PYR_LOOP_OCTAVE_END }
 
 // Get a pointer to the incremental Gaussian filter for level s
-#define GAUSS_GET(gss, s) \
+#define SIFT3D_GAUSS_GET(gss, s) \
 	((gss)->gauss_octave + (s - (gss)->first_level))
 
-/* Resize a slab. If SLAB_SIZE is defined, add
+/* Resize a slab. If SIFT3D_SLAB_SIZE is defined, add
 * elements in increments of that number. Otherwise,
 * use a default of 500. This macro is meant to be
 * used whether or not the slab buffer actually needs
 * resizing -- it checks for that. */
-#ifndef SLAB_SIZE
-#define SLAB_SIZE 500
+#ifndef SIFT3D_SLAB_SIZE
+#define SIFT3D_SLAB_SIZE 500
 #endif
-#define RESIZE_SLAB(slab, num, size) \
+#define SIFT3D_RESIZE_SLAB(slab, num, size) \
 	if ((num) > (slab)->buf_length) { \
 		if (((slab)->buf = realloc((slab)->buf, ((slab)->buf_length + \
-			SLAB_SIZE) * (size))) == NULL) \
-			return FAILURE; \
-		(slab)->buf_length += SLAB_SIZE; \
+			SIFT3D_SLAB_SIZE) * (size))) == NULL) \
+			return SIFT3D_FAILURE; \
+		(slab)->buf_length += SIFT3D_SLAB_SIZE; \
 	} \
 	(slab)->num = (num)
 
 // As above, but can be used on a Keypoint_store
-#define RESIZE_KP_STORE(store, num, size) \
-	RESIZE_SLAB(&(store)->slab, num, size); \
+#define SIFT3D_RESIZE_KP_STORE(store, num, size) \
+	SIFT3D_RESIZE_SLAB(&(store)->slab, num, size); \
 	(store)->buf = (store)->slab.buf
 #endif
 
 // Nested loop through all elements of a matrix
-#define MAT_RM_LOOP_START(mat, row, col) \
+#define SIFT3D_MAT_RM_LOOP_START(mat, row, col) \
 	for ((row) = 0; (row) < (mat)->num_rows; (row)++) { \
 	for ((col) = 0; (col) < (mat)->num_cols; (col)++) {
 
 // Delmit a MAT_LOOP
-#define MAT_RM_LOOP_END }}
+#define SIFT3D_MAT_RM_LOOP_END }}
 
 // Delimit the first level of a MAT_LOOP
-#define MAT_RM_LOOP_COL_END }
+#define SIFT3D_MAT_RM_LOOP_COL_END }
 
 // Delmit the second level of a MAT_LOOP
-#define MAT_RM_LOOP_ROW_END } 
+#define SIFT3D_MAT_RM_LOOP_ROW_END } 
 
 // Get an element from a dense matrix in row-major order. Type must
 // be "double", "float", or "int."
-#define MAT_RM_GET(mat, row, col, type) ((mat)->u.data_ ## type \
+#define SIFT3D_MAT_RM_GET(mat, row, col, type) ((mat)->u.data_ ## type \
 	[(col) + (row) * (mat)->num_cols])
 
 // Convert a vector from Cartesian to Spherical coordinates.
-#define CVEC_TO_SVEC(cvec, svec) { \
+#define SIFT3D_CVEC_TO_SVEC(cvec, svec) { \
 	(svec)->mag = sqrtf((cvec)->x * (cvec)->x + (cvec)->y * (cvec)->y + \
 						(cvec)->z * (cvec)->z); \
-	(svec)->az = fmodf(atan2f((cvec)->y, (cvec)->x) + AZ_MAX_F, \
-					  AZ_MAX_F); \
+	(svec)->az = fmodf(atan2f((cvec)->y, (cvec)->x) + SIFT3D_AZ_MAX_F, \
+					  SIFT3D_AZ_MAX_F); \
 	(svec)->po = fmodf(acosf((cvec)->z / ((svec)->mag + FLT_EPSILON)), \
-		     PO_MAX_F); \
+		     SIFT3D_PO_MAX_F); \
 }
 
 // Convert a vector from Spherical to Cartesian coordinates
-#define SVEC_TO_CVEC(svec, cvec) { \
+#define SIFT3D_SVEC_TO_CVEC(svec, cvec) { \
 	(cvec)->x = (svec)->mag * sinf((svec)->po) * cosf((svec)->az); \
 	(cvec)->y = (svec)->mag * sinf((svec)->po) * sinf((svec)->az); \
 	(cvec)->z = (svec)->mag * cosf((svec)->po); \
 }
 
 // Return the L2 norm of a Cartesian coordinate vector
-#define CVEC_L2_NORM(cvec) \
+#define SIFT3D_CVEC_L2_NORM(cvec) \
 	sqrtf((cvec)->x * (cvec)->x + (cvec)->y * (cvec)->y + \
 	(cvec)->z * (cvec)->z)
 
 // Return the square of the  L2 norm of a Cartesian coordinate vector
-#define CVEC_L2_NORM_SQ(cvec) \
+#define SIFT3D_CVEC_L2_NORM_SQ(cvec) \
 	((cvec)->x * (cvec)->x + (cvec)->y * (cvec)->y + \
 	(cvec)->z * (cvec)->z)
 
 // Scale a Cartesian coordinate vector by a constant factor
-#define CVEC_SCALE(cvec, a) \
+#define SIFT3D_CVEC_SCALE(cvec, a) \
     (cvec)->x = (cvec)->x * a; \
     (cvec)->y = (cvec)->y * a; \
     (cvec)->z = (cvec)->z * a
 
 // Operate element-wise on two Cartesian coordinate vectors, cc = ca op cb
-#define CVEC_OP(ca, cb, op, cc) \
+#define SIFT3D_CVEC_OP(ca, cb, op, cc) \
     (cc)->x = (ca)->x op (cb)->x; \
     (cc)->y = (ca)->y op (cb)->y; \
     (cc)->z = (ca)->z op (cb)->z
 
 // Return the dot product of two Cartesian coordinate 
 // vectors
-#define CVEC_DOT(in1, in2) \
+#define SIFT3D_CVEC_DOT(in1, in2) \
 	((in1)->x * (in2)->x + (in1)->y * (in2)->y + (in1)->z * (in2)->z)
 
 // Take the cross product of two Cartesian coordinate
 // vectors, as out = in1 X in2
-#define CVEC_CROSS(in1, in2, out) { \
+#define SIFT3D_CVEC_CROSS(in1, in2, out) { \
 	(out)->x = (in1)->y * (in2)->z - (in1)->z * (in2)->y; \
 	(out)->y = (in1)->z * (in2)->x - (in1)->x * (in2)->z; \
 	(out)->z = (in1)->x * (in2)->y - (in1)->y * (in2)->x; \
@@ -249,39 +256,17 @@
 /* Computes v_out = mat * v_in. Note that mat must be of FLOAT
  * type, since this is the only type available for vectors. 
  * Also note that mat must be (3 x 3). */
-#define MUL_MAT_RM_CVEC(mat, v_in, v_out) { \
-	(v_out)->x = MAT_RM_GET(mat, 0, 0, float) * (v_in)->x + \
-	    	     MAT_RM_GET(mat, 0, 1, float) * (v_in)->y + \
-			     MAT_RM_GET(mat, 0, 2, float) * (v_in)->z;	\
+#define SIFT3D_MUL_MAT_RM_CVEC(mat, v_in, v_out) { \
+	(v_out)->x = SIFT3D_MAT_RM_GET(mat, 0, 0, float) * (v_in)->x + \
+	    	     SIFT3D_MAT_RM_GET(mat, 0, 1, float) * (v_in)->y + \
+			     SIFT3D_MAT_RM_GET(mat, 0, 2, float) * (v_in)->z;	\
 	\
-	(v_out)->y = MAT_RM_GET(mat, 1, 0, float) * (v_in)->x + \
-			     MAT_RM_GET(mat, 1, 1, float) * (v_in)->y + \
-			     MAT_RM_GET(mat, 1, 2, float) * (v_in)->z;	\
+	(v_out)->y = SIFT3D_MAT_RM_GET(mat, 1, 0, float) * (v_in)->x + \
+			     SIFT3D_MAT_RM_GET(mat, 1, 1, float) * (v_in)->y + \
+			     SIFT3D_MAT_RM_GET(mat, 1, 2, float) * (v_in)->z;	\
 	\
-	(v_out)->z = MAT_RM_GET(mat, 2, 0, float) * (v_in)->x + \
-			     MAT_RM_GET(mat, 2, 1, float) * (v_in)->y + \
-			     MAT_RM_GET(mat, 2, 2, float) * (v_in)->z; \
+	(v_out)->z = SIFT3D_MAT_RM_GET(mat, 2, 0, float) * (v_in)->x + \
+			     SIFT3D_MAT_RM_GET(mat, 2, 1, float) * (v_in)->y + \
+			     SIFT3D_MAT_RM_GET(mat, 2, 2, float) * (v_in)->z; \
 }
 
-// Loop over all bins in a gradient histogram. If ICOS_HIST is defined, p
-// is not referenced
-#ifdef ICOS_HIST
-#define HIST_LOOP_START(a, p) \
-	for ((a) = 0; (a) < HIST_NUMEL; (a)++) { p = p; {
-#else
-#define HIST_LOOP_START(a, p) \
-	for ((p) = 0; (p) < NBINS_PO; (p)++) { \
-	for ((a) = 0; (a) < NBINS_AZ; (a)++) {
-#endif
-
-// Delimit a HIST_LOOP
-#define HIST_LOOP_END }}
-
-// Get an element from a gradient histogram. If ICOS_HIST is defined, p
-// is not referenced
-#ifdef ICOS_HIST
-#define HIST_GET(hist, a, p) ((hist)->bins[a])
-#else
-#define HIST_GET(hist, az_bin, po_bin) ((hist)->bins[ (az_bin) + \
-	(po_bin) * NBINS_AZ])
-#endif

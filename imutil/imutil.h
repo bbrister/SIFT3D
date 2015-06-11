@@ -1,11 +1,7 @@
 /* imutil.h
  * ----------------------------------------------------------------
- * Rice MRI Team
- * ----------------------------------------------------------------
  * Internal header for imutil.c
  *-----------------------------------------------------------------
- * Created: Blaine Rister 12/26/2013
- * Last updated: Blaine Rister 11/16/2013
  */
 
 #include <sys/types.h>
@@ -16,21 +12,6 @@
 
 /* Vendor-specific info */
 #define PLATFORM_NAME_NVIDIA "NVIDIA CUDA"
-
-/* Basic constants */
-#define UTIL_PI 3.14159265358979323846
-#define UTIL_PI_F 3.141592653589793f
-#define SQRT2 1.4142135623730950488
-#define SQRT2_F 1.4142135623730950488f
-
-/* Implementation parameters */
-//#define USE_OPENCL // Use OpenCL acceleration
-#define RANSAC_REFINE	// Use least-squares refinement in RANSAC
-
-/* Default parameters */
-#define MIN_INLIERS_DEFAULT 0.01;
-#define ERR_THRESH_DEFAULT 5.0;
-#define NUM_ITER_DEFAULT 500;
 
 /* Externally-visible routines */
 void clFinish_all();
