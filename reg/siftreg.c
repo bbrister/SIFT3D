@@ -67,10 +67,11 @@ int main(int argc, char *argv[]) {
 
 	// Initialize the SIFT3D struct
 	if (init_SIFT3D(&sift3d))
-		err_exit("init sift3d\n");
+		err_exit("init sift3d");
 
         // Parse the SIFT3D options and increment the argument list
-        parse_args_SIFT3D(&sift3d, argc, argv, &optind, 0);
+        if (parse_args_SIFT3D(&sift3d, argc, argv, &optind, SIFT3D_FALSE))
+                err_exit("parse args");
 
 	// Parse the options	
 	while ((c = getopt(argc, argv, "+sn:")) != -1)
@@ -152,11 +153,11 @@ int main(int argc, char *argv[]) {
 		if (src_path == NULL) {
 			// Copy from the reference
 			if (im_copy_data(&ref, &src_temp))
-				err_exit("copy reference image\n");
+				err_exit("copy reference image");
 		} else {
 			// Load the specified source
 			if (read_nii(src_path, &src_temp))
-				err_exit("load source image\n");
+				err_exit("load source image");
 		}
 
                 // Make a rotation matrix
@@ -168,7 +169,7 @@ int main(int argc, char *argv[]) {
 		SIFT3D_MAT_RM_GET(&A, 1, 1, double) = cos(ang_rad);
 		SIFT3D_MAT_RM_GET(&A, 2, 2, double) = 1.0;
 		if (Affine_set_mat(&A, &aff_syn))
-			err_exit("set rotation matrix\n");
+			err_exit("set rotation matrix");
 
                 // Rotate the center 
                 const double xc = ((double) src_temp.nx - 1.0) / 2.0;
@@ -184,15 +185,15 @@ int main(int argc, char *argv[]) {
                 SIFT3D_MAT_RM_GET(&A, 1, 3, double) = yc - ytrans;
                 SIFT3D_MAT_RM_GET(&A, 2, 3, double) = zc - ztrans;
 		if (Affine_set_mat(&A, &aff_syn))
-			err_exit("set affine matrix\n");
+			err_exit("set affine matrix");
 
 		// Apply an affine transformation to the reference image
 		if (im_inv_transform(&src_temp, &src, AFFINE, &aff_syn, INTERP))
-			err_exit("apply image transform\n");		
+			err_exit("apply image transform");		
 
 #ifdef VERBOSE
 		if (write_Mat_rm(TFORM_IN_PATH, &aff_syn.A))
-			err_exit("write input transform matrix to file \n");	
+			err_exit("write input transform matrix to file");	
 		printf("Input transformation matrix written to %s \n",
 			   TFORM_IN_PATH);
 		if (print_Mat_rm(&aff_syn.A))
@@ -227,10 +228,10 @@ int main(int argc, char *argv[]) {
 
 	// Extract features from reference image
 	if (SIFT3D_detect_keypoints(&sift3d, &refp, &kp_ref))
-		err_exit("detect source keypoints\n");
+		err_exit("detect source keypoints");
 	if (SIFT3D_extract_descriptors(&sift3d, &sift3d.gpyr, &kp_ref,
 		&desc_ref, SIFT3D_TRUE))
-		err_exit("extract source descriptors\n");
+		err_exit("extract source descriptors");
 
 
 	// Save intermediate data
@@ -269,10 +270,10 @@ int main(int argc, char *argv[]) {
 
 	// Extract source keypoints
 	if (SIFT3D_detect_keypoints(&sift3d, &srcp, &kp_src))
-		err_exit("detect source keypoints\n");
+		err_exit("detect source keypoints");
 	if (SIFT3D_extract_descriptors(&sift3d, &sift3d.gpyr, &kp_src, 
 				       &desc_src, SIFT3D_TRUE))
-		err_exit("extract source descriptors\n");
+		err_exit("extract source descriptors");
 
 #ifdef VERBOSE
 {
@@ -307,11 +308,11 @@ int main(int argc, char *argv[]) {
 
 	// Match features
 	if (SIFT3D_nn_match_fb(&desc_src, &desc_ref, nn_thresh, &matches)) 
-		err_exit("match keypoints\n");
+		err_exit("match keypoints");
 
 	if (SIFT3D_matches_to_Mat_rm(&desc_src, &desc_ref, matches,
 				     &match_src, &match_ref))
-		err_exit("extract coordinate matrices \n");
+		err_exit("extract coordinate matrices");
 
 #ifdef  VERBOSE
 {	
@@ -323,7 +324,7 @@ int main(int argc, char *argv[]) {
 	// Write the matches to a text file
 	if (write_Mat_rm(MATCH_SRC_PATH, &match_src) ||	
 		write_Mat_rm(MATCH_REF_PATH, &match_ref))
-		err_exit("write matches to file\n");
+		err_exit("write matches to file");
 
 	printf("%u matched features written to %s and %s \n", 
 		   (unsigned int) match_src.num_rows, MATCH_SRC_PATH, 
@@ -337,7 +338,7 @@ int main(int argc, char *argv[]) {
 	// Save the images
 	if (write_nii(OVERLAY_PATH, &overlay) || 
 	    write_nii(BG_PATH, &background))
-		err_exit("save feature images \n");
+		err_exit("save feature images");
 
 	im_free(&background);
 	im_free(&overlay);
@@ -347,11 +348,11 @@ int main(int argc, char *argv[]) {
 	// Find the transformation 
 	if (find_tform_ransac(&ran, &match_src, &match_ref, 3, AFFINE, 
 						  (void *) &aff_reg))	
-		err_exit("fit transform\n");
+		err_exit("fit transform");
 
 	// Transform the source image
 	if (im_inv_transform(&srcp, &srcp_reg, AFFINE, &aff_reg, LINEAR))
-		err_exit("apply image transform\n");		
+		err_exit("apply image transform");		
 
 	// End the benchmark
 	clock_gettime(CLOCK_MONOTONIC, &reg_end);
@@ -362,7 +363,7 @@ int main(int argc, char *argv[]) {
 
 	// Save the result
 	if (write_nii(IM_OUT_PATH, &srcp_reg))
-		err_exit("write registered image\n");
+		err_exit("write registered image");
 
 	if (syn_mode) {
 
@@ -472,20 +473,20 @@ int main(int argc, char *argv[]) {
 
 	// Write the transformation matrix
 	if (write_Mat_rm(TFORM_REG_PATH, &aff_reg.A))
-		err_exit("write inferred transform matrix to file\n");	
+		err_exit("write inferred transform matrix to file");	
 	printf("Inferred transformation matrix written to %s\n",
 			TFORM_REG_PATH);
 	if (print_Mat_rm(&aff_reg.A))
-	    err_exit("print result matrix \n");
+	    err_exit("print result matrix");
 
 	// Save the deformation grid
 	init_im(&grid_deformed);
 	if (draw_grid(&grid, nx, ny, nz, 20, 1))
-		err_exit("make grid \n");
+		err_exit("make grid");
 	if (im_inv_transform(&grid, &grid_deformed, AFFINE, &aff_reg, LINEAR))
-		err_exit("deform grid \n");
+		err_exit("deform grid");
 	if (write_nii(GRID_PATH, &grid_deformed))
-		err_exit("write deformation grid to file \n");	
+		err_exit("write deformation grid to file");	
 	printf("Deformation grid written to %s \n", GRID_PATH); 
     }
 #endif

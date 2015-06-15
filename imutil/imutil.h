@@ -181,7 +181,7 @@ void cleanup_Gauss_filter(Gauss_filter *gauss);
 
 int init_gss(GSS_filters *gss, Pyramid *pyr);
 
-int init_pyramid(Pyramid *pyr, Image *im);
+int resize_pyramid(Pyramid *pyr, Image *im);
 
 void init_Slab(Slab *slab);
 

@@ -3149,7 +3149,7 @@ int init_gss(GSS_filters *gss, Pyramid *pyr) {
  *		 can be used to quickly resize an existing 
  *		 pyramid. 
  */
-int init_pyramid(Pyramid *pyr, Image *im) {
+int resize_pyramid(Pyramid *pyr, Image *im) {
 
 	Image *level;
 	double factor;
@@ -3245,7 +3245,7 @@ int write_pyramid(const char *path, Pyramid *pyr) {
 
 /* Exit and print a message to stdout. */
 void err_exit(const char *str) {
-	fprintf(stderr, "Error! Exiting at %s", str);
+	fprintf(stderr, "Error! Exiting at %s \n", str);
 	exit(1);
 }
 

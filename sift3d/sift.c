@@ -28,17 +28,26 @@
 #pragma error("sift.c:Cannot use ICOS_HIST without EIG_ORI")
 #endif
 
-/* Default SIFT detector parameters. These can be overriden by 
+/* Default SIFT3D parameters. These may be overriden by 
  * the calling appropriate functions. */
 const int first_octave_default = 0; // Starting octave index
 const double peak_thresh_default = 0.03; // DoG peak threshold
 const int num_kp_levels_default = 3; // Number of levels per octave in which keypoints are found
-const double eig_ratio_default =  0.90;	// Maximum ratio of eigenvalue magnitudes
-const double corner_default = 0.5;	// Minimum |cos(angle)| between eigenvector and gradient
+const double corner_thresh_default = 0.5; // Minimum corner score
 const double sigma_n_default = 1.15; // Nominal scale of input data
 const double sigma0_default = 1.6; // Scale of the base octave
 
+/* SIFT3D option names */
+const char opt_first_octave[] = "first_octave";
+const char opt_peak_thresh[] = "peak_thresh";
+const char opt_corner_thresh[] = "corner_thresh";
+const char opt_num_octaves[] = "num_octaves";
+const char opt_num_kp_levels[] = "num_kp_levels";
+const char opt_sigma_n[] = "sigma_n";
+const char opt_sigma0[] = "sigma0";
+
 /* Internal parameters */
+const double max_eig_ratio =  0.90;	// Maximum ratio of eigenvalue magnitudes
 const double ori_grad_thresh = 1E-10;   // Minimum norm of average gradient
 const double bary_eps = FLT_EPSILON * 1E1;	// Error tolerance for barycentric coordinates
 const double ori_sig_fctr = 1.5;        // Ratio of window parameter to keypoint scale
@@ -134,7 +143,8 @@ static int build_gpyr(SIFT3D *sift3d);
 static int build_dog(SIFT3D *dog);
 static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp);
 static int refine_keypoints(SIFT3D *sift3d, Keypoint_store *kp);
-static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
+static int assign_eig_ori(SIFT3D *const sift3d, const Image *const im, 
+                          const Cvec *const vcenter,
                           const double sigma, Mat_rm *const R);
 static int assign_orientations(SIFT3D *sift3d, Keypoint_store *kp);
 static int Cvec_to_sbins(const Cvec * const vd, Svec * const bins);
@@ -373,19 +383,40 @@ static int init_cl_SIFT3D(SIFT3D *sift3d) {
 	return SIFT3D_SUCCESS;
 }
 
-void set_first_octave_SIFT3D(SIFT3D *const sift3d, 
+/* Sets the first octave, resizing the internal data. */
+int set_first_octave_SIFT3D(SIFT3D *const sift3d, 
                                 const int first_octave) {
+
 	sift3d->dog.first_octave = sift3d->gpyr.first_octave = first_octave;
+
+        return resize_SIFT3D(sift3d);
 }
 
-void set_peak_thresh_SIFT3D(SIFT3D *const sift3d,
+/* Sets the peak threshold, checking that it is in the interval (0, inf) */
+int set_peak_thresh_SIFT3D(SIFT3D *const sift3d,
                                 const double peak_thresh) {
+        if (peak_thresh <= 0.0) {
+                fprintf(stderr, "SIFT3D peak_thresh must be greater than 0."
+                        " Provided: %f \n", peak_thresh);
+                return SIFT3D_FAILURE;
+        }
+
         sift3d->peak_thresh = peak_thresh;
+        return SIFT3D_SUCCESS;
 }
 
-void set_corner_thresh_SIFT3D(SIFT3D *const sift3d,
+/* Sets the corner threshold, checking that it is in the interval [0, 1]. */
+int set_corner_thresh_SIFT3D(SIFT3D *const sift3d,
                                 const double corner_thresh) {
+
+        if (corner_thresh < 0.0 || corner_thresh > 1.0) {
+                fprintf(stderr, "SIFT3D corner_thresh must be in the interval "
+                        "[0, 1]. Provided: %f \n", corner_thresh);
+                return SIFT3D_FAILURE;
+        }
+
         sift3d->corner_thresh = corner_thresh;
+        return SIFT3D_SUCCESS;
 }
 
 /* Sets the number octaves to be processed. If necessary, this function will 
@@ -429,14 +460,34 @@ int set_num_kp_levels_SIFT3D(SIFT3D *const sift3d,
         return resize_SIFT3D(sift3d);
 }
 
-void set_sigma_n_SIFT3D(SIFT3D *const sift3d,
+/* Sets the nominal scale parameter of the input data, checking that it is 
+ * nonnegative. */
+int set_sigma_n_SIFT3D(SIFT3D *const sift3d,
                                 const double sigma_n) {
+
+        if (sigma_n < 0.0) {
+                fprintf(stderr, "SIFT3D sigma_n must be nonnegative. Provided: "
+                        "%f \n", sigma_n);
+                return SIFT3D_FAILURE;
+        }
+
 	sift3d->dog.sigma_n = sift3d->gpyr.sigma_n = sigma_n;
+        return SIFT3D_SUCCESS;
 }
 
-void set_sigma0_SIFT3D(SIFT3D *const sift3d,
+/* Sets the scale parameter of the first level of octave 0, checking that it
+ * is nonnegative. */
+int set_sigma0_SIFT3D(SIFT3D *const sift3d,
                                 const double sigma0) {
+
+        if (sigma0 < 0.0) {
+                fprintf(stderr, "SIFT3D sigma0 must be nonnegative. Provided: "
+                        "%f \n", sigma0);
+                return SIFT3D_FAILURE; 
+        } 
+
 	sift3d->dog.sigma0 = sift3d->gpyr.sigma0 = sigma0;
+        return SIFT3D_SUCCESS;
 }
 
 /* Initialize a SIFT3D struct with the default parameters. */
@@ -447,7 +498,7 @@ int init_SIFT3D(SIFT3D *sift3d) {
 	// Initialize to defaults
 	const int first_octave = first_octave_default;
 	const double peak_thresh = peak_thresh_default;
-	const double corner_thresh = corner_default;
+	const double corner_thresh = corner_thresh_default;
 	const int num_octaves = -1;
 	const int num_kp_levels = num_kp_levels_default;
 	const double sigma_n = sigma_n_default;
@@ -469,18 +520,19 @@ int init_SIFT3D(SIFT3D *sift3d) {
 	sift3d->im = NULL;
 
 	// Declare pyramid memory null, to mark for initialization 
-        // (see init_pyramid)
+        // (see resize_pyramid)
 	sift3d->gpyr.levels = sift3d->dog.levels = NULL;
 
 	// Save data
 	sift3d->dog.first_level = sift3d->gpyr.first_level = -1;
-        set_first_octave_SIFT3D(sift3d, first_octave);
-        set_num_octaves_SIFT3D(sift3d, num_octaves);
-        set_num_kp_levels_SIFT3D(sift3d, num_kp_levels);
         set_sigma_n_SIFT3D(sift3d, sigma_n);
         set_sigma0_SIFT3D(sift3d, sigma0);
-        set_peak_thresh_SIFT3D(sift3d, peak_thresh);
-        set_corner_thresh_SIFT3D(sift3d, corner_thresh);
+        if (set_first_octave_SIFT3D(sift3d, first_octave) ||
+            set_peak_thresh_SIFT3D(sift3d, peak_thresh) ||
+            set_corner_thresh_SIFT3D(sift3d, corner_thresh) ||
+            set_num_octaves_SIFT3D(sift3d, num_octaves) ||
+            set_num_kp_levels_SIFT3D(sift3d, num_kp_levels))
+                return SIFT3D_FAILURE;
         sift3d->dense_rotate = dense_rotate;
 
 	return SIFT3D_SUCCESS;
@@ -542,6 +594,42 @@ static int argv_permute(const int argc, char *const *argv,
         return SIFT3D_SUCCESS;
 }
 
+/* Print the options for a SIFT3D struct to stdout. */
+void print_opts_SIFT3D(void) {
+
+        printf("SIFT3D Options: \n"
+               "--%s \n"
+               "    The first octave of the pyramid. Must be an integer. "
+               "(default: %d) \n"
+               "--%s \n"
+               "    The smallest allowed absolute DoG value, on the interval "
+               "(0, inf). (default: %f) \n"
+               " --%s \n"
+               "    The smallest allowed corner score, on the interval [0, 1]."
+               " (default: %f) \n"
+               " --%s \n"
+               "    The number of octaves to process. Must be a positive "
+               "integer. (default: process as many as we can) \n"
+               " --%s \n"
+               "    The number of pyramid levels per octave in which "
+               "keypoints are found. Must be a positive integer. "
+               "(default: %d) \n"
+               " --%s \n"
+               "    The nominal scale parameter of the input data, on the "
+               "interval (0, inf). (default: %f) \n"
+               " --%s \n"
+               "    The scale parameter of the first level of octave 0, on "
+               "the interval (0, inf). (default: %f) \n",
+               opt_first_octave, first_octave_default,
+               opt_peak_thresh, peak_thresh_default,
+               opt_corner_thresh, corner_thresh_default,
+               opt_num_octaves, 
+               opt_num_kp_levels, num_kp_levels_default,
+               opt_sigma_n, sigma_n_default,
+               opt_sigma0, sigma0_default);
+
+}
+
 /* Set the parameters of a SIFT3D struct from the given command line 
  * arguments. The argument SIFT3D must be initialized with
  * init_SIFT3D prior to calling this function. All options not
@@ -585,13 +673,13 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
 
         // Options
         const struct option longopts[] = {
-                {"first_octave", required_argument, NULL, 'a'},
-                {"peak_thresh", required_argument, NULL, 'b'},
-                {"corner_thresh", required_argument, NULL, 'c'},
-                {"num_octaves", required_argument, NULL, 'd'},
-                {"num_kp_levels", required_argument, NULL, 'e'},
-                {"sigma_n", required_argument, NULL, 'f'},
-                {"sigma0", required_argument, NULL, 'g'}
+                {opt_first_octave, required_argument, NULL, 'a'},
+                {opt_peak_thresh, required_argument, NULL, 'b'},
+                {opt_corner_thresh, required_argument, NULL, 'c'},
+                {opt_num_octaves, required_argument, NULL, 'd'},
+                {opt_num_kp_levels, required_argument, NULL, 'e'},
+                {opt_sigma_n, required_argument, NULL, 'f'},
+                {opt_sigma0, required_argument, NULL, 'g'}
         };
 
         // Starting getopt variables 
@@ -621,32 +709,58 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
 
                 switch (c) {
                         case 'a':
-                                set_first_octave_SIFT3D(sift3d, 
-                                        ival);
+                                if (set_first_octave_SIFT3D(sift3d, 
+                                        ival))
+                                        goto parse_args_quit;
+
                                 processed[idx - 1] = SIFT3D_TRUE;
                                 processed[idx] = SIFT3D_TRUE;
                                 break;
                         case 'b':
-                                set_peak_thresh_SIFT3D(sift3d, 
-                                        dval);
+                                if (set_peak_thresh_SIFT3D(sift3d, 
+                                        dval))
+                                        goto parse_args_quit;
+
                                 processed[idx - 1] = SIFT3D_TRUE;
                                 processed[idx] = SIFT3D_TRUE;
                                 break;
                         case 'c':
-                                set_corner_thresh_SIFT3D(sift3d, 
-                                        dval);
+                                if (set_corner_thresh_SIFT3D(sift3d, 
+                                        dval))
+                                        goto parse_args_quit;
+
                                 processed[idx - 1] = SIFT3D_TRUE;
                                 processed[idx] = SIFT3D_TRUE;
                                 break;
                         case 'd':
-                                set_num_octaves_SIFT3D(sift3d, 
-                                        ival);
+                                // Check for errors
+                                if (ival <= 0) {
+                                        fprintf(stderr, "SIFT3D num_octaves "
+                                                "must be positive. Provided: "
+                                                "%d \n", ival);
+                                        goto parse_args_quit;
+                                }
+
+                                if (set_num_octaves_SIFT3D(sift3d, 
+                                        ival))
+                                        goto parse_args_quit;
+
                                 processed[idx - 1] = SIFT3D_TRUE;
                                 processed[idx] = SIFT3D_TRUE;
                                 break;
                         case 'e':
-                                set_num_kp_levels_SIFT3D(sift3d, 
-                                        ival);
+                                // Check for errors                        
+                                if (ival <= 0) {
+                                        fprintf(stderr, "SIFT3D num_kp_levels "
+                                                "must be positive. Provided: "
+                                                "%d \n", ival);
+                                        goto parse_args_quit;
+                                }
+
+                                if (set_num_kp_levels_SIFT3D(sift3d, 
+                                        ival))
+                                        goto parse_args_quit;
+
                                 processed[idx - 1] = SIFT3D_TRUE;
                                 processed[idx] = SIFT3D_TRUE;
                                 break;
@@ -727,7 +841,8 @@ static int resize_SIFT3D(SIFT3D *const sift3d) {
 	// Compute the number of octaves, if not specified by user
 	if ((num_octaves = sift3d->gpyr.num_octaves) == -1) {
 		last_octave = (int) log2((double) SIFT3D_MIN(
-                        SIFT3D_MIN(im->nx, im->ny), im->nz)) - 3 - first_octave;		// min size: 8 in any dimension
+                        // The minimum size is 8 in any dimension
+                        SIFT3D_MIN(im->nx, im->ny), im->nz)) - 3 - first_octave;
 
 		num_octaves = last_octave - first_octave + 1;
 	} else {
@@ -739,9 +854,9 @@ static int resize_SIFT3D(SIFT3D *const sift3d) {
 	sift3d->gpyr.last_octave = sift3d->dog.last_octave = last_octave;
 	sift3d->dog.num_octaves = sift3d->gpyr.num_octaves = num_octaves;
 
-	// Re-initialize the pyramid
-	if (init_pyramid(&sift3d->gpyr, sift3d->im) ||
-		init_pyramid(&sift3d->dog, sift3d->im))
+	// Resize the pyramid
+	if (resize_pyramid(&sift3d->gpyr, sift3d->im) ||
+		resize_pyramid(&sift3d->dog, sift3d->im))
 		return SIFT3D_FAILURE;
 
         //FIXME: Clean up the old GSS
@@ -1176,7 +1291,8 @@ static void refine_Hist(Hist *hist) {
 }
 
 /* As above, but using the eigenvector method */
-static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
+static int assign_eig_ori(SIFT3D *const sift3d, const Image *const im, 
+                          const Cvec *const vcenter,
                           const double sigma, Mat_rm *const R) {
 
     Cvec v[2];
@@ -1239,7 +1355,7 @@ static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
     // Test the eigenvectors for stability
     for (i = 0; i < m - 1; i++) {
 	if (fabs(SIFT3D_MAT_RM_GET(&L, i, 0, double) /
-		 SIFT3D_MAT_RM_GET(&L, i + 1, 0, double)) > eig_ratio_default)
+		 SIFT3D_MAT_RM_GET(&L, i + 1, 0, double)) > max_eig_ratio)
 	    goto eig_ori_reject;
     }
 
@@ -1260,7 +1376,7 @@ static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
         cos_ang = d / (SIFT3D_CVEC_L2_NORM(&vr) * SIFT3D_CVEC_L2_NORM(&vd));
 
         // Reject points not meeting the corner score
-        if (fabs(cos_ang) < corner_default) 
+        if (fabs(cos_ang) < sift3d->corner_thresh) 
                 goto eig_ori_reject;
 
 	// Get the sign of the derivative
@@ -1335,7 +1451,7 @@ static int assign_orientations(SIFT3D *sift3d,
 			return SIFT3D_FAILURE;
 
 		// Compute dominant orientations
-		switch (assign_eig_ori(level, &vcenter, sigma, R)) {
+		switch (assign_eig_ori(sift3d, level, &vcenter, sigma, R)) {
 			case SIFT3D_SUCCESS:
 				// Continue processing this keypoint
 				break;
@@ -2033,7 +2149,7 @@ static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
                 const double sigma = sift3d->gpyr.sigma0;
 
                 // Attempt to assign an orientation
-                switch(assign_eig_ori(in, &vcenter, sigma, &R)) {
+                switch(assign_eig_ori(sift3d, in, &vcenter, sigma, &R)) {
                         case SIFT3D_SUCCESS:
                                 // Use the assigned orientation
                                 ori = &R;

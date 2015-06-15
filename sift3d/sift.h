@@ -13,13 +13,13 @@ void init_Keypoint_store(Keypoint_store *kp);
 
 void init_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *desc);
 
-void set_first_octave_SIFT3D(SIFT3D *const sift3d, 
+int set_first_octave_SIFT3D(SIFT3D *const sift3d, 
                                 const int first_octave);
 
-void set_peak_thresh_SIFT3D(SIFT3D *const sift3d,
+int set_peak_thresh_SIFT3D(SIFT3D *const sift3d,
                                 const double peak_thresh);
 
-void set_corner_thresh_SIFT3D(SIFT3D *const sift3d,
+int set_corner_thresh_SIFT3D(SIFT3D *const sift3d,
                                 const double corner_thresh);
 
 int set_num_octaves_SIFT3D(SIFT3D *const sift3d,
@@ -28,13 +28,15 @@ int set_num_octaves_SIFT3D(SIFT3D *const sift3d,
 int set_num_kp_levels_SIFT3D(SIFT3D *const sift3d,
                                 const unsigned int num_kp_levels);
 
-void set_sigma_n_SIFT3D(SIFT3D *const sift3d,
+int set_sigma_n_SIFT3D(SIFT3D *const sift3d,
                                 const double sigma_n);
 
-void set_sigma0_SIFT3D(SIFT3D *const sift3d,
+int set_sigma0_SIFT3D(SIFT3D *const sift3d,
                                 const double sigma_n);
 
 int init_SIFT3D(SIFT3D *sift3d);
+
+void print_opts_SIFT3D(void);
 
 int parse_args_SIFT3D(SIFT3D *const sift3d,
         const int argc, char *const *argv, int *optind_ret, 
