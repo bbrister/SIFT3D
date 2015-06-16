@@ -1045,48 +1045,54 @@ write_kp_quit:
 	return SIFT3D_FAILURE; 
 }
 
-/* Write a matrix to a text file. Rows are separated by
- * line breaks. */
+/* Write a matrix to a CSV file, with optional .gzip compression. */
 int write_Mat_rm(const char *path, Mat_rm *mat) {
 
 	FILE *file;
+        long int pos;
 	int i, j;
 
-	// Validate or create output directory
+	// Validate and create the output directory
 	if (mkpath(path, 0777))
 		return SIFT3D_FAILURE;	
 
-	if (((file = fopen(path, "w")) == NULL))
+        // Open the file
+	if ((file = fopen(path, "w")) == NULL)
 		goto write_mat_quit;		
 
 #define WRITE_MAT(mat, format, type) \
 	SIFT3D_MAT_RM_LOOP_START(mat, i, j) \
+                const char delim = j < mat->num_cols - 1 ? ',' : '\n'; \
 		fprintf(file, format, SIFT3D_MAT_RM_GET(mat, i, j, \
 				 type)); \
-		SIFT3D_MAT_RM_LOOP_ROW_END \
-		fputc('\n', file); \
-	SIFT3D_MAT_RM_LOOP_COL_END
+                fputc(delim, file); \
+	SIFT3D_MAT_RM_LOOP_END
 
 	// Write the matrix
 	switch (mat->type) {
 		case DOUBLE:
-			WRITE_MAT(mat, "%f ", double)	
+			WRITE_MAT(mat, "%f", double)	
 			break;
 		case FLOAT:
-			WRITE_MAT(mat, "%f ", float)	
+			WRITE_MAT(mat, "%f", float)	
 			break;
 		case INT:
-			WRITE_MAT(mat, "%d ", int)	
+			WRITE_MAT(mat, "%d", int)	
 			break;
 		default:
 			goto write_mat_quit;
 	}
 #undef WRITE_MAT
 
+        // Check for errors
 	if (ferror(file))
 		goto write_mat_quit;	
 
+        // Finish writing the matrix
 	fclose(file);
+
+        //TODO: compress the file
+
 	return SIFT3D_SUCCESS;
 
 write_mat_quit:
