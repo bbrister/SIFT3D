@@ -331,14 +331,38 @@ typedef enum _interp_type {
         LANCZOS2        // Lanczos kernel, a = 2
 } interp_type;
 
+/* Virtual function table for Tform class */
+typedef struct _Tform_vtable {
+
+        int (*copy)(const void *const, void *const);
+
+        void (*apply_xyz)(void *const, const double, const double, const double,
+                double *const, double *const, double *const);
+
+        int (*apply_Mat_rm)(void *const, const Mat_rm *const, Mat_rm *const);
+
+        size_t (*get_size)(void);
+       
+        void (*cleanup)(void *const);
+
+} Tform_vtable;
+
+/* "Abstract class" of transformations */
+typedef struct _Tform {
+        tform_type type; // The specific type, e.g. Affine, TPS
+        const Tform_vtable *vtable; // Table of virtual functions
+} Tform;
+
 /* Struct to hold an affine transformation */
 typedef struct _Affine {
-	Mat_rm A;		// Transformation matrix, x' = Ax
-	int dim; 		// Dimensionality, e.g. 3
+        Tform tform;    // Abstract parent class
+	Mat_rm A;	// Transformation matrix, x' = Ax
+	int dim; 	// Dimensionality, e.g. 3
 } Affine;
 
 /* Struct to hold a thin-plate spline */
-typedef struct _TPS {
+typedef struct _Tps {
+        Tform tform;       // Abstract parent class
 	Mat_rm params;	// Transformation matrix, dim * number of control point + dim +1
 	Mat_rm kp_src;	// Control point matrix, number of control point * dim
 	int dim; 	// Dimensionality, e.g. 3

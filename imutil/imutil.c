@@ -26,6 +26,43 @@ const double min_inliers_default = 0.01;
 const double err_thresh_default = 5.0;
 const int num_iter_default = 500;
 
+/* Declarations for the virtual function implementations */
+static int copy_Affine(const void *const src, void *const dst);
+static int copy_Tps(const void *const src, void *const dst);
+static void apply_Affine_xyz(void *const affine, const double x_in, 
+        const double y_in, const double z_in, double *const x_out, 
+        double *const y_out, double *const z_out);
+static void apply_Tps_xyz(void *const tps, const double x_in, 
+        const double y_in, const double z_in, double *const x_out, 
+        double *const y_out, double *const z_out);
+static int apply_Affine_Mat_rm(void *const affine, const Mat_rm *const mat_in, 
+        Mat_rm *const mat_out);
+static int apply_Tps_Mat_rm(void *const tps, const Mat_rm *const mat_in, 
+        Mat_rm *const mat_out);
+size_t Affine_get_size(void);
+size_t Tps_get_size(void);
+static void cleanup_Affine(void *const affine);
+static void cleanup_Tps(void *const tps);
+
+/* Virtual function tables */
+const Tform_vtable Affine_vtable = {
+        copy_Affine,  
+        apply_Affine_xyz,
+        apply_Affine_Mat_rm,
+        Affine_get_size,
+        cleanup_Affine
+};
+const Tform_vtable Tps_vtable = {
+        copy_Tps,  
+        apply_Tps_xyz,
+        apply_Tps_Mat_rm,
+        Tps_get_size,
+        cleanup_Tps
+};
+
+/* Internal macros */
+#define TFORM_GET_VTABLE(arg) (((Affine *) arg)->tform.vtable)
+
 /* Global data */
 CL_data cl_data;
 
@@ -60,10 +97,10 @@ extern void dsyevd_(const char *, const char *, const int *, double *,
 /* Internal helper routines */
 static char *read_file(const char *path);
 static int do_mkdir(const char *path, mode_t mode);
-static double resample_linear(Image *in, const double x, const double y, 
-                        const double z, const int c);
-static double resample_lanczos2(Image *in, const double x, const double y, 
-                        const double z, const int c);
+static double resample_linear(const Image *const in, const double x, 
+        const double y, const double z, const int c);
+static double resample_lanczos2(const Image *const in, const double x, 
+        const double y, const double z, const int c);
 static double lanczos(double x, double a);
 static int check_cl_image_support(cl_context context, cl_mem_flags mem_flags,
 						   cl_image_format image_format, 
@@ -1605,8 +1642,8 @@ void im_zero(Image *im) {
 /* Transform an image according to the inverse of the provided tform. 
  * Resizes im_out. */
 
-int im_inv_transform(Image *in, Image *out, tform_type type, 
-		        void *tform, interp_type interp) {
+int im_inv_transform(void *const tform, const Image *const in, 
+        Image *const out, const interp_type interp) {
 
 	int x, y, z, c;
         double transx, transy, transz;
@@ -1617,9 +1654,8 @@ int im_inv_transform(Image *in, Image *out, tform_type type,
 
 #define IMUTIL_RESAMPLE(arg) \
 	SIFT3D_IM_LOOP_START(in, x, y, z) \
-		if (apply_tform_xyz((double)x, (double)y, (double)z, \
-			&transx, &transy, &transz, type, tform)) \
-			return SIFT3D_FAILURE; \
+		apply_tform_xyz(tform, (double)x, (double)y, (double)z, \
+			&transx, &transy, &transz); \
                         \
                 for (c = 0; c < out->nc; c++) { \
 		        SIFT3D_IM_GET_VOX(out, x, y, z, c) = resample_ ## arg(in, \
@@ -1648,8 +1684,8 @@ int im_inv_transform(Image *in, Image *out, tform_type type,
 
 /* Helper routine for image transformation. Performs trilinear
  * interpolation, setting out-of-bounds voxels to zero. */
-static double resample_linear(Image *in, const double x, const double y, 
-                        const double z, const int c) {
+static double resample_linear(const Image *const in, const double x, 
+        const double y, const double z, const int c) {
 
 	// Detect out-of-bounds
 	if (x < 0 || x > in->nx - 1 ||
@@ -1690,8 +1726,8 @@ static double resample_linear(Image *in, const double x, const double y,
 }
 
 /* Helper routine to resample an image at a point, using the Lanczos kernel */
-static double resample_lanczos2(Image *im, const double x, const double y, 
-                        const double z, const int c) {
+static double resample_lanczos2(const Image *const im, const double x, 
+        const double y, const double z, const int c) {
 
         double val;
         int xs, ys, zs;
@@ -2034,9 +2070,16 @@ int init_tform(void *tform, const tform_type type) {
  * all fields, and allocates memory for the inner
  * matrix, initializing it to zero. */
 int init_Affine(Affine *affine, int dim) {
+
 	// Verify inputs
 	if (dim < 2)
 		return SIFT3D_FAILURE;
+
+        // Initialize the type
+        affine->tform.type = AFFINE;
+
+        // Initialize the vtable
+        affine->tform.vtable = &Affine_vtable;        
 	
 	// Initialize the matrix
 	if (init_Mat_rm(&affine->A, dim, dim + 1,
@@ -2047,33 +2090,29 @@ int init_Affine(Affine *affine, int dim) {
 }
 
 /* Deep copy of a tform. Both src and dst must be initialized. */
-int copy_tform(void *src, void *dst, const tform_type type) {
-      
-      switch (type) {
-          case TPS:
-              puts("copy_tform: TPS not yet implemented \n");
-              return SIFT3D_FAILURE;
-          case AFFINE:
-              if (copy_Affine((Affine *) src, (Affine *) dst))
-                  return SIFT3D_FAILURE;
-              break;
-          default:
-              puts("copy_tform: unrecognized type \n");
-              return SIFT3D_FAILURE;
-      }
-
-      return SIFT3D_SUCCESS;
+int copy_tform(const void *const src, void *const dst) {
+      return TFORM_GET_VTABLE(src)->copy(src, dst);
 }
 
 /* Deep copy of one Affine to another. Both must be initialized. */
-int copy_Affine(Affine *src, Affine *dst) {
-    return Affine_set_mat(&src->A, dst);
+static int copy_Affine(const void *const src, void *const dst) {
+
+        const Affine *const srcAff = src;
+        Affine *const dstAff = dst;
+
+    return Affine_set_mat(&srcAff->A, dstAff);
+}
+
+/* Deep copy of one TPS to another. Both must be initialized. */
+static int copy_Tps(const void *const src, void *const dst) {
+        fputs("copy_Tps has not yet been implemented!", stderr);
+        return SIFT3D_FAILURE;
 }
 
 /* Initialize an Affine transform defined by the given matrix.
  * mat is copied. mat must be an n x (n + 1) matrix, where
  * n is the dimensionality of the transformation. */
-int Affine_set_mat(Mat_rm *mat, Affine *affine) {
+int Affine_set_mat(const Mat_rm *const mat, Affine *const affine) {
 
     // Verify inputs
     if (mat->num_cols != mat->num_rows + 1 ||
@@ -2087,30 +2126,22 @@ int Affine_set_mat(Mat_rm *mat, Affine *affine) {
 }
 
 /* Apply an arbitrary transformation to an [x, y, z] triple. */
-int apply_tform_xyz(double x_in, double y_in, double z_in, 
-	double *x_out, double *y_out, double *z_out,
-	const tform_type type, void *tform) {
-    switch (type) {
-	case AFFINE:
-	    apply_Affine_xyz((Affine *) tform, x_in, y_in, z_in,
-		    x_out, y_out, z_out);
-	    break;
-	case TPS:
-	    apply_Tps_xyz((Tps *) tform, x_in, y_in, z_in,
-		    x_out, y_out, z_out);
-	default:
-	    return SIFT3D_FAILURE;
-    }
-    return SIFT3D_SUCCESS;
+void apply_tform_xyz(void *const tform, const double x_in, const double y_in, 
+        const double z_in, double *const x_out, double *const y_out, 
+        double *const z_out) {
+        TFORM_GET_VTABLE(tform)->apply_xyz(tform, x_in, y_in, z_in, 
+                x_out, y_out, z_out);
 }
 
 /* Apply an Affine transformation to an [x, y, z] triple. */
-void apply_Affine_xyz(Affine *affine, double x_in, double y_in, 
-	double z_in, double *x_out, double *y_out, 
-	double *z_out) {
+static void apply_Affine_xyz(void *const affine, const double x_in, 
+        const double y_in, const double z_in, double *const x_out, 
+        double *const y_out, double *const z_out) {
 
-    const Mat_rm const *A = &affine->A;
-    assert(affine->dim == 3);
+       Affine *const aff = affine;
+
+    const Mat_rm const *A = &aff->A;
+    assert(aff->dim == 3);
     *x_out = SIFT3D_MAT_RM_GET(A, 0, 0, double) * x_in + 
 	SIFT3D_MAT_RM_GET(A, 0, 1, double) * y_in + 
 	SIFT3D_MAT_RM_GET(A, 0, 2, double) * z_in + 
@@ -2126,13 +2157,15 @@ void apply_Affine_xyz(Affine *affine, double x_in, double y_in,
 }
 
 /* Apply a thin-plate spline transformation to an [x, y, z] triple. */
-void apply_Tps_xyz(Tps *tps, double x_in, double y_in, 
-	double z_in, double *x_out, double *y_out, 
-	double *z_out) {
+static void apply_Tps_xyz(void *const tps, const double x_in, 
+        const double y_in, const double z_in, double *const x_out, 
+        double *const y_out, double *const z_out) {
 
-    const Mat_rm const *params = &tps->params;
-    const Mat_rm const *kp_src = &tps->kp_src;
-    assert(tps->dim == 3);
+        Tps *const t = tps;
+
+    const Mat_rm const *params = &t->params;
+    const Mat_rm const *kp_src = &t->kp_src;
+    assert(t->dim == 3);
     int n;
     int ctrl_pts=kp_src->num_rows; //number of control points
     double x_c, y_c, z_c, r_sq, U;
@@ -2178,34 +2211,24 @@ void apply_Tps_xyz(Tps *tps, double x_in, double y_in,
 
 /* Apply an arbitrary transform to a matrix. See apply_Affine_Mat_rm for
  * matrix formats. */
-int apply_tform_Mat_rm(Mat_rm *mat_in, Mat_rm *mat_out, const tform_type type,
-	void *tform) {
-
-    switch (type) {
-	case AFFINE:
-	    if (apply_Affine_Mat_rm((Affine *) tform, mat_in, mat_out))
-		return SIFT3D_FAILURE;
-	    break;
-	case TPS:
-	    if (apply_Tps_Mat_rm((Tps *) tform, mat_in, mat_out))
-		return SIFT3D_FAILURE;
-	    break;
-	default:
-	    return SIFT3D_FAILURE;
-    }	
-
-    return SIFT3D_SUCCESS;
+int apply_tform_Mat_rm(void *const tform, const Mat_rm *const mat_in, 
+        Mat_rm *const mat_out) {
+        return TFORM_GET_VTABLE(tform)->apply_Mat_rm(tform, mat_in, mat_out);
 }
 
 /* Apply a spline transformation to a matrix, 
  * by multiplication. See apply_Affine_Mat_rm for format of input matrices
  *
  * All matrices must be initialized with init_Mat_rm prior to use. For 3D!*/
-int apply_Tps_Mat_rm(Tps *tps, Mat_rm *mat_in, Mat_rm *mat_out) {
+static int apply_Tps_Mat_rm(void *const tps, const Mat_rm *const mat_in, 
+        Mat_rm *const mat_out) {
+
+       Tps *const t = tps;
+
     //Spline transformation matrix is dim * [number of chosen points+dim+1]
     //sp_src is [number of chosen points] * dim
-    const Mat_rm const *params = &(tps->params);
-    const Mat_rm const *kp_src = &(tps->kp_src);
+    const Mat_rm const *params = &(t->params);
+    const Mat_rm const *kp_src = &(t->kp_src);
 
     int num_pts=mat_in->num_cols; //number of points to be transformed
     int ctrl_pts=kp_src->num_rows; //number of control points
@@ -2250,49 +2273,46 @@ int apply_Tps_Mat_rm(Tps *tps, Mat_rm *mat_in, Mat_rm *mat_out) {
     return SIFT3D_SUCCESS;
 }
 
-/* Get the size of a tform by its type. */
-size_t tform_get_size(tform_type type) {
-  switch (type) {
-    case AFFINE:
-      return sizeof(Affine);
-    case TPS:
-      return sizeof(Tps);
-    default:
-      puts("tform_get_size: unknown type \n");
-      return 0;
-  }
+/* Get the type of a tform. */
+tform_type tform_get_type(const void *const tform) {
+        return ((Affine *) tform)->tform.type;
+}
+
+/* Get the size of a tform. */
+size_t tform_get_size(const void *const tform) {
+        return TFORM_GET_VTABLE(tform)->get_size();
+}
+
+/* Returns the size of an Affine struct */
+size_t Affine_get_size(void) {
+        return sizeof(Affine);
+}
+
+/* Returns the size of a Tps struct */
+size_t Tps_get_size(void) {
+        return sizeof(Tps);
 }
 
 /* Free the memory associated with a tform */
-int cleanup_tform(void *tform, tform_type type) {
-
-    if (tform == NULL)
-      return SIFT3D_SUCCESS;
-
-    switch (type) {
-	case AFFINE:
-	    cleanup_Affine((Affine *) tform);
-	    break;
-	case TPS:
-	    cleanup_Tps((Tps *) tform);
-	    break;
-	default:
-	    puts("cleanup_tform: unknown transformation type \n");
-	    return SIFT3D_FAILURE;
-    }
-
-    return SIFT3D_SUCCESS;
+void cleanup_tform(void *const tform) {
+        TFORM_GET_VTABLE(tform)->cleanup(tform);
 }
 
 /* Free the memory associated with an Affine transformation. */
-void cleanup_Affine(Affine *affine) {
-    cleanup_Mat_rm(&affine->A);
+static void cleanup_Affine(void *const affine) {
+
+        Affine *const aff = affine;
+
+        cleanup_Mat_rm(&aff->A);
 }
 
 /* Free the memory assocaited with a thin-plate spline. */
-void cleanup_Tps(Tps *tps) {
-    cleanup_Mat_rm(&tps->params);
-    cleanup_Mat_rm(&tps->kp_src);	
+static void cleanup_Tps(void *const tps) {
+
+        Tps *const t = tps;
+
+        cleanup_Mat_rm(&t->params);
+        cleanup_Mat_rm(&t->kp_src);	
 }
 
 /* Apply an Affine transformation to a matrix, by multiplication. The format
@@ -2310,17 +2330,20 @@ void cleanup_Tps(Tps *tps) {
  *  w1' w2' ... wN'] 
  *
  * All matrices must be initialized with init_Mat_rm prior to use. */
-int apply_Affine_Mat_rm(Affine *affine, Mat_rm *mat_in, Mat_rm *mat_out) {
+static int apply_Affine_Mat_rm(void *const affine, const Mat_rm *const mat_in, 
+        Mat_rm *const mat_out) {
 
-    return mul_Mat_rm(&affine->A, mat_in, mat_out) ? 
-                SIFT3D_FAILURE : SIFT3D_SUCCESS;
+        Affine *const aff = affine;
+
+        return mul_Mat_rm(&aff->A, mat_in, mat_out);
 }
 
 /* Computes mat_in1 * mat_in2 = mat_out. mat_out will be resized
  * the appropriate size.
  *
  * All matrices must be initialized with init_Mat_rm prior to use. */
-int mul_Mat_rm(Mat_rm *mat_in1, Mat_rm *mat_in2, Mat_rm *mat_out) {
+int mul_Mat_rm(const Mat_rm *const mat_in1, const Mat_rm *const mat_in2, 
+        Mat_rm *const mat_out) {
 
     int i, j, k;
 
@@ -3311,8 +3334,7 @@ int mkpath(const char *path, mode_t mode)
 
 
 /* Make a directory if it does not exist.
- * Thanks to Jonathan Leffler
- */
+ * Thanks to Jonathan Leffler */
 static int do_mkdir(const char *path, mode_t mode)
 {
 	struct stat st;
@@ -3340,18 +3362,24 @@ int init_Tps(Tps *tps, int dim, int terms) {
 	// Verify inputs
 	if (dim < 2)
 		return SIFT3D_FAILURE;
+
+        // Initialize the type
+        tps->tform.type = TPS;
 	
-	// Initialize the matrix
+        // Initialize the vtable
+        tps->tform.vtable = &Tps_vtable;        
+	
+	// Initialize the matrices
 	if (init_Mat_rm(&tps->params, dim, terms,
-					DOUBLE, SIFT3D_TRUE))
+		DOUBLE, SIFT3D_TRUE))
 		return SIFT3D_FAILURE;
 		
 	if (init_Mat_rm(&tps->kp_src, terms-dim-1,dim,
-					DOUBLE, SIFT3D_TRUE))
+		DOUBLE, SIFT3D_TRUE))
 		return SIFT3D_FAILURE;
+
+	tps->dim = dim;
 	return SIFT3D_SUCCESS;
-	
-	tps->dim=dim;
 }
 
 /* Initialize a RANSAC struct with the given parameters */
@@ -3807,9 +3835,7 @@ static double tform_err_sq(void* tform, Mat_rm* src, Mat_rm* ref, int i,
 	z_in = SIFT3D_MAT_RM_GET(ref,i,2,double);
 		
 	//Register
-	if(apply_tform_xyz(x_in, y_in, z_in, &x_out, &y_out, &z_out, type, 
-			   tform))
-		return -1.0;
+	apply_tform_xyz(tform, x_in, y_in, z_in, &x_out, &y_out, &z_out);
 		
 	//Find the reference point
 	x_r = SIFT3D_MAT_RM_GET(src,i,0,double);
@@ -3938,7 +3964,7 @@ int resize_Tps(Tps* tps, int num_pts, int dim){
 }
 
 int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
-		      const tform_type type, void* tform) {
+		      void *const tform) {
 
 	 /* tform --transformation matrix (will fill in this struct)
 		src --source points [number of points * dim]
@@ -3953,7 +3979,8 @@ int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
 	 
 	const int num_iter = ran->num_iter; 
         const int num_pts = src->num_rows; 	 	 	 
-        const size_t tform_size = tform_get_size(type); 
+        const size_t tform_size = tform_get_size(tform); 
+        const tform_type type = tform_get_type(tform);
 
 	// Initialize data structures
         cset = cset_best = NULL;
@@ -3997,7 +4024,7 @@ int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
                 len_best = len;
                 if ((cset_best = (int *) realloc(cset_best, 
                      len * sizeof(int))) == NULL ||
-                     copy_tform(tform_cur, tform, type))
+                     copy_tform(tform_cur, tform))
 		    goto FIND_TFORM_FAIL;
                 memcpy(cset_best, cset, len * sizeof(int));
 	    } 
@@ -4031,7 +4058,7 @@ int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
 	switch (solve_system(tform_cur, &src_cset, &ref_cset, dim, type)) {
 	    case SIFT3D_SUCCESS:
 		// Copy the refined transformation to the output
-		if (copy_tform(tform_cur, tform, type))
+		if (copy_tform(tform_cur, tform))
 		    goto FIND_TFORM_FAIL;
 		break;
 	    case SIFT3D_SINGULAR:
@@ -4048,7 +4075,7 @@ int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
 	 
         free(cset);
         free(cset_best);
-        cleanup_tform(tform_cur, type);
+        cleanup_tform(tform_cur);
 	if (tform_cur != NULL)
 	    free(tform_cur);
 	return SIFT3D_SUCCESS;
@@ -4058,7 +4085,7 @@ FIND_TFORM_FAIL:
           free(cset);
         if (cset_best != NULL)
           free(cset_best);
-        cleanup_tform(tform_cur, type);
+        cleanup_tform(tform_cur);
 	if (tform_cur != NULL)
 	    free(tform_cur);
 	return SIFT3D_FAILURE;

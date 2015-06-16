@@ -44,8 +44,7 @@ int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const ref) {
 }
 
 /* Run the registration pipeline. */
-int register_SIFT3D(Reg_SIFT3D *const reg, const tform_type type, 
-        void *const tform) {
+int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
 
         Ransac *const ran = &reg->ran;
         SIFT3D *const sift3d = &reg->sift3d;
@@ -103,7 +102,7 @@ int register_SIFT3D(Reg_SIFT3D *const reg, const tform_type type,
         }
 
 	// Find the transformation 
-	if (find_tform_ransac(ran, match_src, match_ref, 3, type, tform))
+	if (find_tform_ransac(ran, match_src, match_ref, 3, tform))
 		err_exit("fit transform\n");
 
 	return SIFT3D_SUCCESS;

@@ -176,9 +176,7 @@ int main(int argc, char *argv[]) {
                 const double yc = ((double) src_temp.ny - 1.0) / 2.0;
                 const double zc = ((double) src_temp.nz - 1.0) / 2.0;
                 double xtrans, ytrans, ztrans;
-                if (apply_tform_xyz(xc, yc, zc, &xtrans, &ytrans, &ztrans, 
-                                        AFFINE, &aff_syn))
-                        err_exit("get center translation");
+                apply_tform_xyz(&aff_syn, xc, yc, zc, &xtrans, &ytrans, &ztrans);
 
                 // Apply the center translation and update the affine transformation
                 SIFT3D_MAT_RM_GET(&A, 0, 3, double) = xc - xtrans;
@@ -188,7 +186,7 @@ int main(int argc, char *argv[]) {
 			err_exit("set affine matrix");
 
 		// Apply an affine transformation to the reference image
-		if (im_inv_transform(&src_temp, &src, AFFINE, &aff_syn, INTERP))
+		if (im_inv_transform(&aff_syn, &src_temp, &src, INTERP))
 			err_exit("apply image transform");		
 
 #ifdef VERBOSE
@@ -346,12 +344,11 @@ int main(int argc, char *argv[]) {
 #endif
 	
 	// Find the transformation 
-	if (find_tform_ransac(&ran, &match_src, &match_ref, 3, AFFINE, 
-						  (void *) &aff_reg))	
+	if (find_tform_ransac(&ran, &match_src, &match_ref, 3, &aff_reg))	
 		err_exit("fit transform");
 
 	// Transform the source image
-	if (im_inv_transform(&srcp, &srcp_reg, AFFINE, &aff_reg, LINEAR))
+	if (im_inv_transform(&aff_reg, &srcp, &srcp_reg, LINEAR))
 		err_exit("apply image transform");		
 
 	// End the benchmark
@@ -393,7 +390,7 @@ int main(int argc, char *argv[]) {
 		int match;
 
 		// Tranform the source feature by the ground truth
-		apply_tform_xyz(xs, ys, zs, &xst, &yst, &zst, AFFINE, &aff_syn);
+		apply_tform_xyz(&aff_syn, xs, ys, zs, &xst, &yst, &zst);
 
 		// Find the matched feature, if any
 		match = match_idx >= 0;
@@ -483,7 +480,7 @@ int main(int argc, char *argv[]) {
 	init_im(&grid_deformed);
 	if (draw_grid(&grid, nx, ny, nz, 20, 1))
 		err_exit("make grid");
-	if (im_inv_transform(&grid, &grid_deformed, AFFINE, &aff_reg, LINEAR))
+	if (im_inv_transform(&aff_reg, &grid, &grid_deformed, LINEAR))
 		err_exit("deform grid");
 	if (write_nii(GRID_PATH, &grid_deformed))
 		err_exit("write deformation grid to file");	

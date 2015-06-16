@@ -26,8 +26,7 @@ typedef struct _Reg_SIFT3D {
 
 int init_Reg_SIFT3D(Reg_SIFT3D *const reg);
 
-int register_SIFT3D(Reg_SIFT3D *const reg, const tform_type mode, 
-        void *const tform);
+int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform);
 
 int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const src);
 

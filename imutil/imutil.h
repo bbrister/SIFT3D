@@ -60,42 +60,25 @@ void cleanup_Mat_rm(Mat_rm *mat);
 
 int init_tform(void *tform, const tform_type type);
 
-int init_Affine(Affine *affine, int dim);
+int copy_tform(const void *const src, void *const dst);
 
-int copy_tform(void *src, void *dst, const tform_type type);
+int Affine_set_mat(const Mat_rm *const mat, Affine *const affine);
 
-int copy_Affine(Affine *src, Affine *dst);
+void apply_tform_xyz(void *const tform, const double x_in, const double y_in, 
+        const double z_in, double *const x_out, double *const y_out, 
+        double *const z_out);
 
-int Affine_set_mat(Mat_rm *mat, Affine *affine);
+int apply_tform_Mat_rm(void *const tform, const Mat_rm *const mat_in, 
+        Mat_rm *const mat_out);
 
-int apply_tform_xyz(double x_in, double y_in, double z_in, 
-					double *x_out, double *y_out, double *z_out,
-					const tform_type type, void *tform);
+tform_type tform_get_type(const void *const tform);
 
-void apply_Affine_xyz(Affine *affine, double x_in, double y_in, 
-					  double z_in, double *x_out, double *y_out, 
-					  double *z_out);
-					  
-void apply_Tps_xyz(Tps *tps, double x_in, double y_in, 
-					  double z_in, double *x_out, double *y_out, 
-					  double *z_out);
+size_t tform_get_size(const void *const tform);
 
-int apply_tform_Mat_rm(Mat_rm *mat_in, Mat_rm *mat_out, const tform_type type,
-					   void *tform);
-					   
-int apply_Affine_Mat_rm(Affine *affine, Mat_rm *mat_in, Mat_rm *mat_out);
+void cleanup_tform(void *const tform);
 
-int apply_Tps_Mat_rm(Tps *tps, Mat_rm *mat_in, Mat_rm *mat_out);
-
-size_t tform_get_size(tform_type type);
-
-int cleanup_tform(void *tform, tform_type type);
-
-void cleanup_Affine(Affine *affine);
-
-void cleanup_Tps(Tps *tps);
-
-int mul_Mat_rm(Mat_rm *mat_in1, Mat_rm *mat_in2, Mat_rm *mat_out);
+int mul_Mat_rm(const Mat_rm *const mat_in1, const Mat_rm *const mat_in2, 
+        Mat_rm *const mat_out);
 
 int init_Sep_FIR_filter(Sep_FIR_filter *f, int dim, int half_width, int width, 
 						float *kernel, int symmetric);
@@ -162,8 +145,8 @@ void im_zero(Image *im);
 
 void im_Hessian(Image *im, int x, int y, int z, Mat_rm *H);
 
-int im_inv_transform(Image *in, Image *out, tform_type type, 
-		        void *tform, interp_type interp);
+int im_inv_transform(void *const tform, const Image *const in, 
+        Image *const out, const interp_type interp);
 
 void init_im(Image *im);
 
@@ -202,6 +185,6 @@ int set_err_thresh_Ransac(Ransac *ran, double err_thresh);
 void set_num_iter_Ransac(Ransac *ran, unsigned int num_iter);
 
 int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
-					  tform_type type, void* tform);
+		      void *const tform);
 
 #endif
