@@ -424,16 +424,8 @@ int set_corner_thresh_SIFT3D(SIFT3D *const sift3d,
 int set_num_octaves_SIFT3D(SIFT3D *const sift3d,
                                 const unsigned int num_octaves) {
 
-        const int num_octaves_old = sift3d->dog.num_octaves;
-
-        // Do nothing if the parameter is the same
-        if ((int) num_octaves == num_octaves_old) 
-                return SIFT3D_SUCCESS; 
-
-        // Set the new parameter
 	sift3d->dog.num_octaves = sift3d->gpyr.num_octaves = (int) num_octaves;
 
-        // Resize the data
         return resize_SIFT3D(sift3d);
 }
 
@@ -442,13 +434,8 @@ int set_num_octaves_SIFT3D(SIFT3D *const sift3d,
 int set_num_kp_levels_SIFT3D(SIFT3D *const sift3d,
                                 const unsigned int num_kp_levels) {
 
-        const int num_kp_levels_old = sift3d->dog.num_kp_levels;
 	const int num_dog_levels = (int) num_kp_levels + 2;
 	const int num_gpyr_levels = num_dog_levels + 1;
-
-        // Do nothing if the parameter is the same
-        if ((int) num_kp_levels == num_kp_levels_old)
-                return SIFT3D_SUCCESS;
 
         // Set the new parameter
 	sift3d->dog.num_kp_levels = sift3d->gpyr.num_kp_levels = 
