@@ -52,7 +52,7 @@ const double ori_grad_thresh = 1E-10;   // Minimum norm of average gradient
 const double bary_eps = FLT_EPSILON * 1E1;	// Error tolerance for barycentric coordinates
 const double ori_sig_fctr = 1.5;        // Ratio of window parameter to keypoint scale
 const double ori_rad_fctr =  3.0; // Ratio of window radius to parameter
-const double desc_sig_fctr = 7.071067812; // See, ori_sig_fctr, 5 * sqrt(2)
+const double desc_sig_fctr = 7.071067812; // See ori_sig_fctr, 5 * sqrt(2)
 const double desc_rad_fctr = 2.0;  // See ori_rad_fctr
 const double trunc_thresh = 0.2f * 128.0f / DESC_NUMEL; // Descriptor truncation threshold
 
@@ -165,6 +165,9 @@ static int extract_dense_descriptors(SIFT3D *const sift3d,
         const Image *const in, Image *const desc);
 static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
         const Image *const in, Image *const desc);
+static void extract_dense_descrip(SIFT3D *const sift3d, 
+           const Image *const im, const Cvec *const vcenter, 
+           const double sigma, const Mat_rm *const R, Hist *const hist);
 static int vox2hist(const Image *const im, const int x, const int y,
         const int z, Hist *const hist);
 static int hist2vox(Hist *const hist, const Image *const im, const int x, 
@@ -658,15 +661,23 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
         double dval;
         int c, err, ival;
 
+#define FIRST_OCTAVE 'a'
+#define PEAK_THRESH 'b'
+#define CORNER_THRESH 'c'
+#define NUM_OCTAVES 'd'
+#define NUM_KP_LEVELS 'e'
+#define SIGMA_N 'f'
+#define SIGMA0 'g'
+
         // Options
         const struct option longopts[] = {
-                {opt_first_octave, required_argument, NULL, 'a'},
-                {opt_peak_thresh, required_argument, NULL, 'b'},
-                {opt_corner_thresh, required_argument, NULL, 'c'},
-                {opt_num_octaves, required_argument, NULL, 'd'},
-                {opt_num_kp_levels, required_argument, NULL, 'e'},
-                {opt_sigma_n, required_argument, NULL, 'f'},
-                {opt_sigma0, required_argument, NULL, 'g'}
+                {opt_first_octave, required_argument, NULL, FIRST_OCTAVE},
+                {opt_peak_thresh, required_argument, NULL, PEAK_THRESH},
+                {opt_corner_thresh, required_argument, NULL, CORNER_THRESH},
+                {opt_num_octaves, required_argument, NULL, NUM_OCTAVES},
+                {opt_num_kp_levels, required_argument, NULL, NUM_KP_LEVELS},
+                {opt_sigma_n, required_argument, NULL, SIGMA_N},
+                {opt_sigma0, required_argument, NULL, SIGMA0}
         };
 
         // Starting getopt variables 
@@ -678,7 +689,7 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
 
         // Intialize intermediate data
         if ((processed = calloc(argc, sizeof(char *))) == NULL) {
-                fprintf(stderr, "parse_args_SIFT3D: out of memory\n");
+                fprintf(stderr, "parse_args_SIFT3D: out of memory \n");
                 return SIFT3D_FAILURE;
         }
         err = SIFT3D_FALSE;
@@ -695,7 +706,7 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
                 }
 
                 switch (c) {
-                        case 'a':
+                        case FIRST_OCTAVE:
                                 if (set_first_octave_SIFT3D(sift3d, 
                                         ival))
                                         goto parse_args_quit;
@@ -703,7 +714,7 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
                                 processed[idx - 1] = SIFT3D_TRUE;
                                 processed[idx] = SIFT3D_TRUE;
                                 break;
-                        case 'b':
+                        case PEAK_THRESH:
                                 if (set_peak_thresh_SIFT3D(sift3d, 
                                         dval))
                                         goto parse_args_quit;
@@ -711,7 +722,7 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
                                 processed[idx - 1] = SIFT3D_TRUE;
                                 processed[idx] = SIFT3D_TRUE;
                                 break;
-                        case 'c':
+                        case CORNER_THRESH:
                                 if (set_corner_thresh_SIFT3D(sift3d, 
                                         dval))
                                         goto parse_args_quit;
@@ -719,7 +730,7 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
                                 processed[idx - 1] = SIFT3D_TRUE;
                                 processed[idx] = SIFT3D_TRUE;
                                 break;
-                        case 'd':
+                        case NUM_OCTAVES:
                                 // Check for errors
                                 if (ival <= 0) {
                                         fprintf(stderr, "SIFT3D num_octaves "
@@ -735,7 +746,7 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
                                 processed[idx - 1] = SIFT3D_TRUE;
                                 processed[idx] = SIFT3D_TRUE;
                                 break;
-                        case 'e':
+                        case NUM_KP_LEVELS:
                                 // Check for errors                        
                                 if (ival <= 0) {
                                         fprintf(stderr, "SIFT3D num_kp_levels "
@@ -751,12 +762,12 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
                                 processed[idx - 1] = SIFT3D_TRUE;
                                 processed[idx] = SIFT3D_TRUE;
                                 break;
-                        case 'f':
+                        case SIGMA_N:
                                 set_sigma_n_SIFT3D(sift3d, dval);
                                 processed[idx - 1] = SIFT3D_TRUE;
                                 processed[idx] = SIFT3D_TRUE;
                                 break;
-                        case 'g':
+                        case SIGMA0:
                                 set_sigma0_SIFT3D(sift3d, dval);
                                 processed[idx - 1] = SIFT3D_TRUE;
                                 processed[idx] = SIFT3D_TRUE;
@@ -768,6 +779,14 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
                                 err = SIFT3D_TRUE;
                 }
         }
+
+#undef FIRST_OCTAVE
+#undef PEAK_THRESH
+#undef CORNER_THRESH
+#undef NUM_OCTAVES
+#undef NUM_KP_LEVELS
+#undef SIGMA_N
+#undef SIGMA0
 
         // Put all unprocessed options at the end
         if (argv_permute(argc, argv, processed, optind_start))
@@ -1860,7 +1879,7 @@ static void normalize_hist(Hist *const hist) {
 }
 
 /* Dense gradient histogram postprocessing steps */
-static void postproc_Hist(Hist *const hist) {
+static void postproc_Hist(Hist *const hist, const float norm) {
 
         int a, p;
 
@@ -1880,6 +1899,11 @@ static void postproc_Hist(Hist *const hist) {
 
 	// Normalize again
 	normalize_hist(hist);
+
+        // Convert to the desired norm
+        HIST_LOOP_START(a, p)
+                HIST_GET(hist, a, p) *= norm;
+        HIST_LOOP_END
 }
 
 /* Helper routine to extract a single SIFT3D histogram. */
@@ -1922,9 +1946,6 @@ static void extract_dense_descrip(SIFT3D *const sift3d,
                 MESH_HIST_GET(mesh, hist, bin, 2) += mag * weight * bary.z;
 
 	SIFT3D_IM_LOOP_END
-
-        // Histogram postprocessing
-        postproc_Hist(hist);
 }
 
 /* Get a descriptor with a single histogram at each voxel of an image.
@@ -1942,6 +1963,7 @@ int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d,
         int (*extract_fun)(SIFT3D *const, const Image *const, Image *const);
         Image in_smooth;
         Gauss_filter gauss;
+        int x, y, z;
 
         const double sigma_n = sift3d->gpyr.sigma_n;
         const double sigma0 = sift3d->gpyr.sigma0;
@@ -1982,6 +2004,26 @@ int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d,
         if (extract_fun(sift3d, &in_smooth, desc))
                 return SIFT3D_FAILURE;
 
+        // Post-process the descriptors
+        SIFT3D_IM_LOOP_START(desc, x, y, z)
+
+                Hist hist;
+
+                // Get the image intensity at this voxel 
+                const float val = SIFT3D_IM_GET_VOX(in, x, y, z, 0);
+
+                // Copy to a Hist
+                vox2hist(desc, x, y, z, &hist);
+
+                // Post-process
+                postproc_Hist(&hist, val);
+
+                // Copy back to the image
+                hist2vox(&hist, desc, x, y, z);
+
+        SIFT3D_IM_LOOP_END
+
+
         // Clean up
         cleanup_Gauss_filter(&gauss);
         im_free(&in_smooth);
@@ -2014,7 +2056,8 @@ static int extract_dense_descriptors(SIFT3D *const sift3d,
         const int z_end = in->nz - 2;
 
         Mesh * const mesh = &sift3d->mesh;
-        const double sigma_win = sift3d->gpyr.sigma0 * desc_sig_fctr;
+        const double sigma_win = sift3d->gpyr.sigma0 * desc_sig_fctr / 
+                                 NHIST_PER_DIM;
 
         // Initialize the intermediate image
         init_im(&temp);
@@ -2052,22 +2095,6 @@ static int extract_dense_descriptors(SIFT3D *const sift3d,
         // Filter the descriptors
 	if (apply_Sep_FIR_filter(&temp, desc, &gauss.f))
                 goto dense_extract_quit;
-
-        // Post-process the descriptors
-        SIFT3D_IM_LOOP_START(desc, x, y, z)
-
-                Hist hist;
-
-                // Copy to a Hist
-                vox2hist(desc, x, y, z, &hist);
-
-                // Post-process
-                postproc_Hist(&hist);
-
-                // Copy back to the image
-                hist2vox(&hist, desc, x, y, z);
-
-        SIFT3D_IM_LOOP_END
 
         // Clean up
         im_free(&temp);
@@ -2133,10 +2160,12 @@ static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
                                       (float) y + 0.5f, 
                                       (float) z + 0.5f};
 
-                const double sigma = sift3d->gpyr.sigma0;
+                const double ori_sigma = sift3d->gpyr.sigma0 * ori_sig_fctr;
+                const double desc_sigma = sift3d->gpyr.sigma0 * 
+                        desc_sig_fctr / NHIST_PER_DIM;
 
                 // Attempt to assign an orientation
-                switch(assign_eig_ori(sift3d, in, &vcenter, sigma, &R)) {
+                switch(assign_eig_ori(sift3d, in, &vcenter, ori_sigma, &R)) {
                         case SIFT3D_SUCCESS:
                                 // Use the assigned orientation
                                 ori = &R;
@@ -2151,7 +2180,7 @@ static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
                 }
 
                 // Extract the descriptor
-                extract_dense_descrip(sift3d, in, &vcenter, sigma, ori,
+                extract_dense_descrip(sift3d, in, &vcenter, desc_sigma, ori,
                                       &hist);
 
                 // Copy the descriptor to the image channels

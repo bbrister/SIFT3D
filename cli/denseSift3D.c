@@ -32,7 +32,13 @@ const char help_msg[] =
         "            ... \n"
         "       -out11.nii.gz \n"
         "\n";
-                
+          
+/* Print an error message. */      
+void errMsg(const char *msg) {
+        fprintf(stderr, "denseSift3d: %s \n", msg);
+        fputc('\n', stderr);
+        fputs("See \"denseSift3d --help\" for more information. \n", stderr);
+}
 
 int main(int argc, char **argv) {
 
@@ -54,6 +60,7 @@ int main(int argc, char **argv) {
 
         /* Parse the arguments */
         if (argc != 3) {
+                errMsg("not enough arguments.");
                 return 1;
         }
         in_path = argv[1];
@@ -72,8 +79,7 @@ int main(int argc, char **argv) {
 
         /* Ensure the output file name has a % character */
         if ((marker = strrchr(out_path, '%')) == NULL) {
-                fputs("Error: output filename must contain the % "
-                      "character. \n", stderr);
+                errMsg("output filename must contain '%'.");
                 return 1;
         }
         marker_pos = marker - out_path;
