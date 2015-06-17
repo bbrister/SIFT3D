@@ -11,6 +11,29 @@
 
 #define BUF_SIZE (1 << 10)
 
+const char help_msg[] = 
+        "Usage: denseSift3d [input.nii] [descriptors%.nii] \n"
+        "\n"
+        "Extracts a dense gradient histogram image from the input file. The \n"
+        "output is a set of 12 images, each representing a channel or \n"
+        "histogram bin. The last '%' character in the output filename is \n"
+        "replaced by the channel index.\n"
+        "\n"
+        "Accepted image formats: \n"
+        "       -.nii \n"
+        "       -.nii.gz \n"
+        "\n"
+        "Example: \n"
+        "       denseSift3d in.nii.gz out%.nii.gz \n"
+        "\n"
+        "Upon completion, the output would be the following 12 images: \n"
+        "       -out0.nii.gz \n"
+        "       -out1.nii.gz \n"
+        "            ... \n"
+        "       -out11.nii.gz \n"
+        "\n";
+                
+
 int main(int argc, char **argv) {
 
         char out_name[BUF_SIZE], chan_str[BUF_SIZE];
@@ -20,9 +43,17 @@ int main(int argc, char **argv) {
         size_t len;
         int c, marker_pos;
 
+        /* Parse the GNU standard options */
+        switch (parse_gnu(argc, argv)) {
+                case SIFT3D_HELP:
+                        puts(help_msg);
+                        return 0;
+                case SIFT3D_VERSION:
+                        return 0;
+        }
+
         /* Parse the arguments */
         if (argc != 3) {
-                puts("Usage: denseSift3d [input.nii] [descriptors%.nii] \n");
                 return 1;
         }
         in_path = argv[1];

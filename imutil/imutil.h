@@ -181,4 +181,6 @@ void set_num_iter_Ransac(Ransac *ran, unsigned int num_iter);
 int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
 		      void *const tform);
 
+int parse_gnu(const int argc, char *const *argv);
+
 #endif

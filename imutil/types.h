@@ -13,6 +13,13 @@
 #ifndef _TYPES_H
 #define _TYPES_H
 
+// Return codes
+#define SIFT3D_SINGULAR 1
+#define SIFT3D_SUCCESS 0
+#define SIFT3D_FAILURE -1
+#define SIFT3D_HELP 1
+#define SIFT3D_VERSION 2
+
 #if _Win16 == 1 || _WIN32 == 1 || _WIN64 == 1 || \
 	defined __WIN32__ || defined __TOS_WIN__ || \
 	defined __WINDOWS__ && !defined _WINDOWS

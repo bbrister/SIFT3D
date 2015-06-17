@@ -13,12 +13,7 @@
 #ifndef _MACROS_H
 #define _MACROS_H
 
-// Function return macros
-#define SIFT3D_SINGULAR 1
-#define SIFT3D_SUCCESS 0
-#define SIFT3D_FAILURE -1
-
-// Truth macros
+// Truth values
 #define SIFT3D_TRUE 1
 #define SIFT3D_FALSE 0
 

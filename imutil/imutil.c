@@ -5,6 +5,7 @@
  */
 
 #include <assert.h>
+#include <getopt.h>
 #include <errno.h>
 #include <math.h>
 #include <stdio.h>
@@ -30,6 +31,15 @@
 /* Implementation parameters */
 //#define SIFT3D_USE_OPENCL // Use OpenCL acceleration
 #define SIFT3D_RANSAC_REFINE	// Use least-squares refinement in RANSAC
+
+/* SIFT3D version message */
+const char version_msg[] = 
+        "SIFT3D version 0.00 \n"
+        "\n"
+        "Source code available at https://github.com/bbrister/SIFT3D\n"
+        "\n"
+        "Please contact Blaine Rister (blaine@stanford.edu) with questions or "
+        "concerns. \n";
 
 /* Default parameters */
 const double min_inliers_default = 0.01;
@@ -4103,3 +4113,32 @@ FIND_TFORM_FAIL:
 	    free(tform_cur);
 	return SIFT3D_FAILURE;
  }
+
+/* Parse the GNU standard arguments (--version, --help).
+ * Return values:
+ * -SIFT3D_HELP - "--help" was found
+ * -SIFT3D_VERSION - "--version" was found, and the version message printed
+ * -SIFT3D_FALSE - no GNU standard arguments were found */
+int parse_gnu(const int argc, char *const *argv) {
+
+        int c;
+
+        // Options
+        const struct option longopts[] = {
+                {"help", no_argument, NULL, SIFT3D_HELP},
+                {"version", no_argument, NULL, SIFT3D_VERSION}
+        };
+
+        // Process the arguments
+        while ((c = getopt_long(argc, argv, "", longopts, NULL)) != -1) {
+                switch (c) { 
+                        case SIFT3D_HELP:
+                                return SIFT3D_HELP;
+                        case SIFT3D_VERSION:
+                                puts(version_msg);
+                                return SIFT3D_VERSION;
+                }
+        }
+
+        return SIFT3D_FALSE;
+}
