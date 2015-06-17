@@ -194,7 +194,7 @@ static int init_geometry(SIFT3D *sift3d) {
 			       gr,   0, -1, 
 			      -gr,   0, -1 }; 
 
-	/* Vertices of the faces of the icosahedron. */
+	/* Vertex triplets forming the faces of the icosahedron. */
 	const float faces[] = {0, 1, 8,
     			       0, 8, 4,
     			       0, 4, 5,
@@ -271,10 +271,10 @@ static int init_geometry(SIFT3D *sift3d) {
 
 		// Ensure the triangle is equilateral
 		SIFT3D_CVEC_OP(v + 2, v, -, &temp3);
-		assert(fabsf(SIFT3D_CVEC_L2_NORM(&temp1) - SIFT3D_CVEC_L2_NORM(&temp2)) < 
-			1E-10);
-		assert(fabsf(SIFT3D_CVEC_L2_NORM(&temp1) - SIFT3D_CVEC_L2_NORM(&temp3)) < 
-			1E-10);
+		assert(fabsf(SIFT3D_CVEC_L2_NORM(&temp1) - 
+                        SIFT3D_CVEC_L2_NORM(&temp2)) < 1E-10);
+		assert(fabsf(SIFT3D_CVEC_L2_NORM(&temp1) - 
+                        SIFT3D_CVEC_L2_NORM(&temp3)) < 1E-10);
 	}	
 	
 	return SIFT3D_SUCCESS;
