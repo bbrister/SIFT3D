@@ -22,12 +22,6 @@ int init_cl(CL_data *user_cl_data, const char *platform_name,
 			cl_device_type device_type,	cl_mem_flags mem_flags, 
 			cl_image_format image_format);
 
-double robust_error(double err, double cutoff);
-
-int im_get_bins(Image *im, int x, int y, int z, Svec *bins);
-
-int Svec_compar(Svec *s1, Svec *s2);
-
 int convert_Mat_rm(Mat_rm *in, Mat_rm *out, data_type type);
 
 int init_Mat_rm(Mat_rm *mat, int num_rows, int num_cols,

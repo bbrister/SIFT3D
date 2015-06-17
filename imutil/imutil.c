@@ -10,12 +10,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <float.h>
+#include <zlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <nifti1_io.h>
 #include "macros.h"
 #include "imutil.h"
 #include "types.h"
+
+/* zlib definitions */
+#if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
+#  include <fcntl.h>
+#  include <io.h>
+#  define SET_BINARY_MODE(file) setmode(fileno(file), O_BINARY)
+#else
+#  define SET_BINARY_MODE(file)
+#endif
 
 /* Implementation parameters */
 //#define SIFT3D_USE_OPENCL // Use OpenCL acceleration
@@ -130,6 +140,7 @@ static int convolve_sep_cl (const Image *const src, Image *const dst,
 		     const Sep_FIR_filter *const f, const int dim);
 static int convolve_sep_sym(const Image *const src, Image *const dst, 
 		     const Sep_FIR_filter *const f, const int dim);
+static const char *get_file_ext(const char *name);
 
 /* Unfinished public routines */
 int init_Tps(Tps *tps, int dim, int terms);
@@ -200,7 +211,7 @@ static int check_cl_image_support(cl_context context, cl_mem_flags mem_flags,
  * settings are not supported on the device, returns SIFT3D_FAILURE. Returns SIFT3D_SUCCESS
  * when userData is initialized. 
  *
- * This library saves a copy of UserData for use with future calls. To change 
+ * This library saves a copy of user_cl_data for use with future calls. To change 
  * the settings of the library, call init_cl again. */
 
 int init_cl(CL_data *user_cl_data, const char *platform_name, 
@@ -390,41 +401,6 @@ static int compile_cl_program_from_source(cl_program *program, cl_context contex
 	       "OpenCL!\n");
 	return SIFT3D_FAILURE;
 #endif
-}
-
-/* Compute a robust error function.
- *
- * Supported methods:
- * - truncate
- *
- * parameters:
- *  err    - current error, e.g. L2 norm
- *  cutoff - cutoff for large errors 
- *
- * return value:
- *  Returns the modified error, or -1.0 if there is a failure in the
- *  procedure. */
-double robust_error(double err, double cutoff) {
-
-	// Truncate
-	return SIFT3D_MIN(err, cutoff);
-}
-
-/* Compare two spherical coordinate vectors. 
- *
- * return value:
- *  -1 - s1 > s2
- *   0 - s1 == s2
- *   1 - s1 < s2
- *
- * Note: This function can be used with qsort. */
-int Svec_compar(Svec *s1, Svec *s2) {
-	if (s1->mag > s2->mag)
-		return -1;
-	else if (s1->mag == s2->mag)
-		return 0;
-	else
-		return 1;
 }
 
 /* Convert a matrix to a different type. in and out may be the same pointer.
@@ -947,7 +923,7 @@ read_nii_quit:
 
 /* Write an Image to the specified path.
  * Supported formats:
- * -NIFTI */
+ * -NIFTI (.nii, .nii.gz) */
 int write_nii(const char *path, Image *im) {
 
 	nifti_image *nifti;	
@@ -1018,7 +994,7 @@ int write_Keypoint_store(const char *path, Keypoint_store *kp) {
 	if (mkpath(path, 0777))
 		return SIFT3D_FAILURE;	
 
-	if (((file = fopen(path, "w")) == NULL))
+	if ((file = fopen(path, "w")) == NULL)
 		goto write_kp_quit;		
 
 	// Write the header
@@ -1045,27 +1021,56 @@ write_kp_quit:
 	return SIFT3D_FAILURE; 
 }
 
-/* Write a matrix to a CSV file, with optional .gzip compression. */
+/* Get the extension of a file name */
+static const char *get_file_ext(const char *name) {
+
+        const char *dot = strrchr(name, '.'); 
+
+        if (dot == NULL || dot == name)
+                return ""; 
+
+        return dot + 1;
+}
+
+/* Write a matrix to a .csv or .csv.gz file. */
 int write_Mat_rm(const char *path, Mat_rm *mat) {
 
 	FILE *file;
+        gzFile gz;
+        const char *ext;
         long int pos;
-	int i, j;
+	int i, j, compress;
+
+        const char *gz_ext = "gz";
+        const char *mode = "w";
 
 	// Validate and create the output directory
 	if (mkpath(path, 0777))
 		return SIFT3D_FAILURE;	
 
+        // Get the file extension
+        ext = get_file_ext(path);
+
+        // Check if we need to compress the file
+        compress = strcmp(ext, gz_ext) == 0;
+
         // Open the file
-	if ((file = fopen(path, "w")) == NULL)
+        if ((compress && (gz = gzopen(path, mode)) == NULL) || 
+                (file = fopen(path, mode)) == NULL)
 		goto write_mat_quit;		
 
 #define WRITE_MAT(mat, format, type) \
 	SIFT3D_MAT_RM_LOOP_START(mat, i, j) \
                 const char delim = j < mat->num_cols - 1 ? ',' : '\n'; \
-		fprintf(file, format, SIFT3D_MAT_RM_GET(mat, i, j, \
+                if (compress) { \
+                        gzprintf(gz, format, SIFT3D_MAT_RM_GET(mat, i, j, \
+                                type)); \
+                        gzputc(gz, delim); \
+                } else { \
+		        fprintf(file, format, SIFT3D_MAT_RM_GET(mat, i, j, \
 				 type)); \
-                fputc(delim, file); \
+                        fputc(delim, file); \
+                } \
 	SIFT3D_MAT_RM_LOOP_END
 
 	// Write the matrix
@@ -1085,13 +1090,15 @@ int write_Mat_rm(const char *path, Mat_rm *mat) {
 #undef WRITE_MAT
 
         // Check for errors
-	if (ferror(file))
+	if (!compress && ferror(file))
 		goto write_mat_quit;	
 
         // Finish writing the matrix
-	fclose(file);
-
-        //TODO: compress the file
+        if (compress && gzclose(gz) != Z_OK) {
+		goto write_mat_quit;	
+	} else { 
+                fclose(file);
+        }
 
 	return SIFT3D_SUCCESS;
 
@@ -4096,4 +4103,3 @@ FIND_TFORM_FAIL:
 	    free(tform_cur);
 	return SIFT3D_FAILURE;
  }
-

@@ -28,22 +28,22 @@
 
 /* Debugging file paths */
 #define DEBUG_ROOT "./debug/"
-#define TFORM_IN_PATH DEBUG_ROOT "affine_input.txt"
-#define TFORM_REG_PATH DEBUG_ROOT "affine_inferred.txt"
-#define IM_OUT_PATH DEBUG_ROOT "registered.nii"
-#define GRID_PATH DEBUG_ROOT "grid.nii"
-#define KP_SRC_IM_PATH DEBUG_ROOT "kp_src.nii"
-#define KP_REF_IM_PATH DEBUG_ROOT "kp_ref.nii"
-#define BG_PATH DEBUG_ROOT "background.nii"
-#define OVERLAY_PATH DEBUG_ROOT "overlay.nii"
+#define TFORM_IN_PATH DEBUG_ROOT "affine_input.csv.gz"
+#define TFORM_REG_PATH DEBUG_ROOT "affine_inferred.csv"
+#define IM_OUT_PATH DEBUG_ROOT "registered.nii.gz"
+#define GRID_PATH DEBUG_ROOT "grid.nii.gz"
+#define KP_SRC_IM_PATH DEBUG_ROOT "kp_src.nii.gz"
+#define KP_REF_IM_PATH DEBUG_ROOT "kp_ref.nii.gz"
+#define BG_PATH DEBUG_ROOT "background.nii.gz"
+#define OVERLAY_PATH DEBUG_ROOT "overlay.nii.gz"
 #define GPYR_REF_PATH DEBUG_ROOT "gpyr_ref/gpyr"
 #define DOG_REF_PATH DEBUG_ROOT "dog_ref/dog"
 #define GPYR_SRC_PATH DEBUG_ROOT "gpyr_src/gpyr"
 #define DOG_SRC_PATH DEBUG_ROOT "dog_src/dog"
 #define KP_REF_PATH DEBUG_ROOT "kp_ref.txt"
 #define KP_SRC_PATH DEBUG_ROOT "kp_src.txt"
-#define MATCH_REF_PATH DEBUG_ROOT "match_ref.txt"
-#define MATCH_SRC_PATH DEBUG_ROOT "match_src.txt"
+#define MATCH_REF_PATH DEBUG_ROOT "match_ref.csv"
+#define MATCH_SRC_PATH DEBUG_ROOT "match_src.csv"
 
 int main(int argc, char *argv[]) {
 
@@ -240,8 +240,8 @@ int main(int argc, char *argv[]) {
 
 	init_im(&kp_ref_im);
 
-	if (write_nii("../debug/src_im.nii", &srcp) ||
-		write_nii("../debug/ref_im.nii", &refp))
+	if (write_nii("../debug/src_im.nii.gz", &srcp) ||
+		write_nii("../debug/ref_im.nii.gz", &refp))
 		err_exit("write input images");
 	if (write_pyramid("../debug/gpyr_ref", &sift3d.gpyr))
 		fprintf(stderr, "Failed to write reference GSS pyramid to"

@@ -1,6 +1,6 @@
 /* denseSift3d.c 
  * ----------------------------------------------------------------
- * Extract dense SIFT3D features from an image.
+ * Command-line tool to extract dense SIFT3D features from an image.
 */
 
 #include <stdio.h>
