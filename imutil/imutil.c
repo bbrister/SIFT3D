@@ -4114,7 +4114,9 @@ FIND_TFORM_FAIL:
 	return SIFT3D_FAILURE;
  }
 
-/* Parse the GNU standard arguments (--version, --help).
+/* Parse the GNU standard arguments (--version, --help). On return, the
+ * getopt state is restored to the original.
+ *
  * Return values:
  * -SIFT3D_HELP - "--help" was found
  * -SIFT3D_VERSION - "--version" was found, and the version message printed
@@ -4122,6 +4124,8 @@ FIND_TFORM_FAIL:
 int parse_gnu(const int argc, char *const *argv) {
 
         int c;
+
+        const int optind_start = optind;
 
         // Options
         const struct option longopts[] = {
@@ -4139,6 +4143,9 @@ int parse_gnu(const int argc, char *const *argv) {
                                 return SIFT3D_VERSION;
                 }
         }
+
+        // Restore the state
+        optind = optind_start;
 
         return SIFT3D_FALSE;
 }
