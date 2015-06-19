@@ -5,7 +5,10 @@
 add_executable (denseSift3D denseSift3D.c)
 target_link_libraries(denseSift3D PUBLIC sift3D imutil m)
 
-install (TARGETS denseSift3D
+add_executable(kpSift3D kpSift3D.c)
+target_link_libraries(kpSift3D PUBLIC sift3D imutil)
+
+install (TARGETS denseSift3D kpSift3D
 	 RUNTIME DESTINATION bin 
 	 LIBRARY DESTINATION lib/sift3d
 	 ARCHIVE DESTINATION lib/sift3d)

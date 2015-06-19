@@ -13,10 +13,6 @@
 #ifndef _MACROS_H
 #define _MACROS_H
 
-// Truth values
-#define SIFT3D_TRUE 1
-#define SIFT3D_FALSE 0
-
 // Math macros
 #define SIFT3D_MIN(x, y) ((x) < (y) ? (x) : (y))
 #define SIFT3D_MAX(x, y) ((x) > (y) ? (x) : (y))

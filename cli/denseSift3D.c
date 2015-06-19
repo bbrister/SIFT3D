@@ -19,9 +19,9 @@ const char help_msg[] =
         "histogram bin. The last '%' character in the output filename is \n"
         "replaced by the channel index.\n"
         "\n"
-        "Accepted image formats: \n"
-        "       -.nii \n"
-        "       -.nii.gz \n"
+        "Supported image formats: \n"
+        "       .nii (nifti-1) \n"
+        "       .nii.gz (gzip-compressed nifti-1) \n"
         "\n"
         "Example: \n"
         "       denseSift3d in.nii.gz out%.nii.gz \n"
@@ -35,9 +35,8 @@ const char help_msg[] =
           
 /* Print an error message. */      
 void errMsg(const char *msg) {
-        fprintf(stderr, "denseSift3d: %s \n", msg);
-        fputc('\n', stderr);
-        fputs("See \"denseSift3d --help\" for more information. \n", stderr);
+        fprintf(stderr, "denseSift3d: %s \n"
+                "Use \"denseSift3d --help\" for more information. \n", msg);
 }
 
 int main(int argc, char **argv) {
@@ -59,11 +58,14 @@ int main(int argc, char **argv) {
         }
 
         /* Parse the arguments */
-        if (argc != 3) {
-                errMsg("not enough arguments.");
+        if (argc < 3) {
+                errMsg("Not enough arguments.");
+                return 1;
+        } else if (argc > 3) {
+                errMsg("Too many arguments.");
                 return 1;
         }
-        in_path = argv[1];
+        in_path = argv[1]; //TODO: check the file extensions
         out_path = argv[2];
 
         /* Initialize data */
