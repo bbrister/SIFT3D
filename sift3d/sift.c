@@ -588,10 +588,10 @@ static int argv_permute(const int argc, char *const *argv,
 void print_opts_SIFT3D(void) {
 
         printf("SIFT3D Options: \n"
-               "--%s \n"
+               " --%s \n"
                "    The first octave of the pyramid. Must be an integer. "
                "(default: %d) \n"
-               "--%s \n"
+               " --%s \n"
                "    The smallest allowed absolute DoG value, on the interval "
                "(0, inf). (default: %f) \n"
                " --%s \n"
@@ -677,7 +677,8 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
                 {opt_num_octaves, required_argument, NULL, NUM_OCTAVES},
                 {opt_num_kp_levels, required_argument, NULL, NUM_KP_LEVELS},
                 {opt_sigma_n, required_argument, NULL, SIGMA_N},
-                {opt_sigma0, required_argument, NULL, SIGMA0}
+                {opt_sigma0, required_argument, NULL, SIGMA0},
+                {0, 0, 0, 0}
         };
 
         // Starting getopt variables 

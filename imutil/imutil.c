@@ -4125,15 +4125,17 @@ int parse_gnu(const int argc, char *const *argv) {
 
         int c;
 
-        const int optind_start = optind;
+        const int opterr_start = opterr;
 
         // Options
         const struct option longopts[] = {
                 {"help", no_argument, NULL, SIFT3D_HELP},
-                {"version", no_argument, NULL, SIFT3D_VERSION}
+                {"version", no_argument, NULL, SIFT3D_VERSION},
+                {0, 0, 0, 0}
         };
 
         // Process the arguments
+        opterr = 0;
         while ((c = getopt_long(argc, argv, "", longopts, NULL)) != -1) {
                 switch (c) { 
                         case SIFT3D_HELP:
@@ -4145,7 +4147,8 @@ int parse_gnu(const int argc, char *const *argv) {
         }
 
         // Restore the state
-        optind = optind_start;
+        optind = 0;
+        opterr = opterr_start;
 
         return SIFT3D_FALSE;
 }
