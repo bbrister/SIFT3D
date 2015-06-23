@@ -984,53 +984,6 @@ write_nii_quit:
 	return SIFT3D_FAILURE;
 }
 
-/* Write a Keypoint_store to a text file. Currently,
- * we only write the integer coordinates of each
- * keypoint. 
- *
- * File format: 
- * nx ny nz (first octave)
- * x1 y1 z1 o1 s1 
- * x2 y2 z2 o2 s2 
- *   ...
- * xN yN zN oN sN */
-int write_Keypoint_store(const char *path, Keypoint_store *kp) {
-
-	FILE *file;
-	Keypoint *key;
-	int i;
-
-	// Validate or create output directory
-	if (mkpath(path, 0777))
-		return SIFT3D_FAILURE;	
-
-	if ((file = fopen(path, "w")) == NULL)
-		goto write_kp_quit;		
-
-	// Write the header
-	fprintf(file, "%d %d %d\n", kp->nx, kp->ny, kp->nz);	
-
-	// Iterate through the buffer
-	for (i = 0; i < kp->slab.num; i++) {
-		// Extract and write a key
-		key = kp->buf + i;	
-		fprintf(file, "%d %d %d %d %d ", key->xi, key->yi, 
-				key->zi, key->o, key->s);		
-
-		fputc('\n', file);
-	} 
-
-	if (ferror(file))
-		goto write_kp_quit;	
-
-	fclose(file);
-	return SIFT3D_SUCCESS;
-
-write_kp_quit:
-	fclose(file);
-	return SIFT3D_FAILURE; 
-}
-
 /* Get the extension of a file name */
 static const char *get_file_ext(const char *name) {
 

@@ -40,8 +40,8 @@
 #define DOG_REF_PATH DEBUG_ROOT "dog_ref/dog"
 #define GPYR_SRC_PATH DEBUG_ROOT "gpyr_src/gpyr"
 #define DOG_SRC_PATH DEBUG_ROOT "dog_src/dog"
-#define KP_REF_PATH DEBUG_ROOT "kp_ref.txt"
-#define KP_SRC_PATH DEBUG_ROOT "kp_src.txt"
+#define KP_REF_PATH DEBUG_ROOT "kp_ref.csv"
+#define KP_SRC_PATH DEBUG_ROOT "kp_src.csv"
 #define MATCH_REF_PATH DEBUG_ROOT "match_ref.csv"
 #define MATCH_SRC_PATH DEBUG_ROOT "match_src.csv"
 

@@ -245,11 +245,11 @@ typedef struct _Slab {
 /* Struct defining a keypoint in 3D space. */
 typedef struct _Keypoint {
 
-	float r_data[3 * 3];			// Memory for matrix R, do not use this
-	Mat_rm R;						// Rotation matrix into Keypoint space
-	double xd, yd, zd;				// sub-pixel x, y, z
-	double  sd;						// absolute scale
-	double  sd_rel;					// octave-relative scale
+	float r_data[IM_NDIMS * IM_NDIMS];	// Memory for matrix R, do not use this
+	Mat_rm R;				// Rotation matrix into Keypoint space
+	double xd, yd, zd;			// sub-pixel x, y, z
+	double  sd;				// absolute scale
+	double  sd_rel;				// octave-relative scale
 	int xi, yi, zi, o, s;			// [x, y, z], [o, s]
 
 } Keypoint;

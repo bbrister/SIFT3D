@@ -74,4 +74,6 @@ int draw_matches(const Image *const src, const Image *const ref,
 		 const Mat_rm *const match_src, const Mat_rm *const match_ref,
 		 Image *const background, Image *const overlay);
 
+int write_Keypoint_store(const char *path, const Keypoint_store *const kp);
+
 #endif

@@ -94,8 +94,6 @@ int read_nii(const char *path, Image *im);
 
 int write_nii(const char *path, Image *im);
 
-int write_Keypoint_store(const char *path, Keypoint_store *kp);
-
 int write_Mat_rm(const char *path, Mat_rm *mat);
 
 int init_im_first_time(Image *im, const int nx, const int ny, const int nz,

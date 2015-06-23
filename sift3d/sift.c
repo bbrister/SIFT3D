@@ -59,6 +59,15 @@ const double trunc_thresh = 0.2f * 128.0f / DESC_NUMEL; // Descriptor truncation
 /* Internal math constants */
 const double gr = 1.6180339887; // Golden ratio
 
+/* Keypoint data format constants */
+const int kp_num_cols = IM_NDIMS * (IM_NDIMS + 1) + 1; // Number of columns
+const int kp_x = 0; // column of x-coordinate
+const int kp_y = 1; // column of y-coordinate
+const int kp_z = 2; // column of z-coordinate
+const int kp_s = 3; // column of s-coordinate
+const int kp_ori = 4; // first column of the orientation matrix
+const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientaiton elements
+
 /* Internal return codes */
 #define REJECT 1
 
@@ -2557,5 +2566,65 @@ int draw_matches(const Image *const src, const Image *const ref,
 		return SIFT3D_FAILURE;
 
 	return SIFT3D_SUCCESS;
+}
+
+/* Write a Keypoint_store to a text file. The keypoints are stored in a matrix
+ * (.csv, .csv.gz), where each keypoint is a row. The elements of each row are
+ * as follows:
+ *
+ * x y z s ori11 ori12 ... or1nn
+ *
+ * x - the x-coordinate
+ * y - the y-coordinate
+ * z - the z-coordinate
+ * s - the scale coordinate
+ * ori(ij) - the ith row, jth column of the orientation matrix */
+int write_Keypoint_store(const char *path, const Keypoint_store *const kp) {
+
+        Mat_rm mat;
+	int i, i_R, j_R;
+
+        const int num_rows = kp->slab.num;
+
+        // Initialize the matrix
+        if (init_Mat_rm(&mat, num_rows, kp_num_cols, DOUBLE, SIFT3D_FALSE))
+                return SIFT3D_FAILURE;
+       
+        // Write the keypoints 
+        for (i = 0; i < num_rows; i++) {
+
+                const Keypoint *const key = kp->buf + i;
+                const Mat_rm *const R = &key->R;
+
+                // Write the coordinates 
+                SIFT3D_MAT_RM_GET(&mat, i, kp_x, double) = key->xd;
+                SIFT3D_MAT_RM_GET(&mat, i, kp_y, double) = key->yd;
+                SIFT3D_MAT_RM_GET(&mat, i, kp_z, double) = key->zd;
+                SIFT3D_MAT_RM_GET(&mat, i, kp_s, double) = key->sd;
+
+                // Write the orientation matrix
+                SIFT3D_MAT_RM_LOOP_START(R, i_R, j_R)
+
+                        const int kp_idx = kp_ori + 
+                                SIFT3D_MAT_RM_GET_IDX(R, i_R, j_R);
+        
+                        SIFT3D_MAT_RM_GET(&mat, i, kp_idx, double) = 
+                                (double) SIFT3D_MAT_RM_GET(R, i_R, j_R, float);
+
+                SIFT3D_MAT_RM_LOOP_END
+        }
+
+        // Write the matrix 
+        if (write_Mat_rm(path, &mat))
+                goto write_kp_quit;
+
+        // Clean up
+        cleanup_Mat_rm(&mat);
+
+        return SIFT3D_SUCCESS;
+
+write_kp_quit:
+        cleanup_Mat_rm(&mat);
+        return SIFT3D_FAILURE;
 }
 
