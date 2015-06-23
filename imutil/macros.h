@@ -187,10 +187,14 @@
 // Delmit the second level of a MAT_LOOP
 #define SIFT3D_MAT_RM_LOOP_ROW_END } 
 
+// Get the index of an element in a dense matrix, in row-major order.
+#define SIFT3D_MAT_RM_GET_IDX(mat, row, col) \
+        ((col) + (row) * (mat)->num_cols)
+
 // Get an element from a dense matrix in row-major order. Type must
 // be "double", "float", or "int."
 #define SIFT3D_MAT_RM_GET(mat, row, col, type) ((mat)->u.data_ ## type \
-	[(col) + (row) * (mat)->num_cols])
+	[SIFT3D_MAT_RM_GET_IDX(mat, row, col)])
 
 // Convert a vector from Cartesian to Spherical coordinates.
 #define SIFT3D_CVEC_TO_SVEC(cvec, svec) { \
