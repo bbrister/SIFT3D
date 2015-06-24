@@ -183,4 +183,6 @@ int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
 
 int parse_gnu(const int argc, char *const *argv);
 
+void print_bug_msg();
+
 #endif

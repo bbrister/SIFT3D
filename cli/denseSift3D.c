@@ -11,8 +11,12 @@
 
 #define BUF_SIZE (1 << 10)
 
+/* The log tag */
+const char tag[] = "denseSift3d";
+
+/* The help message */
 const char help_msg[] = 
-        "Usage: denseSift3d [input.nii] [descriptors%.nii] \n"
+        "Usage: denseSift3D [input.nii] [descriptors%.nii] \n"
         "\n"
         "Extracts a dense gradient histogram image from the input file. The \n"
         "output is a set of 12 images, each representing a channel or \n"
@@ -34,9 +38,16 @@ const char help_msg[] =
         "\n";
           
 /* Print an error message. */      
-void errMsg(const char *msg) {
-        fprintf(stderr, "denseSift3d: %s \n"
-                "Use \"denseSift3d --help\" for more information. \n", msg);
+void err_msg(const char *msg) {
+        fprintf(stderr, "%s: %s \n"
+                "Use \"denseSift3d --help\" for more information. \n", tag, 
+                msg);
+}
+
+/* Report an unexpected error. */
+void err_msgu(const char *msg) {
+        err_msg(msg);
+        print_bug_msg();
 }
 
 int main(int argc, char **argv) {
@@ -59,29 +70,37 @@ int main(int argc, char **argv) {
 
         /* Parse the arguments */
         if (argc < 3) {
-                errMsg("Not enough arguments.");
+                err_msg("Not enough arguments.");
                 return 1;
         } else if (argc > 3) {
-                errMsg("Too many arguments.");
+                err_msg("Too many arguments.");
                 return 1;
         }
-        in_path = argv[1]; //TODO: check the file extensions
+        in_path = argv[1];
         out_path = argv[2];
 
         /* Initialize data */
         init_im(&im);
         init_im(&desc);
         init_im(&chan);
-        if (init_SIFT3D(&sift3d))
-                err_exit("initalize sift3d \n");
+        if (init_SIFT3D(&sift3d)) {
+                err_msgu("Failed to initialize SIFT3D data.");
+                return 1;
+        }
 
         /* Read the image */        
-        if (read_nii(in_path, &im))
-                err_exit("read the image \n");                
+        if (read_nii(in_path, &im)) {
+                
+                char msg[BUF_SIZE];
+
+                sprintf(msg, "Failed to read input image \"%s\".", in_path);
+                err_msg(msg);
+                return 1;
+        }
 
         /* Ensure the output file name has a % character */
         if ((marker = strrchr(out_path, '%')) == NULL) {
-                errMsg("output filename must contain '%'.");
+                err_msg("output filename must contain '%'.");
                 return 1;
         }
         marker_pos = marker - out_path;
@@ -89,22 +108,30 @@ int main(int argc, char **argv) {
         /* Get the output file name length */
         len = strlen(out_path) + (int) ceil(log10((double) im.nc)) - 1;
         if (len > BUF_SIZE) {
-                fprintf(stderr, "Error: output filename cannot exceed %d "
-                                "characters. \n", BUF_SIZE);
+
+                char msg[BUF_SIZE];
+
+                sprintf(msg, "Ouput filename cannot exceed %d characters.", 
+                        BUF_SIZE);
+                err_msg(msg);
                 return 1;
         }
 
         /* Extract the descriptors */
-        if (SIFT3D_extract_dense_descriptors(&sift3d, &im, &desc))
-                err_exit("extract descriptors \n");
+        if (SIFT3D_extract_dense_descriptors(&sift3d, &im, &desc)) {
+                err_msgu("Failed to extract descriptors.");
+                return 1;
+        }
         
 
         /* Write each channel as a separate image */
         for (c = 0; c < desc.nc; c++) {
 
                 /* Get the channel */
-                if (im_channel(&desc, &chan, c))
-                        err_exit("extract channel");
+                if (im_channel(&desc, &chan, c)) {
+                        err_msgu("Failed to extract the channel.");
+                        return 1;
+                }
 
                 /* Form the output file name */
                 out_name[0] = '\0';
@@ -114,8 +141,15 @@ int main(int argc, char **argv) {
                 strcat(out_name, marker + 1);
 
                 /* Write the channel */
-                if (write_nii(out_name, &chan))
-                        err_exit(out_path);
+                if (write_nii(out_name, &chan)) {
+
+                        char msg[BUF_SIZE];
+
+                        sprintf(msg, "Failed to write output image \"%s\".", 
+                                out_name);
+                        err_msg(msg);
+                        return 1;
+                }
         }
 
         return 0;

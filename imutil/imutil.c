@@ -41,6 +41,12 @@ const char version_msg[] =
         "Please contact Blaine Rister (blaine@stanford.edu) with questions or "
         "concerns. \n";
 
+/* Bug message */
+const char bug_msg[] =
+        "SIFT3D has encountered an unexpected error. We would appreciate it \n" 
+        "if you would report this issue at the following page: \n"
+        "       https://github.com/bbrister/SIFT3D/issues \n";
+
 /* Default parameters */
 const double min_inliers_default = 0.01;
 const double err_thresh_default = 5.0;
@@ -4089,7 +4095,7 @@ int parse_gnu(const int argc, char *const *argv) {
 
         // Process the arguments
         opterr = 0;
-        while ((c = getopt_long(argc, argv, "", longopts, NULL)) != -1) {
+        while ((c = getopt_long(argc, argv, "+", longopts, NULL)) != -1) {
                 switch (c) { 
                         case SIFT3D_HELP:
                                 return SIFT3D_HELP;
@@ -4104,4 +4110,9 @@ int parse_gnu(const int argc, char *const *argv) {
         opterr = opterr_start;
 
         return SIFT3D_FALSE;
+}
+
+/* Print the bug message to stderr. */
+void print_bug_msg() {
+        fputs(bug_msg, stderr);
 }

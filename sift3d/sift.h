@@ -76,4 +76,7 @@ int draw_matches(const Image *const src, const Image *const ref,
 
 int write_Keypoint_store(const char *path, const Keypoint_store *const kp);
 
+int write_SIFT3D_Descriptor_store(const char *path, 
+        const SIFT3D_Descriptor_store *const desc);
+
 #endif

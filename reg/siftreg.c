@@ -378,7 +378,7 @@ int main(int argc, char *argv[]) {
 
 		double match_err, min_err, min_err_sq, xst, yst, zst;
 
-		// TODO: Refactor SIFT3D_Descriptor and Keypoint to have Cvec coordinates 
+		// TODO: Refactor SIFT3D_Descriptor and Keypoint to have Cvec coordinates
 
 		const SIFT3D_Descriptor *const ds = desc_src.buf + i;
 		const double xs = ds->xd;

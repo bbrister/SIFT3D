@@ -135,11 +135,11 @@ const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientaiton elements
 // Get an element from a gradient histogram. If ICOS_HIST is defined, p
 // is not referenced
 #ifdef ICOS_HIST
-#define HIST_GET(hist, a, p) ((hist)->bins[a])
+#define HIST_GET_IDX(a, p) (a)
 #else
-#define HIST_GET(hist, az_bin, po_bin) ((hist)->bins[ (az_bin) + \
-	(po_bin) * NBINS_AZ])
+#define HIST_GET_IDX(a, p) ((a) + (p) * NBINS_AZ)
 #endif
+#define HIST_GET(hist, a, p) ((hist)->bins[HIST_GET_IDX(a, p)])
 
 /* Global variables */
 extern CL_data cl_data;
@@ -2624,6 +2624,54 @@ int write_Keypoint_store(const char *path, const Keypoint_store *const kp) {
         return SIFT3D_SUCCESS;
 
 write_kp_quit:
+        cleanup_Mat_rm(&mat);
+        return SIFT3D_FAILURE;
+}
+
+/* Write SIFT3D descriptors to a file. The descriptors are represented by a
+ * matrix (.csv, .csv.gz) where each row is a descriptor. */
+int write_SIFT3D_Descriptor_store(const char *path, 
+        const SIFT3D_Descriptor_store *const desc) {
+
+        const int num_rows = desc->num;
+
+        Mat_rm mat;
+        int i, j;
+
+        // Initialize the matrix
+        if (init_Mat_rm(&mat, num_rows, DESC_NUMEL, DOUBLE, SIFT3D_FALSE))
+                return SIFT3D_FAILURE;
+     
+        // Write the data into the matrix 
+        for (i = 0; i < num_rows; i++) { 
+
+                int col;
+
+                const SIFT3D_Descriptor *const d = desc->buf + i;
+
+                for (j = 0; j < DESC_NUM_TOTAL_HIST; j++) {
+
+                        int a, p;
+
+                        const Hist *const hist = d->hists + j;
+
+                        HIST_LOOP_START(a, p)
+                                const int col = HIST_GET_IDX(a, p) + j * HIST_NUMEL;
+                                SIFT3D_MAT_RM_GET(&mat, i, col, double) =   
+                                        HIST_GET(hist, a, p);
+                        HIST_LOOP_END
+                }
+        }
+
+        // Write the matrix to the file
+        if (write_Mat_rm(path, &mat))
+                goto write_desc_quit;
+
+        // Clean up
+        cleanup_Mat_rm(&mat);
+        return SIFT3D_SUCCESS;
+
+write_desc_quit:
         cleanup_Mat_rm(&mat);
         return SIFT3D_FAILURE;
 }
