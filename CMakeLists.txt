@@ -29,8 +29,23 @@ if (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR
     set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${RELEASE_FLAGS}")
 endif ()
 
+# OS-specific build flags
+if (APPLE)
+        set(CMAKE_MACOSX_RPATH ON)
+endif()
+
+# Find the system libraries
+find_library(M_LIBRARY m)
+find_library(Z_LIBRARY z)
+
 # Find LAPACK
 find_package (LAPACK QUIET)
+
+# Mac OSX workaround for LAPACK
+if (APPLE)
+        find_library(name LAPACK)
+endif ()
+
 
 if (NOT LAPACK_FOUND)
 	message ("LAPACK was not found on your system. Attempting to install from source...")

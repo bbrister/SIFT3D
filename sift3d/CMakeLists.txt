@@ -3,7 +3,7 @@
 ######################################################################
 
 add_library (sift3D SHARED sift.c)
-target_link_libraries (sift3D PUBLIC imutil)
+target_link_libraries (sift3D PUBLIC imutil ${M_LIBRARY})
 target_include_directories (sift3D PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 install (TARGETS sift3D
