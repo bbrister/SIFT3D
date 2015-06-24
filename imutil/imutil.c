@@ -2116,7 +2116,7 @@ static void apply_Affine_xyz(void *const affine, const double x_in,
 
        Affine *const aff = affine;
 
-    const Mat_rm const *A = &aff->A;
+    const Mat_rm *const A = &aff->A;
     assert(aff->dim == 3);
     *x_out = SIFT3D_MAT_RM_GET(A, 0, 0, double) * x_in + 
 	SIFT3D_MAT_RM_GET(A, 0, 1, double) * y_in + 
@@ -2139,8 +2139,8 @@ static void apply_Tps_xyz(void *const tps, const double x_in,
 
         Tps *const t = tps;
 
-    const Mat_rm const *params = &t->params;
-    const Mat_rm const *kp_src = &t->kp_src;
+    const Mat_rm *const params = &t->params;
+    const Mat_rm *const kp_src = &t->kp_src;
     assert(t->dim == 3);
     int n;
     int ctrl_pts=kp_src->num_rows; //number of control points
@@ -2203,8 +2203,8 @@ static int apply_Tps_Mat_rm(void *const tps, const Mat_rm *const mat_in,
 
     //Spline transformation matrix is dim * [number of chosen points+dim+1]
     //sp_src is [number of chosen points] * dim
-    const Mat_rm const *params = &(t->params);
-    const Mat_rm const *kp_src = &(t->kp_src);
+    const Mat_rm *const params = &(t->params);
+    const Mat_rm *const kp_src = &(t->kp_src);
 
     int num_pts=mat_in->num_cols; //number of points to be transformed
     int ctrl_pts=kp_src->num_rows; //number of control points
