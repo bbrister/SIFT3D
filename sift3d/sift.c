@@ -635,10 +635,8 @@ void print_opts_SIFT3D(void) {
  * specified in argv will remain at their previous values.
  *
  * NOTE: This function uses the POSIX convention for getopt, i.e. processing 
- * stops at the first non-option argument. Due to a bug in some getopt
- * implementations, any subsequent calls to getopt or getopt_long will
- * follow the POSIX convention, regardless of the arguments you provide. 
- * Thus, any process calling this funciton must adopt the POSIX convention.
+ * stops at the first non-option argument. If you do not want to follow this
+ * convention, you must reset the state by setting optind to 0.
  *
  * Options:
  * --first_octave	 - the first octave (int)
