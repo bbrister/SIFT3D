@@ -194,9 +194,6 @@ typedef struct _SIFT_cl_kernels {
 /* Struct to hold a scale-space image pyramid */
 typedef struct _Pyramid {
 	
-	// Filters
-	SIFT_filters filters;
-
 	// Levels in all octaves
 	Image *levels;	
 
