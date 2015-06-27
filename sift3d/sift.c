@@ -25,7 +25,7 @@
 
 /* Safety checks */
 #if defined ICOS_HIST && !defined EIG_ORI
-#pragma error("sift.c:Cannot use ICOS_HIST without EIG_ORI")
+#pragma error("sift.c: Cannot use ICOS_HIST without EIG_ORI")
 #endif
 
 /* Default SIFT3D parameters. These may be overriden by 
@@ -628,10 +628,10 @@ void print_opts_SIFT3D(void) {
                "(default: %d) \n"
                " --%s \n"
                "    The smallest allowed absolute DoG value, on the interval "
-               "(0, inf). (default: %f) \n"
+               "(0, inf). (default: %.2f) \n"
                " --%s \n"
                "    The smallest allowed corner score, on the interval [0, 1]."
-               " (default: %f) \n"
+               " (default: %.2f) \n"
                " --%s \n"
                "    The number of octaves to process. Must be a positive "
                "integer. (default: process as many as we can) \n"
@@ -641,10 +641,10 @@ void print_opts_SIFT3D(void) {
                "(default: %d) \n"
                " --%s \n"
                "    The nominal scale parameter of the input data, on the "
-               "interval (0, inf). (default: %f) \n"
+               "interval (0, inf). (default: %.2f) \n"
                " --%s \n"
                "    The scale parameter of the first level of octave 0, on "
-               "the interval (0, inf). (default: %f) \n",
+               "the interval (0, inf). (default: %.2f) \n",
                opt_first_octave, first_octave_default,
                opt_peak_thresh, peak_thresh_default,
                opt_corner_thresh, corner_thresh_default,
