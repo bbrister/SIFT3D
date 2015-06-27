@@ -9,6 +9,9 @@
 #ifndef _REG_H
 #define _REG_H
 
+/* Parameters */
+const double nn_thresh_default = 0.8; // Default matching threshold
+
 /* Internal data for the SIFT3D + RANSAC registration process */
 typedef struct _Reg_SIFT3D {
 

@@ -30,6 +30,11 @@ int init_Mat_rm(Mat_rm *mat, int num_rows, int num_cols,
 int init_Mat_rm_p(Mat_rm *mat, const void *p, int num_rows, 
 				  int num_cols,	data_type type, int set_zero);
 
+void sprint_type_Mat_rm(const Mat_rm *const mat, char *const str);
+
+int concat_h_Mat_rm(const Mat_rm *const left, const Mat_rm *const right,
+        Mat_rm *const dst);
+
 int set_Mat_rm_zero(Mat_rm *mat);
 
 int copy_Mat_rm(const Mat_rm *const src, Mat_rm *const dst);
@@ -71,7 +76,11 @@ tform_type tform_get_type(const void *const tform);
 
 size_t tform_get_size(const void *const tform);
 
+size_t tform_type_get_size(const tform_type type);
+
 void cleanup_tform(void *const tform);
+
+int write_tform(const char *path, const void *const tform);
 
 int mul_Mat_rm(const Mat_rm *const mat_in1, const Mat_rm *const mat_in2, 
         Mat_rm *const mat_out);
@@ -96,7 +105,7 @@ int read_nii(const char *path, Image *im);
 
 int write_nii(const char *path, Image *im);
 
-int write_Mat_rm(const char *path, Mat_rm *mat);
+int write_Mat_rm(const char *path, const Mat_rm *const mat);
 
 int init_im_first_time(Image *im, const int nx, const int ny, const int nz,
                         const int nc);

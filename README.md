@@ -4,7 +4,9 @@ Analogue of the scale-invariant feature transform (SIFT) for three-dimensional i
 CONTENTS
 
 This code creates the following executables:
-- sift3d - CLI for the program functionality
+- kpSift3D - Extract keypoints and descriptors form a single image.
+- regSift3D - Extract matches and a geometric transformation from two images. 
+For usage instructions, use the "--help" option, e.g. "kpSift3D --help".
 
 and the following libraries:
 - libsift3d.so - Extract and match SIFT3D features

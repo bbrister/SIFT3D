@@ -65,8 +65,10 @@ static int apply_Affine_Mat_rm(void *const affine, const Mat_rm *const mat_in,
         Mat_rm *const mat_out);
 static int apply_Tps_Mat_rm(void *const tps, const Mat_rm *const mat_in, 
         Mat_rm *const mat_out);
-size_t Affine_get_size(void);
-size_t Tps_get_size(void);
+static size_t Affine_get_size(void);
+static size_t Tps_get_size(void);
+static int write_Affine(const char *path, const void *const tform);
+static int write_Tps(const char *path, const void *const tform);
 static void cleanup_Affine(void *const affine);
 static void cleanup_Tps(void *const tps);
 
@@ -76,6 +78,7 @@ const Tform_vtable Affine_vtable = {
         apply_Affine_xyz,
         apply_Affine_Mat_rm,
         Affine_get_size,
+        write_Affine,
         cleanup_Affine
 };
 const Tform_vtable Tps_vtable = {
@@ -83,6 +86,7 @@ const Tform_vtable Tps_vtable = {
         apply_Tps_xyz,
         apply_Tps_Mat_rm,
         Tps_get_size,
+        write_Tps,
         cleanup_Tps
 };
 
@@ -531,6 +535,95 @@ int init_Mat_rm_p(Mat_rm *mat, const void *p, int num_rows,
 
 	return SIFT3D_SUCCESS;
 }
+
+/* Prints the type of mat into the string str. */
+void sprint_type_Mat_rm(const Mat_rm *const mat, char *const str) {
+        switch (mat->type) {
+                case DOUBLE:
+                        sprintf(str, "double");
+                        break;
+                case FLOAT:
+                        sprintf(str, "float");
+                        break;
+                case INT:
+                        sprintf(str, "int");
+                        break;
+                default:
+                        sprintf(str, "<sprint_type_Mat_rm: unknown type>");
+        }
+}
+
+/* Horizontally concatenate two matrices, i.e dst = [left right]. */
+int concat_h_Mat_rm(const Mat_rm *const left, const Mat_rm *const right,
+        Mat_rm *const dst) {
+
+        int i, j;
+
+        const int lnc = left->num_cols;
+
+        // Verify inputs
+        if (left->num_rows != right->num_rows) {
+                fprintf(stderr, "concat_h_Mat_rm: incompatible dimensions: "
+                        "left: [%d x %d] right: [%d x %d] \n", left->num_rows,
+                        left->num_cols, right->num_rows, right->num_cols);
+                return SIFT3D_FAILURE;
+        }
+        if (left->type != right->type) {
+                
+                char left_type[1024], right_type[1024];
+
+                sprint_type_Mat_rm(left, left_type);
+                sprint_type_Mat_rm(right, right_type);
+
+                fprintf(stderr, "concat_h_Mat_rm: incompatible types: "
+                        "left: <%s> right: <%s> \n", left_type, right_type);
+
+                return SIFT3D_FAILURE;
+        }
+
+        // Resize dst
+        dst->type = left->type;
+        dst->num_rows = left->num_rows;
+        dst->num_cols = left->num_cols + left->num_cols;
+        if (resize_Mat_rm(dst))
+                return SIFT3D_FAILURE;
+
+#define COPY_DATA(type) \
+        /* Copy the left data */ \
+        SIFT3D_MAT_RM_LOOP_START(left, i, j) \
+                SIFT3D_MAT_RM_GET(dst, i, j, type) = \
+                        SIFT3D_MAT_RM_GET(left, i, j, type); \
+        SIFT3D_MAT_RM_LOOP_END \
+        \
+        /* Copy the right data */ \
+        SIFT3D_MAT_RM_LOOP_START(right, i, j) \
+        \
+                SIFT3D_MAT_RM_GET(dst, i, j + lnc, type) = \
+                        SIFT3D_MAT_RM_GET(right, i, j, type); \
+        \
+        SIFT3D_MAT_RM_LOOP_END
+
+        // Copy the data
+        switch (dst->type) {
+                case DOUBLE:
+                        COPY_DATA(double);
+                        break;
+                case FLOAT:
+                        COPY_DATA(float);
+                        break;
+                case INT:
+                        COPY_DATA(int);
+                        break;
+                default:
+                        fprintf(stderr, "concat_h_Mat_rm: unknown type \n");
+                        return SIFT3D_FAILURE;
+        }
+
+#undef COPY_DATA
+
+        return SIFT3D_SUCCESS;
+}
+
 /* Copies a matrix. dst will be resized. */
 int copy_Mat_rm(const Mat_rm *const src, Mat_rm *const dst) {
 
@@ -1002,7 +1095,7 @@ static const char *get_file_ext(const char *name) {
 }
 
 /* Write a matrix to a .csv or .csv.gz file. */
-int write_Mat_rm(const char *path, Mat_rm *mat) {
+int write_Mat_rm(const char *path, const Mat_rm *const mat) {
 
 	FILE *file;
         gzFile gz;
@@ -1501,23 +1594,19 @@ int im_copy_dims(const Image *const src, Image *dst) {
  * and allocates memory. */
 int im_copy_data(const Image *const src, Image *const dst) {
 
-	float *dst_data;
 	int i;
-
-	const float *const src_data = src->data;
 
 	// Initialize dst
 	if (im_copy_dims(src, dst))
 		return SIFT3D_FAILURE;
 
 	// Return if src and dst are the same
-	dst_data = dst->data;
-	if (dst_data == src_data)
+	if (dst->data == src->data)
 		return SIFT3D_SUCCESS;
 
 	// Copy data
 	for (i = 0; i < src->size; i++) {
-		dst_data[i] = src_data[i];
+		dst->data[i] = src->data[i];
 	}
 
 	return SIFT3D_SUCCESS;
@@ -2265,14 +2354,50 @@ size_t tform_get_size(const void *const tform) {
         return TFORM_GET_VTABLE(tform)->get_size();
 }
 
+/* Get the size of a type of tform. */
+size_t tform_type_get_size(const tform_type type) {
+        switch (type) {
+                case AFFINE:
+                        return Affine_vtable.get_size();
+                case TPS:
+                        return Tps_vtable.get_size();
+                default:
+                        fprintf(stderr, "tform_type_get_size: unrecognized "
+                                "type \n");
+                        return 0;
+        }
+}
+
 /* Returns the size of an Affine struct */
-size_t Affine_get_size(void) {
+static size_t Affine_get_size(void) {
         return sizeof(Affine);
 }
 
 /* Returns the size of a Tps struct */
-size_t Tps_get_size(void) {
+static size_t Tps_get_size(void) {
         return sizeof(Tps);
+}
+
+/* Write a tform to a file. */
+int write_tform(const char *path, const void *const tform) {
+        return TFORM_GET_VTABLE(tform)->write(path, tform);
+}
+
+/* Write an affine transformation to a file. */
+static int write_Affine(const char *path, const void *const tform) {
+
+        const Affine *const affine = tform;
+
+        return write_Mat_rm(path, &affine->A);
+}
+
+/* Write a thin-plate spline transformation to a file. */
+static int write_Tps(const char *path, const void *const tform) {
+
+        const Tps *const tps = tform; 
+
+        fputs("write_Tps: this function has not yet been implemented.", stderr);
+        return SIFT3D_FAILURE;
 }
 
 /* Free the memory associated with a tform */
@@ -3138,6 +3263,16 @@ int init_gss(GSS_filters *gss, Pyramid *pyr) {
 	return SIFT3D_SUCCESS;
 }
 
+/* Initialize a Pyramid for use. Must be called before a Pyramid can be used
+ * in any other functions. */
+void init_Pyramid(Pyramid *const pyr) {
+        pyr->levels = NULL;
+        pyr->num_levels = 0;
+        pyr->num_kp_levels = 0;
+        pyr->first_octave = pyr->last_octave = 0;
+        pyr->num_octaves = 0;
+}
+
 /* Initialize scale-space pyramid according to the size of 
  * base image im. The following fields of pyr must
  * already be initialized:
@@ -3148,7 +3283,6 @@ int init_gss(GSS_filters *gss, Pyramid *pyr) {
  * -last_octave
  * -num_kp_levels
  * -sigma0 
- * -levels (from past use, or NULL for first time) 
  *
  * Note: For realtime implementations, this function 
  *		 can be used to quickly resize an existing 
@@ -3210,6 +3344,44 @@ int resize_pyramid(Pyramid *pyr, Image *im) {
 	SIFT3D_PYR_LOOP_OCTAVE_END
 
 	return SIFT3D_SUCCESS;
+}
+
+/* Make a deep copy of a pyramid. */
+int copy_pyramid(const Pyramid *const src, Pyramid *const dst) {
+
+        int o, s;
+
+        // Copy the parameters 
+        dst->num_kp_levels = src->num_kp_levels;
+        dst->num_levels = src->num_levels;
+        dst->first_level = src->first_level;
+        dst->last_level = src->last_level;
+        dst->first_octave = src->first_octave;
+        dst->last_octave = src->last_octave;
+        dst->num_octaves = src->num_octaves;
+        dst->num_kp_levels = src->num_kp_levels;
+        dst->sigma_n = src->sigma_n;
+        dst->sigma0 = src->sigma0;
+
+        // Check if src has any levels
+        if (src->levels == NULL || src->num_octaves <= 0 ||
+                src->num_levels <= 0) {
+                return SIFT3D_SUCCESS;
+        }
+
+        // Copy the levels
+        SIFT3D_PYR_LOOP_START(dst, o, s)
+
+                const Image *const src_level = SIFT3D_PYR_IM_GET(src, o, s);
+                Image *const dst_level = SIFT3D_PYR_IM_GET(dst, o, s);
+
+                if (im_copy_data(src_level, dst_level)) 
+                        return SIFT3D_FAILURE;
+
+                SIFT3D_PYR_LOOP_SCALE_END
+        SIFT3D_PYR_LOOP_OCTAVE_END
+
+        return SIFT3D_SUCCESS;
 }
 
 /* Initialize a Slab for first use */

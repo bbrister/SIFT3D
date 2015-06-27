@@ -92,11 +92,9 @@ int main(int argc, char *argv[]) {
                 switch (c) {
                         case KEYS:
                                 keys_path = optarg;
-                                //TODO: check the file extension
                                 break;
                         case DESC:
                                 desc_path = optarg;
-                                //TODO: check the file extension
                                 break;
                         case '?':
                         default:

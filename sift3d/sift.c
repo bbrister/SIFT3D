@@ -494,6 +494,9 @@ int init_SIFT3D(SIFT3D *sift3d) {
 
 	int num_dog_levels, num_gpyr_levels;
 
+        Pyramid *const dog = &sift3d->dog;
+        Pyramid *const gpyr = &sift3d->gpyr;
+
 	// Initialize to defaults
 	const int first_octave = first_octave_default;
 	const double peak_thresh = peak_thresh_default;
@@ -505,7 +508,8 @@ int init_SIFT3D(SIFT3D *sift3d) {
         const int dense_rotate = SIFT3D_FALSE;
 
 	// First-time pyramid initialization
-	sift3d->dog.levels = sift3d->gpyr.levels = NULL;
+        init_Pyramid(dog);
+        init_Pyramid(gpyr);
 
         // Intialize the geometry tables
 	if (init_geometry(sift3d))
@@ -518,12 +522,8 @@ int init_SIFT3D(SIFT3D *sift3d) {
 	// Initialize image to null, to mark for resizing
 	sift3d->im = NULL;
 
-	// Declare pyramid memory null, to mark for initialization 
-        // (see resize_pyramid)
-	sift3d->gpyr.levels = sift3d->dog.levels = NULL;
-
 	// Save data
-	sift3d->dog.first_level = sift3d->gpyr.first_level = -1;
+	dog->first_level = gpyr->first_level = -1;
         set_sigma_n_SIFT3D(sift3d, sigma_n);
         set_sigma0_SIFT3D(sift3d, sigma0);
         if (set_first_octave_SIFT3D(sift3d, first_octave) ||
@@ -535,6 +535,32 @@ int init_SIFT3D(SIFT3D *sift3d) {
         sift3d->dense_rotate = dense_rotate;
 
 	return SIFT3D_SUCCESS;
+}
+
+/* Make a deep copy of a SIFT3D struct, including all internal images. */
+int copy_SIFT3D(const SIFT3D *const src, SIFT3D *const dst) {
+
+        // Copy the parameters
+        dst->dog.first_level = dst->gpyr.first_level = src->dog.first_level;
+        set_sigma_n_SIFT3D(dst, src->gpyr.sigma_n); 
+        set_sigma0_SIFT3D(dst, src->gpyr.sigma0);
+        if (set_first_octave_SIFT3D(dst, src->gpyr.first_octave) ||
+            set_peak_thresh_SIFT3D(dst, src->peak_thresh) ||
+            set_corner_thresh_SIFT3D(dst, src->corner_thresh) ||
+            set_num_octaves_SIFT3D(dst, src->gpyr.num_octaves) ||
+            set_num_kp_levels_SIFT3D(dst, src->gpyr.num_kp_levels))
+                return SIFT3D_FAILURE;
+        dst->dense_rotate = src->dense_rotate;
+
+        // Initialize the image pointer, pyramid dimensions, and GSS
+        set_im_SIFT3D(dst, src->im);
+
+        // Copy the pyramids, if any
+        if (copy_pyramid(&dst->gpyr, &src->gpyr) ||
+            copy_pyramid(&dst->dog, &src->dog))
+                return SIFT3D_FAILURE;
+
+        return SIFT3D_SUCCESS;
 }
 
 /* Helper function to permute the arguments so that all unprocessed arguments
@@ -828,7 +854,7 @@ static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im) {
 
 	Image const *im_old = sift3d->im;
 
-        // Set the image
+        // Initialize the image
         sift3d->im = (Image *const) im;
 
         // Resize the internal data, if necessary
