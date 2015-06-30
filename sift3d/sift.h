@@ -70,9 +70,10 @@ int SIFT3D_matches_to_Mat_rm(SIFT3D_Descriptor_store *d1,
 			     Mat_rm *const match1, 
 			     Mat_rm *const match2);
 
-int draw_matches(const Image *const src, const Image *const ref,
-		 const Mat_rm *const match_src, const Mat_rm *const match_ref,
-		 Image *const background, Image *const overlay);
+int draw_matches(const Image *const left, const Image *const right,
+                 const Mat_rm *const keys_left, const Mat_rm *const keys_right,
+		 const Mat_rm *const match_left, const Mat_rm *const match_right,
+		 Image *const concat, Image *const keys, Image *const lines);
 
 int write_Keypoint_store(const char *path, const Keypoint_store *const kp);
 

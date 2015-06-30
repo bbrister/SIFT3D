@@ -2562,34 +2562,128 @@ match_reject: ;
 	return SIFT3D_SUCCESS;
 }
 
-int draw_matches(const Image *const src, const Image *const ref,
-		 const Mat_rm *const match_src, const Mat_rm *const match_ref,
-		 Image *const background, Image *const overlay) {
+/* Draw the matches. 
+ * 
+ * Inputs:
+ * -left - lefthand-side image
+ * -right - righthand-side image
+ * -keys_left - Keypoints from "left" (can be NULL if keys is NULL) 
+ * -keys_right - Keypoints from "right" (can be NULL if keys is NULL)
+ * -match_left - Matches from "left" (can be NULL if lines is NULL)
+ * -match_right - Matches from "right" (can be NULL if lines is NULL)
+ * 
+ * Outputs:
+ * -concat - Concatenated image (NULL if not needed)
+ * -keys - Keypoints from concat (NULL is not needed)
+ * -lines - Lines between matching keypoints in concat (NULL if not needed)
+ * It is an error if all outputs are NULL.
+ *
+ * Return:
+ * SIFT3D_SUCCESS or SIFT3D_FAILURE
+ */
+int draw_matches(const Image *const left, const Image *const right,
+                 const Mat_rm *const keys_left, const Mat_rm *const keys_right,
+		 const Mat_rm *const match_left, const Mat_rm *const match_right,
+		 Image *const concat, Image *const keys, Image *const lines) {
 
-	Mat_rm match_ref_draw;
+        Image concat_temp;
+	Mat_rm keys_right_draw, match_right_draw;
 	int i;
 
-	// Initialize intermediates		
-	if (init_Mat_rm(&match_ref_draw, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-	    copy_Mat_rm(match_ref, &match_ref_draw))
-	return SIFT3D_FAILURE;
+        const double right_pad = (double) left->nx;
 
-	// Adjust the coordinates of the reference features 
-	for (i = 0; i < match_ref->num_rows; i++) {
-		SIFT3D_MAT_RM_GET(&match_ref_draw, i, 0, double) =
-			SIFT3D_MAT_RM_GET(match_ref, i, 0, double) + (double) src->nx;
-	}
+        // Choose which image to use for concatenation 
+        Image *const concat_arg = concat == NULL ? &concat_temp : concat;
+
+        // Verify inputs
+        if (concat == NULL && keys == NULL && lines == NULL) {
+                fprintf(stderr, "draw_matches: all outputs are NULL \n");
+                return SIFT3D_FAILURE;
+        }
+        if (keys_left == NULL && keys != NULL) {
+                fprintf(stderr, "draw_matches: keys_left is NULL but keys is "
+                        "not \n");
+                return SIFT3D_FAILURE;
+        }
+        if (keys_right == NULL && keys != NULL) {
+                fprintf(stderr, "draw_matches: keys_right is NULL but keys is "
+                        "not \n");
+                return SIFT3D_FAILURE;
+        }
+        if (match_left == NULL && lines != NULL) {
+                fprintf(stderr, "draw_matches: match_left is NULL but lines "
+                        "is not \n");
+                return SIFT3D_FAILURE;
+        }
+        if (match_right == NULL && lines != NULL) {
+                fprintf(stderr, "draw_matches: match_right is NULL but lines "
+                        "is not \n");
+                return SIFT3D_FAILURE;
+        }
+
+	// Initialize intermediates		
+        init_im(&concat_temp);
+        if (init_Mat_rm(&keys_right_draw, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+	        init_Mat_rm(&match_right_draw, 0, 0, DOUBLE, SIFT3D_FALSE))
+	        return SIFT3D_FAILURE;
 
 	// Draw a concatenated image
-	if (im_concat(src, ref, 0, background))
-		return SIFT3D_FAILURE;
+	if (im_concat(left, right, 0, concat_arg)) {
+                fprintf(stderr, "draw_matches: Could not concatenate the "
+                        "images \n");
+                goto draw_matches_quit;
+        }
 
-	// Draw the matches
-	if (draw_lines(match_src, &match_ref_draw, background->nx, 
-		       background->ny, background->nz, overlay))
-		return SIFT3D_FAILURE;
+        // Optionally draw the keypoints
+        if (keys != NULL) { 
+
+                // Convert input to double
+                if (convert_Mat_rm(keys_right, &keys_right_draw, DOUBLE))
+                        goto draw_matches_quit;
+       
+                // Pad the x-coordinate 
+                for (i = 0; i < keys_right->num_rows; i++) {
+                        SIFT3D_MAT_RM_GET(&keys_right_draw, i, 0, double) += 
+                                right_pad; 
+                }
+
+                // Draw the points
+                if (draw_points(keys_left, concat->dims, 1, keys) ||
+                        draw_points(&keys_right_draw, concat->dims, 1, keys))
+                        goto draw_matches_quit;
+        }
+
+	// Optionally draw the lines 
+        if (lines != NULL) {
+
+                // Convert input to double
+                if (convert_Mat_rm(match_right, &match_right_draw, DOUBLE))
+                        goto draw_matches_quit;
+
+                // Pad the x-coordinate 
+                for (i = 0; i < match_right->num_rows; i++) {
+                        SIFT3D_MAT_RM_GET(&match_right_draw, i, 0, double) += 
+                                right_pad;
+                }
+
+                // Draw the lines
+                if (draw_lines(match_left, &match_right_draw, concat->dims, 
+                        lines))
+                        goto draw_matches_quit;
+        }
+
+        // Clean up
+        im_free(&concat_temp);
+        cleanup_Mat_rm(&keys_right_draw);
+        cleanup_Mat_rm(&match_right_draw);
 
 	return SIFT3D_SUCCESS;
+
+draw_matches_quit:
+        im_free(&concat_temp);
+        cleanup_Mat_rm(&keys_right_draw);
+        cleanup_Mat_rm(&match_right_draw);
+        return SIFT3D_FAILURE;
 }
 
 /* Write a Keypoint_store to a text file. The keypoints are stored in a matrix

@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
                 err_msg("Too many arguments.");
                 return 1;
         }
-        im_path = argv[optind]; //TODO: check the file extension
+        im_path = argv[optind];
 
 	// Initialize data 
 	init_Keypoint_store(&kp); 

@@ -14,8 +14,11 @@
 #define MATCHES 'a'
 #define TRANSFORM 'b'
 #define WARPED 'c'
-#define THRESH 'd'
-#define TYPE 'e' 
+#define CONCAT 'd'
+#define KEYS 'e'
+#define LINES 'f'
+#define THRESH 'g'
+#define TYPE 'h' 
 
 /* The help message */
 const char help_msg[] = 
@@ -31,11 +34,17 @@ const char help_msg[] =
         " regSift3D --thresh 0.8 --matches matches.csv im1.nii im2.nii \n"
         "\n"
         "Output options: \n"
-        " --matches [filename] - Writes the feature matches. \n"
+        " --matches [filename] - The feature matches. \n"
         "       Supported file formats: .csv, .csv.gz \n"
-        " --transform [filename] - Writes the transformation parameters. \n"
+        " --transform [filename] - The transformation parameters. \n"
         "       Supported file formats: .csv, .csv.gz \n"
-        " --warped [filename] -  Writes the warped image. \n"
+        " --warped [filename] -  The warped source image. \n"
+        "       Supported file formats: .nii, .nii.gz \n"
+        " --concat [filename] - Concatenated images, with source on the left \n"
+        "       Supported file formats: .nii, .nii.gz \n"
+        " --keys [filename] - Keypoints drawn in the concatenated image \n"
+        "       Supported file formats: .nii, .nii.gz \n"
+        " --lines [filename] - Lines drawn between matching keypoints \n"
         "       Supported file formats: .nii, .nii.gz \n"
         "At least one output option must be specified. \n"
         "\n"
@@ -76,22 +85,29 @@ int main(int argc, char *argv[]) {
         SIFT3D sift3d;
         Reg_SIFT3D reg;
         Image src, ref;
-        void *tform;
-        char *src_path, *ref_path, *warped_path, *match_path, *tform_path;
+        Mat_rm match_src, match_ref;
+        void *tform, *tform_arg;
+        char *src_path, *ref_path, *warped_path, *match_path, *tform_path,
+                *concat_path, *keys_path, *lines_path;
         tform_type type;
         double thresh;
-        int num_args, c;
+        int num_args, c, have_match, have_tform;
 
         const struct option longopts[] = {
-                {"matches", required_argument, NULL, MATCHES},
-                {"transform", required_argument, NULL, TRANSFORM},
-                {"warped", required_argument, NULL, WARPED},
+                {"matches", required_argument, &have_match, MATCHES},
+                {"transform", required_argument, &have_tform, TRANSFORM},
+                {"warped", required_argument, &have_tform, WARPED},
+                {"concat", required_argument, &have_match, CONCAT},
+                {"keys", required_argument, &have_match, KEYS},
+                {"lines", required_argument, &have_match, LINES},
                 {"thresh", required_argument, NULL, THRESH},
                 {"type", required_argument, NULL, TYPE},
                 {0, 0, 0, 0}
         };
 
         const char str_affine[] = "affine";
+        SIFT3D_Descriptor_store *const desc_src = &reg.desc_src;
+        SIFT3D_Descriptor_store *const desc_ref = &reg.desc_ref;
 
         // Parse the GNU standard options
         switch (parse_gnu(argc, argv)) {
@@ -108,9 +124,13 @@ int main(int argc, char *argv[]) {
         init_im(&ref);
         init_Reg_SIFT3D(&reg);
         init_SIFT3D(&sift3d);
+        if (init_Mat_rm(&match_src, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+                init_Mat_rm(&match_ref, 0, 0, DOUBLE, SIFT3D_FALSE)) {
+                err_msgu("Failed basic initialization.");
+                return 1;
+        }
 
         // Initialize parameters to defaults        
-        tform = NULL;
         warped_path = match_path = tform_path = NULL;
         type = type_default;
 
@@ -120,6 +140,7 @@ int main(int argc, char *argv[]) {
 
         // Parse the remaining options 
         opterr = 1;
+        have_match = have_tform = SIFT3D_FALSE;
         while ((c = getopt_long(argc, argv, "", longopts, NULL)) != -1) {
                 switch (c) {
                         case MATCHES:
@@ -159,7 +180,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Ensure that at least one output was specified
-        if (match_path == NULL && tform_path == NULL && warped_path == NULL) {
+        if (!have_match && !have_tform) {
                 err_msg("No outputs were specified.");
                 return 1;
         }
@@ -216,32 +237,28 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
 
-        // Register
-        if (register_SIFT3D(&reg, tform)) {
+        // Match the features, optionally registering the images 
+        tform_arg = have_tform ? tform : NULL;
+        if (register_SIFT3D(&reg, tform_arg)) {
                 err_msgu("Failed to register the images.");
+                return 1;
+        }
+
+        // Convert the matches to matrices
+        if (SIFT3D_matches_to_Mat_rm(desc_src, desc_ref, reg.matches,
+                &match_src, &match_ref)) {
+                err_msgu("Failed to convert matches to coordinates.");
                 return 1;
         }
 
         // Write the outputs
         if (match_path != NULL) {
 
-                Mat_rm matches, match_src, match_ref;
+                Mat_rm matches;
                 int i, j;
-
-                SIFT3D_Descriptor_store *const desc_src = &reg.desc_src;
-                SIFT3D_Descriptor_store *const desc_ref = &reg.desc_ref;
 
                 // Initialize intermediates
                 init_Mat_rm(&matches, 0, 0, DOUBLE, SIFT3D_FALSE);
-                init_Mat_rm(&match_src, 0, 0, DOUBLE, SIFT3D_FALSE);
-                init_Mat_rm(&match_ref, 0, 0, DOUBLE, SIFT3D_FALSE);
-
-                // Convert the matches to matrices
-	        if (SIFT3D_matches_to_Mat_rm(desc_src, desc_ref, reg.matches,
-		        &match_src, &match_ref)) {
-                        err_msgu("Failed to convert matches to coordinates.");
-                        return 1;
-                }
 
                 // Form a combined matrix for both sets of matches
                 if (concat_h_Mat_rm(&match_src, &match_ref, &matches)) {
@@ -261,8 +278,6 @@ int main(int argc, char *argv[]) {
 
                 // Clean up
                 cleanup_Mat_rm(&matches);
-                cleanup_Mat_rm(&match_src);
-                cleanup_Mat_rm(&match_ref);
         }
         if (tform_path != NULL && write_tform(tform_path, tform)) {
 
@@ -303,8 +318,77 @@ int main(int argc, char *argv[]) {
                 im_free(&warped);
         }
 
-        //TODO: add drawOverlay, drawMatches functions to reg.c, allow them as
-        // outputs
+        // Optionally draw the matches
+        if (concat_path != NULL || keys_path != NULL || match_path != NULL) {
+
+                Image concat, keys, lines;
+                Mat_rm keys_src, keys_ref;
+                Image *concat_arg, *keys_arg, *lines_arg;
+
+                // Initialize intermediates
+                init_im(&concat);
+                init_im(&keys);
+                init_im(&lines);
+
+                // Set up the pointers for the images
+                concat_arg = concat_path == NULL ? NULL : &concat;
+                keys_arg = keys_path == NULL ? NULL : &keys;
+                lines_arg = lines_path == NULL ? NULL : &lines;
+
+                // Convert the keypoints to matrices
+                if (Keypoint_store_to_Mat_rm(&reg.kp_src, &keys_src) ||
+                    Keypoint_store_to_Mat_rm(&reg.kp_ref, &keys_ref)) {
+                        err_msgu("Failed to convert the keypoints to "
+                                 "matrices.");
+                        return 1;
+                }
+
+                // Draw the matches
+                if (draw_matches(&src, &ref, &keys_src, &keys_ref, 
+                        &match_src, &match_ref, concat_arg, keys_arg,
+                        lines_arg)) {
+                        err_msgu("Failed to draw the matches.");
+                        return 1;
+                }
+
+                // Optionally write a concatenated image
+                if (concat_path != NULL && write_nii(concat_path, &concat)) {
+
+                        char msg[1024];
+
+                        sprintf(msg, "Failed to write the concatenated image "
+                                "\"%s\"", concat_path);
+                        err_msg(msg);
+                        return 1;
+                }
+
+                // Optionally write the keypoints
+                if (keys_path != NULL && write_nii(keys_path, &keys)) {
+
+                        char msg[1024];
+
+                        sprintf(msg, "Failed to write the keypoint image "
+                                "\"%s\"", concat_path);
+                        err_msg(msg);
+                        return 1;
+                }
+
+                // Optionally write the matches
+                if (lines_path != NULL && write_nii(lines_path, &lines)) {
+
+                        char msg[1024];
+
+                        sprintf(msg, "Failed to write the line image "
+                                "\"%s\"", concat_path);
+                        err_msg(msg);
+                        return 1;
+                }
+
+                // Clean up
+                im_free(&concat);
+                im_free(&keys);
+                im_free(&lines);
+        }
 
 	return 0;
 }

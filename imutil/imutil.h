@@ -22,7 +22,8 @@ int init_cl(CL_data *user_cl_data, const char *platform_name,
 			cl_device_type device_type,	cl_mem_flags mem_flags, 
 			cl_image_format image_format);
 
-int convert_Mat_rm(Mat_rm *in, Mat_rm *out, data_type type);
+int convert_Mat_rm(const Mat_rm *const in, Mat_rm *const out, 
+        const data_type type);
 
 int init_Mat_rm(Mat_rm *mat, int num_rows, int num_cols,
 				data_type type, int set_zero);
@@ -96,10 +97,11 @@ int apply_Sep_FIR_filter(const Image *const src, Image *const dst,
 int draw_grid(Image *grid, int nx, int ny, int nz, int spacing, 
 					   int line_width);
 
-int draw_points(const Mat_rm *const in, int nx, int ny, int nz, int radius, Image *out);
+int draw_points(const Mat_rm *const in, const int *const dims, int radius, 
+                Image *const out);
 
 int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2, 
-	       const int nx, const int ny, const int nz, Image *const out);
+	       const int *const dims, Image *const out);
 
 int read_nii(const char *path, Image *im);
 

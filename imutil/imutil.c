@@ -428,7 +428,8 @@ static int compile_cl_program_from_source(cl_program *program, cl_context contex
  * This function resizes out.
  * 
  * All matrices must be initialized prior to calling this function. */
-int convert_Mat_rm(Mat_rm *in, Mat_rm *out, data_type type) {
+int convert_Mat_rm(const Mat_rm *const in, Mat_rm *const out, 
+        const data_type type) {
     
     int i, j;
 
@@ -806,29 +807,38 @@ int draw_grid(Image *grid, int nx, int ny, int nz, int spacing,
 } 
 
 /* Draw points in in image*/
-int draw_points(const Mat_rm *const in, int nx, int ny, int nz, int radius, Image *out) {
+int draw_points(const Mat_rm *const in, const int *const dims, int radius, 
+                Image *const out) {
+
+        Mat_rm in_i;
 	int i, x, y, z;
 
-	// Initialize the output
-	out->nx = nx;
-	out->ny = ny;
-	out->nz = nz;
+        // Initialize intermediates
+        if (init_Mat_rm(&in_i, 0, 0, INT, SIFT3D_FALSE))
+                return SIFT3D_FAILURE;
+
+	// Resize the output
+        memcpy(out->dims, dims, IM_NDIMS * sizeof(int));
         out->nc = 1;
 	im_default_stride(out);
-	if(im_resize(out))
-		return SIFT3D_FAILURE;
+	if (im_resize(out))
+                goto draw_points_quit;
 	im_zero(out);
 
+        // Convert the input to integer
+        if (convert_Mat_rm(in, &in_i, INT))
+                goto draw_points_quit;
+
 	for (i = 0; i < in->num_rows; i++) {
-		const int cx = round(SIFT3D_MAT_RM_GET(in, i, 0, double));
-		const int cy = round(SIFT3D_MAT_RM_GET(in, i, 1, double));
-		const int cz = round(SIFT3D_MAT_RM_GET(in, i, 2, double));
+		const int cx = SIFT3D_MAT_RM_GET(&in_i, i, 0, int);
+		const int cy = SIFT3D_MAT_RM_GET(&in_i, i, 1, int);
+		const int cz = SIFT3D_MAT_RM_GET(&in_i, i, 2, int);
 		const int x_start = SIFT3D_MAX(cx - radius, 0);
 		const int y_start = SIFT3D_MAX(cy - radius, 0);
 		const int z_start = SIFT3D_MAX(cz - radius, 0);
-		const int x_end = SIFT3D_MIN(cx + radius, nx - 1);
-		const int y_end = SIFT3D_MIN(cy + radius, ny - 1);
-		const int z_end = SIFT3D_MIN(cz + radius, nz - 1);
+		const int x_end = SIFT3D_MIN(cx + radius, dims[0] - 1);
+		const int y_end = SIFT3D_MIN(cy + radius, dims[1] - 1);
+		const int z_end = SIFT3D_MIN(cz + radius, dims[2] - 1);
 
 		// Draw the point
 		SIFT3D_IM_LOOP_LIMITED_START(out, x, y, z, x_start, x_end, y_start, 
@@ -836,14 +846,22 @@ int draw_points(const Mat_rm *const in, int nx, int ny, int nz, int radius, Imag
 			SIFT3D_IM_GET_VOX(out, x, y, z, 0) = 1.0f;
 		SIFT3D_IM_LOOP_END
 	}
+
+        // Clean up
+        cleanup_Mat_rm(&in_i);
 	return SIFT3D_SUCCESS;
+
+draw_points_quit:
+        cleanup_Mat_rm(&in_i);
+        return SIFT3D_FAILURE;
 }
 
 /* Draw lines between two sets of points.
  * TODO currently only does XY plane. Add support for other planes */
 int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2, 
-	       const int nx, const int ny, const int nz, Image *const out) {
+	       const int *const dims, Image *const out) {
 
+        Mat_rm points1_d, points2_d;
 	double xd;
 	int i, y;
 
@@ -858,29 +876,37 @@ int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2,
 		return SIFT3D_FAILURE;
 	}
 
-	// Initialize the output image
-	out->nx = nx;
-	out->ny = ny;
-	out->nz = nz;
+        // Initialize intermediates
+        if (init_Mat_rm(&points1_d, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+                init_Mat_rm(&points2_d, 0, 0, DOUBLE, SIFT3D_FALSE))
+                return SIFT3D_FAILURE;
+
+	// Resize the output image
+        memcpy(out->dims, dims, IM_NDIMS * sizeof(int));
         out->nc = 1;
 	im_default_stride(out);
 	if(im_resize(out))
-		return SIFT3D_FAILURE;
+                goto draw_lines_quit;
 	im_zero(out);
 
+        // Convert the inputs to double
+        if (convert_Mat_rm(points1, &points1_d, DOUBLE) ||
+                convert_Mat_rm(points2, &points2_d, DOUBLE))
+                goto draw_lines_quit;
+
 	for (i = 0; i < points1->num_rows; i++) {
-		const double p1x = SIFT3D_MAT_RM_GET(points1, i, 0, double);
-		const double p2x = SIFT3D_MAT_RM_GET(points2, i, 0, double);
-		const double p1y = SIFT3D_MAT_RM_GET(points1, i, 1, double);
-		const double p2y = SIFT3D_MAT_RM_GET(points2, i, 1, double);
-		const double p1z = SIFT3D_MAT_RM_GET(points1, i, 2, double);
-		const double p2z = SIFT3D_MAT_RM_GET(points2, i, 2, double);
+
+		const double p1x = SIFT3D_MAT_RM_GET(&points1_d, i, 0, double);
+		const double p2x = SIFT3D_MAT_RM_GET(&points2_d, i, 0, double);
+		const double p1y = SIFT3D_MAT_RM_GET(&points1_d, i, 1, double);
+		const double p2y = SIFT3D_MAT_RM_GET(&points2_d, i, 1, double);
+		const double p1z = SIFT3D_MAT_RM_GET(&points1_d, i, 2, double);
+		const double p2z = SIFT3D_MAT_RM_GET(&points2_d, i, 2, double);
 
 		// Check the bounds
-		if (p1x < 0 || p2x < 0 || p1y < 0 || p2y < 0 || p1z < 0 || 
-		    p2z < 0 || p1x > nx - 1 || p2x > nx - 1 || p1y > ny - 1 ||
-		    p2y > ny - 1 || p1z > nz - 1 || p2z > nz - 1)
-			continue;
+                if (!IM_CONTAINS(out, p1x, p1y, p1z) ||
+                    !IM_CONTAINS(out, p2x, p2y, p2z))
+                        continue;
 
 		// Get the bounds of the line
 		const double x_start = SIFT3D_MIN(p1x, p2x) + 0.5;
@@ -900,6 +926,7 @@ int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2,
 			for (y = y_start; y <= y_end; y++) {
 				SIFT3D_IM_GET_VOX(out, xi, y, zi, 0) = 1.0f;
 			}
+
 		} else {
 
 			// Get the line parameters
@@ -913,7 +940,7 @@ int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2,
 				const int xi = (int) xd;
 				const int yi = (int) yd;
 			
-				if (yi < 0 || yi > ny - 1)
+				if (yi < 0 || yi > dims[1] - 1)
 					continue;
 	
 				SIFT3D_IM_GET_VOX(out, xi, yi, zi, 0) = 1.0f;
@@ -921,7 +948,16 @@ int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2,
 		}
 	}
 
+        // Clean up
+        cleanup_Mat_rm(&points1_d);
+        cleanup_Mat_rm(&points2_d);
+
 	return SIFT3D_SUCCESS;
+
+draw_lines_quit:
+        cleanup_Mat_rm(&points1_d);
+        cleanup_Mat_rm(&points2_d);
+        return SIFT3D_FAILURE;
 }
 
 /* Load a file into the specific Image object.

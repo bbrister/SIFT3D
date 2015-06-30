@@ -255,7 +255,7 @@ int main(int argc, char *argv[]) {
 		err_exit("write keypoints");
 	if (init_Mat_rm(&kp_ref_mat, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 	    Keypoint_store_to_Mat_rm(&kp_ref, &kp_ref_mat) ||
-	    draw_points(&kp_ref_mat, refp.nx, refp.ny, refp.nz, 1, &kp_ref_im) ||
+	    draw_points(&kp_ref_mat, refp.dims, 1, &kp_ref_im) ||
 	    write_nii(KP_REF_IM_PATH, &kp_ref_im))
 	    err_exit("draw reference keypoints");
 	printf("%u Reference keypoints written to %s and %s\n",
@@ -293,7 +293,7 @@ int main(int argc, char *argv[]) {
 		err_exit("write keypoints");
 	if (init_Mat_rm(&kp_src_mat, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 	    Keypoint_store_to_Mat_rm(&kp_src, &kp_src_mat) ||
-	    draw_points(&kp_src_mat, srcp.nx, srcp.ny, srcp.nz, 1, &kp_src_im) ||
+	    draw_points(&kp_src_mat, srcp.dims, 1, &kp_src_im) ||
 	    write_nii(KP_SRC_IM_PATH, &kp_src_im))
 	    err_exit("draw source keypoints");
 	printf("%u Source keypoints written to %s and %s\n",
@@ -329,8 +329,8 @@ int main(int argc, char *argv[]) {
 		   MATCH_REF_PATH);
 	
 	// Draw the matches
-	if (draw_matches(&srcp, &refp, &match_src, &match_ref, &background, 
-			 &overlay))
+	if (draw_matches(&srcp, &refp, NULL, NULL, &match_src, &match_ref, 
+                        &background, NULL, &overlay))
 		err_exit("draw matches");
 
 	// Save the images

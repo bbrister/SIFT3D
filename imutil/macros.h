@@ -69,6 +69,11 @@
 // Delimited an SIFT3D_IM_LOOP_START_C or SIFT3D_IM_LOOP_LIMITED_START_C
 #define SIFT3D_IM_LOOP_END_C SIFT3D_IM_LOOP_END }
 
+/* Check if a point is within the boundaries of an image */
+#define IM_CONTAINS(im, x, y, z) \
+        ((x) >= 0 && (y) >= 0 && (z) >= 0 && (x) < (im)->nx && \
+         (y) < (im)->ny && (z) < (im)->nz)
+
 /* Take the Cartesian gradient of an image at [x, y, z, c]. The voxel cannot be
  * on the boundary. */
 #define SIFT3D_IM_GET_GRAD(im, x, y, z, c, vd) \
