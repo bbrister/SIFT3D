@@ -11,6 +11,7 @@
 /* Options */
 #define KEYS 'a'
 #define DESC 'b'
+#define DRAW 'c'
 
 /* Help message */
 const char help_msg[] = 
@@ -25,17 +26,14 @@ const char help_msg[] =
         "Output options: \n"
         " --keys [filename] \n"
         "       Specifies the output file name for the keypoints. \n"
+        "       Supported file formats: .csv, .csv.gz \n"
         " --desc [filename] \n"
         "       Specifies the output file name for the descriptors. \n"
+        "       Supported file formats: .csv, .csv.gz \n"
+        " --draw [filename] \n"
+        "       Draws the keypoints in image space. \n"
+        "       Supported file formats: .nii, .nii.gz \n"
         "At least one of the output options must be specified. \n"
-        "\n"
-        "Supported input formats: \n"
-        " .nii (nifti-1) \n"
-        " .nii.gz (gzip-compressed nifti-1) \n"
-        "\n"
-        "Supported output formats: \n"
-        " .csv (comma-separated value) \n"
-        " .csv.gz (gzip-compressed comma-separated value) \n"
         "\n";
 
 /* Print an error message */
@@ -57,12 +55,13 @@ int main(int argc, char *argv[]) {
 	SIFT3D sift3d;
 	Keypoint_store kp;
 	SIFT3D_Descriptor_store desc;
-	char *im_path, *keys_path, *desc_path;
+	char *im_path, *keys_path, *desc_path, *draw_path;
         int c, num_args;
 
         const struct option longopts[] = {
                 {"keys", required_argument, NULL, KEYS},
                 {"desc", required_argument, NULL, DESC},
+                {"draw", required_argument, NULL, DRAW},
                 {0, 0, 0, 0}
         };
 
@@ -74,6 +73,11 @@ int main(int argc, char *argv[]) {
                         return 0;
                 case SIFT3D_VERSION:
                         return 0;
+                case SIFT3D_FALSE:
+                        break;
+                default:
+                        err_msgu("Unexpected return from parse_gnu \n");
+                        return 1;
         }
 
 	// Initialize the SIFT data 
@@ -87,7 +91,7 @@ int main(int argc, char *argv[]) {
 
         // Parse the kpSift3d options
         opterr = 1;
-        keys_path = desc_path = NULL;
+        keys_path = desc_path = draw_path = NULL;
         while ((c = getopt_long(argc, argv, "", longopts, NULL)) != -1) {
                 switch (c) {
                         case KEYS:
@@ -96,6 +100,9 @@ int main(int argc, char *argv[]) {
                         case DESC:
                                 desc_path = optarg;
                                 break;
+                        case DRAW:
+                                draw_path = optarg;
+                                break;
                         case '?':
                         default:
                                 return 1;
@@ -103,7 +110,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Ensure we have at least one output
-        if (keys_path == NULL && desc_path == NULL) {
+        if (keys_path == NULL && desc_path == NULL && draw_path == NULL) {
                 err_msg("No outputs specified.");
                 return 1;
         }
@@ -147,26 +154,65 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
 
-        // Extract descriptors
-        if (desc_path == NULL) {
+        // Optionally extract descriptors
+        if (desc_path != NULL) {
 
-                return 0;
+                // Extract descriptors
+	        if (SIFT3D_extract_descriptors(&sift3d, &sift3d.gpyr, &kp,
+                        &desc, SIFT3D_TRUE)) {
+                        err_msgu("Failed to extract descriptors.");
+                        return 1;
+                }
 
-	} else if (SIFT3D_extract_descriptors(&sift3d, &sift3d.gpyr, &kp,
-		&desc, SIFT3D_TRUE)) {
-		err_msgu("Failed to extract descriptors.");
-                return 1;
+                // Write the descriptors
+                if (write_SIFT3D_Descriptor_store(desc_path, &desc)) {
+
+                        char msg[1024];
+
+                        sprintf(msg, "Failed to write the descriptors to "
+                                "\"%s\"", desc_path);
+                        err_msg(msg);
+                        return 1;
+                }
         }
 
-        // Write the descriptors
-        if (write_SIFT3D_Descriptor_store(desc_path, &desc)) {
+        // Optionally draw the keypoints
+        if (draw_path != NULL) {
 
-                char msg[1024];
+                Image draw;
+                Mat_rm keys;
 
-                sprintf(msg, "Failed to write the descriptors to \"%s\"",
-                        desc_path);
-                err_msg(msg);
-                return 1;
+                // Initialize intermediates
+                init_im(&draw);
+                if (init_Mat_rm(&keys, 0, 0, DOUBLE, SIFT3D_FALSE))
+                        err_msgu("Failed to initialize keys matrix");
+
+                // Convert to matrices
+                if (Keypoint_store_to_Mat_rm(&kp, &keys)) {
+                        err_msgu("Failed to convert the keypoints to "
+                                 "a matrix.");
+                        return 1;
+                }
+
+                // Draw the points
+                if (draw_points(&keys, im.dims, 1, &draw)) {
+                        err_msgu("Failed to draw the points.");
+                        return 1;
+                }
+
+                // Write the output
+                if (write_nii(draw_path, &draw)) {
+                        
+                        char msg[1024];
+
+                        sprintf(msg, "Failed to draw the keypoints to \"%s\"",
+                                draw_path);
+                        err_msg(msg);
+                        return 1;
+                }
+
+                // Clean up
+                im_free(&draw);
         }
 
 	return 0;

@@ -94,12 +94,12 @@ int main(int argc, char *argv[]) {
         int num_args, c, have_match, have_tform;
 
         const struct option longopts[] = {
-                {"matches", required_argument, &have_match, MATCHES},
-                {"transform", required_argument, &have_tform, TRANSFORM},
-                {"warped", required_argument, &have_tform, WARPED},
-                {"concat", required_argument, &have_match, CONCAT},
-                {"keys", required_argument, &have_match, KEYS},
-                {"lines", required_argument, &have_match, LINES},
+                {"matches", required_argument, NULL, MATCHES},
+                {"transform", required_argument, NULL, TRANSFORM},
+                {"warped", required_argument, NULL, WARPED},
+                {"concat", required_argument, NULL, CONCAT},
+                {"keys", required_argument, NULL, KEYS},
+                {"lines", required_argument, NULL, LINES},
                 {"thresh", required_argument, NULL, THRESH},
                 {"type", required_argument, NULL, TYPE},
                 {0, 0, 0, 0}
@@ -117,6 +117,11 @@ int main(int argc, char *argv[]) {
                         return 0;
                 case SIFT3D_VERSION:
                         return 0;
+                case SIFT3D_FALSE:
+                        break;
+                default:
+                        err_msgu("Unexpected return from parse_gnu \n");
+                        return 1;
         }
 
         // Initialize the data
@@ -141,16 +146,33 @@ int main(int argc, char *argv[]) {
         // Parse the remaining options 
         opterr = 1;
         have_match = have_tform = SIFT3D_FALSE;
+        match_path = tform_path = warped_path = concat_path = keys_path =
+                lines_path = NULL;
         while ((c = getopt_long(argc, argv, "", longopts, NULL)) != -1) {
                 switch (c) {
                         case MATCHES:
                                 match_path = optarg;
+                                have_match = SIFT3D_TRUE;
                                 break;
                         case TRANSFORM:
                                 tform_path = optarg;
+                                have_tform = SIFT3D_TRUE;
                                 break;
                         case WARPED:
                                 warped_path = optarg;
+                                have_tform = SIFT3D_TRUE;
+                                break;
+                        case CONCAT:
+                                concat_path = optarg;
+                                have_match = SIFT3D_TRUE;
+                                break;
+                        case KEYS:
+                                keys_path = optarg;
+                                have_match = SIFT3D_TRUE;
+                                break;
+                        case LINES:
+                                lines_path = optarg;
+                                have_match = SIFT3D_TRUE;
                                 break;
                         case THRESH:
                                 thresh = atof(optarg);
@@ -329,6 +351,11 @@ int main(int argc, char *argv[]) {
                 init_im(&concat);
                 init_im(&keys);
                 init_im(&lines);
+                if (init_Mat_rm(&keys_src, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+                        init_Mat_rm(&keys_ref, 0, 0, DOUBLE, SIFT3D_FALSE)) {
+                        err_msgu("Failed to initialize keypoint matrices.");
+                        return 1;
+                }
 
                 // Set up the pointers for the images
                 concat_arg = concat_path == NULL ? NULL : &concat;
