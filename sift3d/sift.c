@@ -1,8 +1,12 @@
-/* sift.c
- * ----------------------------------------------------------------
+/* -----------------------------------------------------------------------------
+ * sift.c
+ * -----------------------------------------------------------------------------
+ * Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+ * -----------------------------------------------------------------------------
  * This file contains all routines needed to initialize, delete, 
- * and run the 3D SIFT detector and descriptor.
- *-----------------------------------------------------------------
+ * and run the SIFT3D detector and descriptor. It also contains routines for
+ * matching SIFT3D features and drawing the results.
+ * -----------------------------------------------------------------------------
  */
 
 #include <stdlib.h>

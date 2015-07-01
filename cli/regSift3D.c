@@ -1,6 +1,12 @@
-/* matchSift3D.c
- * ----------------------------------------------------------------
- * This file contains the CLI to detect and match SIFT3D features. */
+/* -----------------------------------------------------------------------------
+ * regSift3D.c
+ * -----------------------------------------------------------------------------
+ * Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+ * -----------------------------------------------------------------------------
+ * This file contains the CLI to detect and match SIFT3D features between a pair
+ * of images, and register one image to another.
+ * -----------------------------------------------------------------------------
+ */
 
 #include <stdio.h>
 #include <stdlib.h>

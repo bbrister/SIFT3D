@@ -1,6 +1,8 @@
-######################################################################
-# Build file for 3D SIFT keypoint detection, description, and matching
-######################################################################
+################################################################################
+# Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+################################################################################
+# Build file for 3D SIFT keypoint detection, description, and matching.
+################################################################################
 
 add_library (sift3D SHARED sift.c)
 target_link_libraries (sift3D PUBLIC imutil ${M_LIBRARY})

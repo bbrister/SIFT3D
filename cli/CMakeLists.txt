@@ -1,6 +1,8 @@
-######################################################################
-# Build file for the command line interface
-######################################################################
+################################################################################
+# Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+################################################################################
+# Build file for the command line interfaces.
+################################################################################
 
 add_executable (denseSift3D denseSift3D.c)
 target_link_libraries(denseSift3D PUBLIC sift3D imutil ${M_LIBRARY})

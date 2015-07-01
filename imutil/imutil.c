@@ -1,7 +1,13 @@
-/* imutil.c
- * ----------------------------------------------------------------
- * Miscellaneous utility routines for image processing
- *-----------------------------------------------------------------
+/* -----------------------------------------------------------------------------
+ * imutil.c
+ * -----------------------------------------------------------------------------
+ * Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+ * -----------------------------------------------------------------------------
+ * Miscellaneous utility routines for image processing, linear algebra, and 
+ * statistical regression. This library completely defines the Image,
+ * Mat_rm, and Ransac types, among others, and stands apart from the other
+ * source.
+ * -----------------------------------------------------------------------------
  */
 
 #include <assert.h>

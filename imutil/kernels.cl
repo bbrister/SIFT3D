@@ -1,18 +1,17 @@
-/* kernels.cl 
- * ----------------------------------------------------------------
- * Rice MRI Team
- * ----------------------------------------------------------------
- * OpenCL kernels for 3D image processing 
- * -----------------------------------------------------------------
- * Created: Blaine Rister 4/30/2014
- * Last updated: Blaine Rister 5/1/2014
+/* -----------------------------------------------------------------------------
+ * kernels.cl 
+ * -----------------------------------------------------------------------------
+ * Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+ * -----------------------------------------------------------------------------
+ * This file contains OpenCL kernels for image processing.
+ * -----------------------------------------------------------------------------
  */
 
 #pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
 
-saampler_t sampler_downsample_2x = CLK_NORMALIZED_COORDS_FALSE |
-								  CLK_ADDRESS_CLAMP_TO_EDGE |
-								  CLK_FILTER_NEAEREST;
+sampler_t sampler_downsample_2x = CLK_NORMALIZED_COORDS_FALSE |
+				  CLK_ADDRESS_CLAMP_TO_EDGE |
+				  CLK_FILTER_NEAEREST;
 
 kernel void downsample_2x_3d(__read_only image3d_t src,
 						 	 __write_only image3d_t dst) {

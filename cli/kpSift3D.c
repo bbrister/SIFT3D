@@ -1,7 +1,11 @@
-/* kpSift3D.c
- * ----------------------------------------------------------------
- * This file contains the CLI to run SIFT3D on a volumetric image. It 
- * calls the routines in sift.c.
+/* -----------------------------------------------------------------------------
+ * kpSift3D.c
+ * -----------------------------------------------------------------------------
+ * Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+ * -----------------------------------------------------------------------------
+ * This file contains the CLI to extract SIFT3D keypoints and descriptors from
+ * a single image. 
+ * -----------------------------------------------------------------------------
  */
 
 #include <stdio.h>

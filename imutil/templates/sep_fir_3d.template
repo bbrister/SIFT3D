@@ -1,22 +1,21 @@
-/* sep_fir_3d.template 
- * ----------------------------------------------------------------
- * Rice MRI Team
- * ----------------------------------------------------------------
- * Template for separable FIR filter OpenCL kernels
- * -----------------------------------------------------------------
- * Created: Blaine Rister 5/1/2014
- * Last updated: Blaine Rister 5/1/2014
+/* -----------------------------------------------------------------------------
+ * sep_fir_3d.template 
+ * -----------------------------------------------------------------------------
+ * Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+ * -----------------------------------------------------------------------------
+ * This file contains an OpenCL C template for a separable FIR filter.
+ * -----------------------------------------------------------------------------
  */
 
 #pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
 
 sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE |
-	     			  CLK_ADDRESS_CLAMP_TO_EDGE |
-					  CLK_FILTER_NEAEREST;
+                    CLK_ADDRESS_CLAMP_TO_EDGE |
+                    CLK_FILTER_NEAEREST;
 
 kernel void sep_fir_3d(__read_only image3d_t src,
-					   __write_only image3d_t dst, const int dx,
-					   const int dy, const int dz) {
+	 	       __write_only image3d_t dst, const int dx,
+		       const int dy, const int dz) {
 
 	int4 center, d_xyz;
 	int x, y, z;

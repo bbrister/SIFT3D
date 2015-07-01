@@ -1,4 +1,7 @@
 # SIFT3D
+
+Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+
 Analogue of the scale-invariant feature transform (SIFT) for three-dimensional images. Includes an image processing and linear algebra library with feature matching and RANSAC regression.
 
 CONTENTS

@@ -1,7 +1,12 @@
-/* denseSift3d.c 
- * ----------------------------------------------------------------
- * Command-line tool to extract dense SIFT3D features from an image.
-*/
+/* -----------------------------------------------------------------------------
+ * denseSift3d.c 
+ * -----------------------------------------------------------------------------
+ * Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+ * -----------------------------------------------------------------------------
+ * This file contains a command-line tool to extract dense SIFT3D features from 
+ * an image.
+ * -----------------------------------------------------------------------------
+ */
 
 #include <stdio.h>
 #include <string.h>

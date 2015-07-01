@@ -1,6 +1,8 @@
-######################################################################
-# Build file for the image processing utility library
-######################################################################
+################################################################################
+# Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+################################################################################
+# Build file for the image processing utility library.
+################################################################################
 
 add_library (imutil SHARED imutil.c)
 target_include_directories (imutil PUBLIC $(CMAKE_CURRENT_SOURCE_DIR))
