@@ -3096,6 +3096,9 @@ int apply_Sep_FIR_filter(const Image *const src, Image *const dst,
 #endif
 	}
 
+        // Swap back
+        SWAP_BUFFERS;
+
 #undef SWAP_BUFFERS
 
 	// Copy result to dst, if necessary
@@ -3193,14 +3196,15 @@ void init_im(Image *im) {
 }
 
 /* Initialize a normalized Gaussian filter, of the given sigma.
- * If GAUSS_RATIO_WIDTH_SIGMA is defined, use that value for
+ * If SIFT3D_GAUSS_WIDTH_FCTR is defined, use that value for
  * the ratio between the width of the filter and sigma. Otherwise,
  * use the default value 3.0 
  */
-#ifndef GAUSS_RATIO_WIDTH_SIGMA
-#define GAUSS_RATIO_WIDTH_SIGMA 3.0
+#ifndef SIFT3D_GAUSS_WIDTH_FCTR
+#define SIFT3D_GAUSS_WIDTH_FCTR 3.0
 #endif
-int init_Gauss_filter(Gauss_filter *gauss, double sigma, int dim) {
+int init_Gauss_filter(Gauss_filter *const gauss, const double sigma, 
+                      const int dim) {
 
 	float *kernel;
 	double x;
@@ -3208,7 +3212,7 @@ int init_Gauss_filter(Gauss_filter *gauss, double sigma, int dim) {
 	int i, width, half_width;
 
 	// Compute dimensions and initialize kernel
-	half_width = SIFT3D_MAX((int) ceil(sigma * GAUSS_RATIO_WIDTH_SIGMA), 1);
+	half_width = SIFT3D_MAX((int) ceil(sigma * SIFT3D_GAUSS_WIDTH_FCTR), 1);
 	width = 2 * half_width + 1;
 	if ((kernel = (float *) malloc(width * sizeof(float))) == NULL)
 		return SIFT3D_FAILURE;
@@ -3240,7 +3244,8 @@ int init_Gauss_filter(Gauss_filter *gauss, double sigma, int dim) {
 
 	// Save data
 	gauss->sigma = sigma;
-	return init_Sep_FIR_filter(&gauss->f, dim, half_width, width, kernel, SIFT3D_TRUE);
+	return init_Sep_FIR_filter(&gauss->f, dim, half_width, width, kernel, 
+                                   SIFT3D_TRUE);
 }
 
 /* Initialize a Gaussian filter to go from scale s_cur to s_next. */
