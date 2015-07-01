@@ -2261,9 +2261,15 @@ int Keypoint_store_to_Mat_rm(const Keypoint_store *const kp, Mat_rm *const mat) 
 
     // Build the matrix
     for (i = 0; i < num; i++) {
-	SIFT3D_MAT_RM_GET(mat, i, 0, double) = kp->buf[i].xd;
-	SIFT3D_MAT_RM_GET(mat, i, 1, double) = kp->buf[i].yd;
-	SIFT3D_MAT_RM_GET(mat, i, 2, double) = kp->buf[i].zd;
+
+        const Keypoint *const key = kp->buf + i;
+
+        // Adjust the coordinates to the base octave
+        const double coord_factor = pow(2.0, key->o);
+
+	SIFT3D_MAT_RM_GET(mat, i, 0, double) = coord_factor * key->xd;
+	SIFT3D_MAT_RM_GET(mat, i, 1, double) = coord_factor * key->yd;
+	SIFT3D_MAT_RM_GET(mat, i, 2, double) = coord_factor * key->zd;
     }
 
     return SIFT3D_SUCCESS;
