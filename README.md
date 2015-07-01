@@ -15,8 +15,6 @@ and the following libraries:
 - libsift3d.so - Extract and match SIFT3D features
 - libimutil.so - Utility library for image processing, regression and linear algebra.
 
-Documentation can be found at:
-
 See /examples for sample programs using the C library and CLI.
 
 DEPENDENCIES
