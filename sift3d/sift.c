@@ -174,11 +174,11 @@ static void extract_descrip(SIFT3D *sift3d, Image *im,
 static int argv_permute(const int argc, char *const *argv, 
                         const unsigned char *processed, 
                         const int optind_start);
-static int extract_dense_descriptors(SIFT3D *const sift3d,
+static int extract_dense_descriptors_no_rotate(SIFT3D *const sift3d,
         const Image *const in, Image *const desc);
 static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
         const Image *const in, Image *const desc);
-static void extract_dense_descrip(SIFT3D *const sift3d, 
+static void extract_dense_descrip_rotate(SIFT3D *const sift3d, 
            const Image *const im, const Cvec *const vcenter, 
            const double sigma, const Mat_rm *const R, Hist *const hist);
 static int vox2hist(const Image *const im, const int x, const int y,
@@ -1944,8 +1944,8 @@ static void postproc_Hist(Hist *const hist, const float norm) {
         HIST_LOOP_END
 }
 
-/* Helper routine to extract a single SIFT3D histogram. */
-static void extract_dense_descrip(SIFT3D *const sift3d, 
+/* Helper routine to extract a single SIFT3D histogram, with rotation. */
+static void extract_dense_descrip_rotate(SIFT3D *const sift3d, 
            const Image *const im, const Cvec *const vcenter, 
            const double sigma, const Mat_rm *const R, Hist *const hist) {
 
@@ -2015,8 +2015,9 @@ int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d,
         }
 
         // Select the appropriate subroutine
-        extract_fun = sift3d->dense_rotate ? extract_dense_descriptors_rotate :
-                                             extract_dense_descriptors;
+        extract_fun = sift3d->dense_rotate ? 
+                extract_dense_descriptors_rotate :
+                extract_dense_descriptors_no_rotate;
 
         // Resize the output image
         memcpy(desc->dims, in->dims, IM_NDIMS * sizeof(int));
@@ -2074,10 +2075,10 @@ extract_dense_quit:
         return SIFT3D_FAILURE;
 }
 
-/* Helper function for extract_dense_descriptors, without rotation invariance.
- * This function is much faster than its rotation-invariant counterpart 
- * because histogram bins are pre-computed. */
-static int extract_dense_descriptors(SIFT3D *const sift3d,
+/* Helper function for SIFT3D_extract_dense_descriptors, without rotation 
+ * invariance. This function is much faster than its rotation-invariant 
+ * counterpart because histogram bins are pre-computed. */
+static int extract_dense_descriptors_no_rotate(SIFT3D *const sift3d,
         const Image *const in, Image *const desc) {
 
         Image temp; 
@@ -2218,8 +2219,8 @@ static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
                 }
 
                 // Extract the descriptor
-                extract_dense_descrip(sift3d, in, &vcenter, desc_sigma, ori,
-                                      &hist);
+                extract_dense_descrip_rotate(sift3d, in, &vcenter, desc_sigma,
+                        ori, &hist);
 
                 // Copy the descriptor to the image channels
                 hist2vox(&hist, desc, x, y, z);
