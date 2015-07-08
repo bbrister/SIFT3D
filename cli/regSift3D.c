@@ -11,7 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
-#include "types.h"
 #include "imutil.h"
 #include "sift.h"
 #include "reg.h"
