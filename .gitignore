@@ -16,4 +16,6 @@ debug
 debug/*
 scripts
 scripts/*
+sift3d-internal
+sift3d-internal/*
 *DEBUG*
