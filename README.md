@@ -4,7 +4,7 @@ Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
 
 Analogue of the scale-invariant feature transform (SIFT) for three-dimensional images. Includes an image processing and linear algebra library with feature matching and RANSAC regression.
 
-## CONTENTS
+## Contents
 
 This code creates the following executables:
 - kpSift3D - Extract keypoints and descriptors form a single image.
@@ -17,7 +17,7 @@ and the following libraries:
 
 See /examples for sample programs using the C library and CLI.
 
-## DEPENDENCIES
+## Dependencies
 
 This code requires the following external libraries:
 - LAPACK (http://www.netlib.org/lapack/)
@@ -36,7 +36,7 @@ On Ubuntu, as of version 14.04, the following command will install all dependenc
 
 	sudo apt-get install build-essential cmake liblapack-dev libnifti-dev
 
-## INSTALLATION INSTRUCTIONS
+## Installation instructions
 
 On Unix-like systems, the following commands will generate Makefiles and use them to compile the binaries in a subdirectory called "build":
 
@@ -53,7 +53,7 @@ Use the following command to install the files:
 
 In principle you can use CMake to compile this code on Windows, but some modifications may be required to resolve the external dependencies.
 
-## USAGE INSTRUCTIONS
+## Usage instructions
 
 For instructions on using the CLI, use the "--help" option, e.g. 
         kpSift3D --help
@@ -67,6 +67,6 @@ Linkage dependencies are as follows:
 	- libsift3d - requires linking to imutil
         - libreg - requires linking to sift3d and imutil
 
-## CONTACT
+## Contact
 
 Please contact me at blaine@stanford.edu if you have any questions or concerns.
