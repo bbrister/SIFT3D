@@ -20,16 +20,15 @@ See /examples for sample programs using the C API.
 ## Dependencies
 
 This code requires the following external libraries:
-- LAPACK (http://www.netlib.org/lapack/)
-- nifticlib (http://sourceforge.net/projects/niftilib/files/nifticlib/)
+- [LAPACK](http://www.netlib.org/lapack/)
+- [nifticlib](http://sourceforge.net/projects/niftilib/files/nifticlib/)
 
 If the build system cannot find LAPACK, it will try to download and compile the source.
 
-If you are using ITK, the build system will automatically find nifticlib there. Otherwise, you must install nifticlib yourself. (See the Ubuntu installation command below.)
-- ITK (http://www.itk.org/)
+If you are using [ITK](http://www.itk.org), the build system will automatically find nifticlib there. Otherwise, you must install nifticlib yourself. (See the Ubuntu installation command below.)
 
 This code requires the following tools to compile:
-- CMake (http://www.cmake.org)
+- [CMake](http://www.cmake.org)
 - A suitable C/C++ compiler, such as GCC or Clang/LLVM.
 
 On Ubuntu, as of version 14.04, the following command will install all dependencies and build tools:
@@ -60,9 +59,9 @@ For instructions on using the CLI, use the "--help" option, e.g.
 
 Here is an example of compiling a C program with the libraries:
 
-'''
+```
 gcc helloWorld.c -o helloWorld -I/usr/local/include/sift3d -L/usr/local/lib/sift3d -lreg -lsift3d -limutil -llapack -lblas -lz -lniftiio -lm
-'''
+```
 
 Linkage dependencies are as follows:
 - libimutil - requires linking to zlib, nifticlib, LAPACK and BLAS
