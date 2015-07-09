@@ -4,7 +4,7 @@ Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
 
 Analogue of the scale-invariant feature transform (SIFT) for three-dimensional images. Includes an image processing and linear algebra library with feature matching and RANSAC regression.
 
-CONTENTS
+## CONTENTS
 
 This code creates the following executables:
 - kpSift3D - Extract keypoints and descriptors form a single image.
@@ -17,7 +17,7 @@ and the following libraries:
 
 See /examples for sample programs using the C library and CLI.
 
-DEPENDENCIES
+## DEPENDENCIES
 
 This code requires the following external libraries:
 - LAPACK (http://www.netlib.org/lapack/)
@@ -36,7 +36,7 @@ On Ubuntu, as of version 14.04, the following command will install all dependenc
 
 	sudo apt-get install build-essential cmake liblapack-dev libnifti-dev
 
-INSTALLATION INSTRUCTIONS
+## INSTALLATION INSTRUCTIONS
 
 On Unix-like systems, the following commands will generate Makefiles and use them to compile the binaries in a subdirectory called "build":
 
@@ -45,7 +45,7 @@ On Unix-like systems, the following commands will generate Makefiles and use the
 	cmake ..
 	make
 
-If for some reason CMake cannot find the dependencies, you can specify the paths manually with the cmake GUI. 
+If for some reason CMake cannot find the dependencies, you can specify the paths manually with the Cmake GUI. 
 
 Use the following command to install the files:
 
@@ -53,18 +53,20 @@ Use the following command to install the files:
 
 In principle you can use CMake to compile this code on Windows, but some modifications may be required to resolve the external dependencies.
 
-Please contact me at blaine@stanford.edu if you have any questions or concerns.
-
-USAGE INSTRUCTIONS
+## USAGE INSTRUCTIONS
 
 For instructions on using the CLI, use the "--help" option, e.g. 
         kpSift3D --help
 
 Here is an example of compiling a C program with the libraries:
 
-gcc helloWorld.c -o helloWorld -I/usr/local/include/sift3d -L/usr/local/lib/sift3d -lreg -lsift3d -limutil -llapack -lblas
+gcc helloWorld.c -o helloWorld -I/usr/local/include/sift3d -L/usr/local/lib/sift3d -lreg -lsift3d -limutil -llapack -lblas -lz -lniftiio -lm
 
 Linkage dependencies are as follows:
-	- libimutil - requires linking to lapack and BLAS
-	- libsift3d - requires linking to libimutil
-        - libreg - requires linking to libsift3d and libimutil
+	- libimutil - requires linking to zlib, nifticlib, LAPACK and BLAS
+	- libsift3d - requires linking to imutil
+        - libreg - requires linking to sift3d and imutil
+
+## CONTACT
+
+Please contact me at blaine@stanford.edu if you have any questions or concerns.
