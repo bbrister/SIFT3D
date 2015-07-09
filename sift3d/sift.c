@@ -238,6 +238,7 @@ static int init_geometry(SIFT3D *sift3d) {
 		return SIFT3D_FAILURE;
 			    
 	// Initialize triangle memory
+        init_Mesh(mesh);
 	if ((mesh->tri = (Tri *) malloc(ICOS_NFACES * sizeof(Tri))) == NULL)
 		return SIFT3D_FAILURE;
  
@@ -364,19 +365,31 @@ static int cart2bary(const Cvec * const cart, const Tri * const tri,
 	return SIFT3D_SUCCESS;
 }
 
-/* Briefly initialize a Keypoint_store for first use.
- * This does not need to be called to re-use the store
+/* Initialize a Keypoint_store for first use.
+ * This does not need to be called to reuse the store
  * for a new image. */
-void init_Keypoint_store(Keypoint_store *kp) {
+void init_Keypoint_store(Keypoint_store *const kp) {
 	init_Slab(&kp->slab);
 	kp->buf = (Keypoint *) kp->slab.buf;
 }
 
-/* Briefly initialize a SIFT_Descriptor_store for first use.
-* This does not need to be called to re-use the store
-* for a new image. */
-void init_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *desc) {
+/* Free all memory associated with a Keypoint_store. kp cannot be
+ * used after calling this function, unless re-initialized. */
+void cleanup_Keypoint_store(Keypoint_store *const kp) {
+        cleanup_Slab(&kp->slab);
+}
+
+/* Initialize a SIFT_Descriptor_store for first use.
+ * This does not need to be called to reuse the store
+ * for a new image. */
+void init_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *const desc) {
 	desc->buf = NULL;
+}
+
+/* Free all memory associated with a SIFT3D_Descriptor_store. desc
+ * cannot be used after calling this function, unless re-initialized. */
+void cleanup_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *const desc) {
+        free(desc->buf);
 }
 
 /* Initializes the OpenCL data for this SIFT3D struct. This
@@ -500,6 +513,7 @@ int init_SIFT3D(SIFT3D *sift3d) {
 
         Pyramid *const dog = &sift3d->dog;
         Pyramid *const gpyr = &sift3d->gpyr;
+        GSS_filters *const gss = &sift3d->gss;
 
 	// Initialize to defaults
 	const int first_octave = first_octave_default;
@@ -514,6 +528,9 @@ int init_SIFT3D(SIFT3D *sift3d) {
 	// First-time pyramid initialization
         init_Pyramid(dog);
         init_Pyramid(gpyr);
+
+        // First-time filter initialization
+        init_GSS_filters(gss);
 
         // Intialize the geometry tables
 	if (init_geometry(sift3d))
@@ -560,11 +577,31 @@ int copy_SIFT3D(const SIFT3D *const src, SIFT3D *const dst) {
         set_im_SIFT3D(dst, src->im);
 
         // Copy the pyramids, if any
-        if (copy_pyramid(&dst->gpyr, &src->gpyr) ||
-            copy_pyramid(&dst->dog, &src->dog))
+        if (copy_Pyramid(&src->gpyr, &dst->gpyr) ||
+            copy_Pyramid(&src->dog, &dst->dog))
                 return SIFT3D_FAILURE;
 
         return SIFT3D_SUCCESS;
+}
+
+/* Free all memory associated with a SIFT3D struct. sift3d cannot be reused
+ * unless it is reinitialized. */
+void cleanup_SIFT3D(SIFT3D *const sift3d) {
+
+        // Clean up the pyramids
+        cleanup_Pyramid(&sift3d->gpyr);
+        cleanup_Pyramid(&sift3d->dog);
+
+        // Clean up the GSS filters
+        cleanup_GSS_filters(&sift3d->gss);
+
+        // Clean up the triangle mesh 
+        cleanup_Mesh(&sift3d->mesh);
+
+#ifdef USE_OPENCL
+        // Clean up the OpenCL kernels
+        cleanup_SIFT3D_cl_kernels(&sift3d->kernels);
+#endif
 }
 
 /* Helper function to permute the arguments so that all unprocessed arguments
@@ -899,14 +936,12 @@ static int resize_SIFT3D(SIFT3D *const sift3d) {
 	sift3d->dog.num_octaves = sift3d->gpyr.num_octaves = num_octaves;
 
 	// Resize the pyramid
-	if (resize_pyramid(&sift3d->gpyr, sift3d->im) ||
-		resize_pyramid(&sift3d->dog, sift3d->im))
+	if (resize_Pyramid(&sift3d->gpyr, sift3d->im) ||
+		resize_Pyramid(&sift3d->dog, sift3d->im))
 		return SIFT3D_FAILURE;
 
-        //FIXME: Clean up the old GSS
-
 	// Compute the Gaussian filters
-	if (init_gss(&sift3d->filters.gss, &sift3d->gpyr))
+	if (make_gss(&sift3d->gss, &sift3d->gpyr))
 		return SIFT3D_FAILURE;
 
 	return SIFT3D_SUCCESS;
@@ -920,7 +955,7 @@ static int build_gpyr(SIFT3D *sift3d) {
 	int o, s;
 
 	Pyramid *const gpyr = &sift3d->gpyr;
-	const GSS_filters *const gss = &sift3d->filters.gss;
+	const GSS_filters *const gss = &sift3d->gss;
 	const int s_start = gpyr->first_level + 1;
 	const int s_end = gpyr->last_level;
 	const int o_start = gpyr->first_octave;

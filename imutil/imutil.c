@@ -429,6 +429,19 @@ static int compile_cl_program_from_source(cl_program *program, cl_context contex
 #endif
 }
 
+/* Initialize a triangle mesh for first use. This must be called before mesh
+ * can be used in any other functions. */
+void init_Mesh(Mesh *const mesh) {
+        mesh->tri = NULL;
+        mesh->num = -1;
+}
+
+/* Release all memory associated with a triangle mesh. mesh cannot be reused
+ * before it is reinitialized. */
+void cleanup_Mesh(Mesh *const mesh) {
+        free(mesh->tri);
+}
+
 /* Convert a matrix to a different type. in and out may be the same pointer.
  * 
  * This function resizes out.
@@ -3271,43 +3284,82 @@ void cleanup_Gauss_filter(Gauss_filter *gauss) {
         cleanup_Sep_FIR_filter(&gauss->f);
 }
 
-/* Initialize GSS filters to create the given scale-space 
- * pyramid. 
- */
-int init_gss(GSS_filters *gss, Pyramid *pyr) {
+/* Initialize a GSS filteres stuct. This must be called before gss can be
+ * used in any other functions. */
+void init_GSS_filters(GSS_filters *const gss) {
+        gss->num_filters = -1;
+        gss->gauss_octave = NULL;
+}
+
+/* Create GSS filters to create the given scale-space 
+ * pyramid. */
+int make_gss(GSS_filters *const gss, const Pyramid *const pyr) {
 
 	Image *cur, *next;
 	int o, s;
 
 	const int dim = 3;
 
-	// Copy pyramid parameters
-	const int num_filters = gss->num_filters = pyr->num_levels - 1;
-	const int first_level = gss->first_level = pyr->first_level;
-	const int last_level = gss->last_level = pyr->last_level;
+        const int num_filters = pyr->num_levels - 1;
+        const int first_level = pyr->first_level;
+        const int last_level = pyr->last_level;
 
-	// Initialize filter array
-	if ((gss->gauss_octave = (Gauss_filter *) malloc(num_filters *
-		sizeof(Gauss_filter))) == NULL)
+        // Free all previous data, if any
+        cleanup_GSS_filters(gss);
+        init_GSS_filters(gss);
+
+	// Copy pyramid parameters
+	gss->num_filters = num_filters;
+	gss->first_level = first_level;
+	gss->last_level = last_level;
+
+	// Allocate the filter array
+	if ((gss->gauss_octave = (Gauss_filter *) realloc(gss->gauss_octave,
+                num_filters * sizeof(Gauss_filter))) == NULL)
 		return SIFT3D_FAILURE;
 
-	// Initialize filter for the very first blur
+	// Make the filter for the very first blur
 	next = SIFT3D_PYR_IM_GET(pyr, pyr->first_octave, first_level);
 	if (init_Gauss_incremental_filter(&gss->first_gauss, pyr->sigma_n,
-									  next->s, dim))
+					  next->s, dim))
 		return SIFT3D_FAILURE;
 
-	// Initialize one octave of filters (num_levels - 1)
+	// Make one octave of filters (num_levels - 1)
 	o = pyr->first_octave;
 	for (s = first_level; s < last_level; s++) {
 		cur = SIFT3D_PYR_IM_GET(pyr, o, s);
 		next = SIFT3D_PYR_IM_GET(pyr, o, s + 1);
 		if (init_Gauss_incremental_filter(SIFT3D_GAUSS_GET(gss, s),
-										  cur->s, next->s, dim))
+						  cur->s, next->s, dim))
 			return SIFT3D_FAILURE;
 	}
 
 	return SIFT3D_SUCCESS;
+}
+
+/* Free all memory associated with the GSS filters. gss cannot be reused
+ * unless it is reinitialized. */
+void cleanup_GSS_filters(GSS_filters *const gss) {
+
+        int s;
+
+        const int first_level = gss->first_level;
+        const int last_level = gss->last_level;
+
+        // We are done if gss has no filters
+        if (gss->num_filters < 1)
+                return;
+
+        // Free the first filter
+        cleanup_Gauss_filter(&gss->first_gauss);
+
+        // Free the octave filters
+        for (s = first_level; s < last_level; s++) {
+                cleanup_Gauss_filter(SIFT3D_GAUSS_GET(gss, s));
+        }
+
+        // Free the octave filter buffer
+        free(gss->gauss_octave);
 }
 
 /* Initialize a Pyramid for use. Must be called before a Pyramid can be used
@@ -3335,7 +3387,7 @@ void init_Pyramid(Pyramid *const pyr) {
  *		 can be used to quickly resize an existing 
  *		 pyramid. 
  */
-int resize_pyramid(Pyramid *pyr, Image *im) {
+int resize_Pyramid(Pyramid *pyr, Image *im) {
 
 	Image *level;
 	double factor;
@@ -3394,7 +3446,7 @@ int resize_pyramid(Pyramid *pyr, Image *im) {
 }
 
 /* Make a deep copy of a pyramid. */
-int copy_pyramid(const Pyramid *const src, Pyramid *const dst) {
+int copy_Pyramid(const Pyramid *const src, Pyramid *const dst) {
 
         int o, s;
 
@@ -3412,9 +3464,8 @@ int copy_pyramid(const Pyramid *const src, Pyramid *const dst) {
 
         // Check if src has any levels
         if (src->levels == NULL || src->num_octaves <= 0 ||
-                src->num_levels <= 0) {
+                src->num_levels <= 0)
                 return SIFT3D_SUCCESS;
-        }
 
         // Copy the levels
         SIFT3D_PYR_LOOP_START(dst, o, s)
@@ -3425,16 +3476,39 @@ int copy_pyramid(const Pyramid *const src, Pyramid *const dst) {
                 if (im_copy_data(src_level, dst_level)) 
                         return SIFT3D_FAILURE;
 
-                SIFT3D_PYR_LOOP_SCALE_END
-        SIFT3D_PYR_LOOP_OCTAVE_END
+        SIFT3D_PYR_LOOP_END
 
         return SIFT3D_SUCCESS;
 }
 
+/* Release all memory associated with a Pyramid. pyr cannot be used again,
+ * unless it is reinitialized. */
+void cleanup_Pyramid(Pyramid *const pyr) {
+
+        int o, s;
+
+        // We are done if there are no levels
+        if (pyr->levels == NULL || pyr->num_octaves <= 0 ||
+                pyr->num_levels <= 0)
+                return;
+
+        // Free the levels
+        SIFT3D_PYR_LOOP_START(pyr, o, s)
+                Image *const level = SIFT3D_PYR_IM_GET(pyr, o, s);
+                im_free(level);
+        SIFT3D_PYR_LOOP_END
+}
+
 /* Initialize a Slab for first use */
-void init_Slab(Slab *slab) {
+void init_Slab(Slab *const slab) {
 	slab->buf_length = slab->num = 0;
 	slab->buf = NULL;
+}
+
+/* Free all memory associated with a slab. Slab cannot be re-used after 
+ * calling this function, unless re-initialized. */
+void cleanup_Slab(Slab *const slab) {
+        free(slab->buf);
 }
 
 /* Write the levels of a pyramid to separate files

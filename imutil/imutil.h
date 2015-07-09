@@ -171,11 +171,23 @@ void cleanup_Sep_FIR_filter(Sep_FIR_filter *f);
 
 void cleanup_Gauss_filter(Gauss_filter *gauss);
 
-int init_gss(GSS_filters *gss, Pyramid *pyr);
+void init_GSS_filters(GSS_filters *const gss);
 
-int resize_pyramid(Pyramid *pyr, Image *im);
+int make_gss(GSS_filters *const gss, const Pyramid *const pyr);
 
-void init_Slab(Slab *slab);
+void cleanup_GSS_filters(GSS_filters *const gss);
+
+void init_Pyramid(Pyramid *const pyr);
+
+int copy_Pyramid(const Pyramid *const src, Pyramid *const dst);
+
+int resize_Pyramid(Pyramid *pyr, Image *im);
+
+void cleanup_Pyramid(Pyramid *const pyr);
+
+void init_Slab(Slab *const slab);
+
+void cleanup_Slab(Slab *const slab);
 
 int resize_Slab(Slab *slab, int num, size_t size);
 

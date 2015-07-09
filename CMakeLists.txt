@@ -6,6 +6,9 @@
 
 include (ExternalProject)
 
+# Options
+set (BUILD_EXAMPLES "ON" CACHE BOOL "If ON, builds the example programs.")
+
 # Minimum CMake version
 cmake_minimum_required (VERSION 2.8)
 
@@ -53,7 +56,6 @@ if (APPLE)
         find_library(name LAPACK)
 endif ()
 
-
 if (NOT LAPACK_FOUND)
 	message ("LAPACK was not found on your system. Attempting to install from source...")
 
@@ -76,3 +78,6 @@ add_subdirectory (sift3d)
 add_subdirectory (reg)
 add_subdirectory (itkwrap)
 add_subdirectory (cli)
+if (${BUILD_EXAMPLES})
+        add_subdirectory (examples)
+endif ()

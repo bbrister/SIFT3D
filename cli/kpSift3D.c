@@ -53,7 +53,7 @@ void err_msgu(const char *msg) {
 }
 
 /* CLI for 3D SIFT */
-int main(int argc, char *argv[]) {
+int main(const int argc, char *const argv[]) {
 
 	Image im;
 	SIFT3D sift3d;

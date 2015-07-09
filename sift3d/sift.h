@@ -12,9 +12,13 @@
 #ifndef _SIFT_H
 #define _SIFT_H
 
-void init_Keypoint_store(Keypoint_store *kp);
+void init_Keypoint_store(Keypoint_store *const kp);
 
-void init_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *desc);
+void cleanup_Keypoint_store(Keypoint_store *const kp);
+
+void init_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *const desc);
+
+void cleanup_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *const desc);
 
 int set_first_octave_SIFT3D(SIFT3D *const sift3d, 
                                 const int first_octave);
@@ -38,6 +42,10 @@ int set_sigma0_SIFT3D(SIFT3D *const sift3d,
                                 const double sigma_n);
 
 int init_SIFT3D(SIFT3D *sift3d);
+
+int copy_SIFT3D(const SIFT3D *const src, SIFT3D *const dst);
+
+void cleanup_SIFT3D(SIFT3D *const sift3d);
 
 void print_opts_SIFT3D(void);
 

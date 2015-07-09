@@ -176,13 +176,6 @@ typedef struct _GSS_filters {
 
 } GSS_filters;
 
-/* Struct to hold SIFT detector filters */
-typedef struct _SIFT_filters {
-
-	GSS_filters gss;
-
-} SIFT_filters;
-
 /* Struct to hold miscellaneous SIFT detector OpenCL kernels */
 typedef struct _SIFT_cl_kernels {
 
@@ -301,8 +294,8 @@ typedef struct _SIFT3D {
         // Triange mesh
 	Mesh mesh;
 
-	// Filters and filtering programs
-	SIFT_filters filters;
+        // Filters for computing the GSS pyramid
+	GSS_filters gss;
 
 	// Other OpenCL kernels
 	SIFT_cl_kernels kernels;
@@ -320,9 +313,6 @@ typedef struct _SIFT3D {
 	double peak_thresh; // Keypoint peak threshold
 	double corner_thresh; // Keypoint corner threshold
         int dense_rotate; // If true, dense descriptors are rotation-invariant
-
-	// Profiling info
-	//timer_t start;
 
 } SIFT3D;
 
