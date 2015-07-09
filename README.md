@@ -15,7 +15,7 @@ and the following libraries:
 - libsift3d.so - Extract and match SIFT3D features
 - libimutil.so - Utility library for image processing, regression and linear algebra.
 
-See /examples for sample programs using the C library and CLI.
+See /examples for sample programs using the C API.
 
 ## Dependencies
 
@@ -60,12 +60,14 @@ For instructions on using the CLI, use the "--help" option, e.g.
 
 Here is an example of compiling a C program with the libraries:
 
+'''
 gcc helloWorld.c -o helloWorld -I/usr/local/include/sift3d -L/usr/local/lib/sift3d -lreg -lsift3d -limutil -llapack -lblas -lz -lniftiio -lm
+'''
 
 Linkage dependencies are as follows:
-	- libimutil - requires linking to zlib, nifticlib, LAPACK and BLAS
-	- libsift3d - requires linking to imutil
-        - libreg - requires linking to sift3d and imutil
+- libimutil - requires linking to zlib, nifticlib, LAPACK and BLAS
+- libsift3d - requires linking to imutil
+- libreg - requires linking to sift3d and imutil
 
 ## Contact
 
