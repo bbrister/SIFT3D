@@ -2175,13 +2175,14 @@ int im_restride(const Image *const src, const int *const strides,
 /* Initializes a tform to ensure memory safety. 
  * Either this or the type-specific version must be called prior to using
  * a tform. */
-int init_tform(void *tform, const tform_type type) {
+int init_tform(void *const tform, const tform_type type) {
+
     switch (type) {
         case TPS:
             puts("init_tform: TPS not yet implemented \n");
             return SIFT3D_FAILURE;
         case AFFINE:
-            if (init_Affine((Affine *) tform, 2))
+            if (init_Affine((Affine *) tform, IM_NDIMS))
                 return SIFT3D_FAILURE;
             break;
         default:
@@ -2195,7 +2196,7 @@ int init_tform(void *tform, const tform_type type) {
 /* Initialize an Affine struct. This initializes
  * all fields, and allocates memory for the inner
  * matrix, initializing it to zero. */
-int init_Affine(Affine *affine, int dim) {
+int init_Affine(Affine *const affine, const int dim) {
 
 	// Verify inputs
 	if (dim < 2)

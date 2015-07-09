@@ -61,9 +61,9 @@ int zero_Mat_rm(Mat_rm *mat);
  
 void cleanup_Mat_rm(Mat_rm *mat);
 
-int init_tform(void *tform, const tform_type type);
+int init_tform(void *const tform, const tform_type type);
 
-int init_Affine(Affine *affine, int dim);
+int init_Affine(Affine *const affine, const int dim);
 
 int copy_tform(const void *const src, void *const dst);
 
