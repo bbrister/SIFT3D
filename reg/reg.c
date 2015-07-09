@@ -8,6 +8,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "reg.h"
 #include "types.h"
 #include "macros.h"
@@ -35,6 +36,24 @@ int init_Reg_SIFT3D(Reg_SIFT3D *const reg) {
         }
 
         return SIFT3D_SUCCESS;
+}
+
+/* Free all memory associated with a Reg_SIFT3D struct. reg cannot be reused
+ * unless it is reinitialized. */
+void cleanup_Reg_SIFT3D(Reg_SIFT3D *const reg) {
+
+        if (reg->matches != NULL)
+                free(reg->matches);
+
+        cleanup_Keypoint_store(&reg->kp_src);
+        cleanup_Keypoint_store(&reg->kp_ref);
+        cleanup_SIFT3D_Descriptor_store(&reg->desc_src);
+        cleanup_SIFT3D_Descriptor_store(&reg->desc_ref);
+        cleanup_SIFT3D(&reg->sift3d); 
+        im_free(&reg->src);
+        im_free(&reg->ref);
+        cleanup_Mat_rm(&reg->match_src);
+        cleanup_Mat_rm(&reg->match_ref);
 }
 
 /* Set the matching theshold of a Reg_SIFT3D struct. */
@@ -169,3 +188,4 @@ int get_matches_Reg_SIFT3D(const Reg_SIFT3D *const reg, Mat_rm *const match_src,
         return copy_Mat_rm(&reg->match_src, match_src) ||
                 copy_Mat_rm(&reg->match_ref, match_ref);
 }
+
