@@ -272,8 +272,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Convert the matches to matrices
-        if (SIFT3D_matches_to_Mat_rm(desc_src, desc_ref, reg.matches,
-                &match_src, &match_ref)) {
+        if (get_matches_Reg_SIFT3D(&reg, &match_src, &match_ref)) {
                 err_msgu("Failed to convert matches to coordinates.");
                 return 1;
         }

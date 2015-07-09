@@ -154,3 +154,18 @@ int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
 
 	return SIFT3D_SUCCESS;
 }
+
+/* Write the coordinates of matching keypoints to the matrices match_src
+ * and match_ref. This function uses the keypoints and the matches from
+ * the last call to register_SIFT3D() on this Reg_SIFT3D struct. */
+int get_matches_Reg_SIFT3D(const Reg_SIFT3D *const reg, Mat_rm *const match_src,
+        Mat_rm *const match_ref) {
+
+        // Check if we have any matches
+        if (reg->matches == NULL)
+                return SIFT3D_FAILURE;
+
+        // Copy the matches
+        return copy_Mat_rm(&reg->match_src, match_src) ||
+                copy_Mat_rm(&reg->match_ref, match_ref);
+}
