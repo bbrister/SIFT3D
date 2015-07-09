@@ -53,6 +53,7 @@ int demo(void) {
         // Write the keypoints to a file
         if (write_Keypoint_store(keys_path, &kp))
                 goto demo_quit;
+        printf("Keypoints written to %s. \n", keys_path);
 
         // Extract descriptors
         if (SIFT3D_extract_descriptors(&sift3d, &sift3d.gpyr, &kp,
@@ -62,9 +63,9 @@ int demo(void) {
         // Write the descriptors to a file
         if (write_SIFT3D_Descriptor_store(desc_path, &desc))
                 goto demo_quit;
-        printf("Descriptors written to %s.", desc_path);
+        printf("Descriptors written to %s. \n", desc_path);
 
-        // Convert the keypoints to matrices
+        // Convert the keypoints to a matrix 
         if (Keypoint_store_to_Mat_rm(&kp, &keys))
                 goto demo_quit;
 
@@ -75,7 +76,7 @@ int demo(void) {
         // Write the drawn keypoints to a file
         if (write_nii(draw_path, &draw))
                 goto demo_quit;
-        printf("Keypoints drawn in %s.", draw_path);
+        printf("Keypoints drawn in %s. \n", draw_path);
 
         // Clean up
         im_free(&im);
