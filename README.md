@@ -71,3 +71,7 @@ Linkage dependencies are as follows:
 ## Contact
 
 Please contact me at blaine@stanford.edu if you have any questions or concerns.
+
+If you would like to cite this work, please refer to the following paper:
+
+B. Rister, D. Reiter, H. Zhang, D. Volz, M. Horowitz, R. Gabr, and J. R. Cavallaro, "Scale- and Orientation-Invariant Keypoints in Higher-Dimensional Data," to appear in *Proceedings of the IEEE International Conference on Image Processing (ICIP)*. 2015.

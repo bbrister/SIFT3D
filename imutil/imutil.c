@@ -40,7 +40,7 @@
 
 /* SIFT3D version message */
 const char version_msg[] = 
-        "SIFT3D version 0.00 \n"
+        "SIFT3D version 1.00 \n"
         "\n"
         "Source code available at https://github.com/bbrister/SIFT3D\n"
         "\n"
