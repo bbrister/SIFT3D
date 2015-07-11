@@ -1156,14 +1156,14 @@ SIFT3D_IGNORE_UNUSED
 	for (k = 0; k < kp->slab.num; k++) {
 
 		// Misc. constant data
-		Keypoint * const key = kp->buf + k;
+		Keypoint *const key = kp->buf + k;
 		const int o = key->o;
 		const int s = key->s;
-		const Image const *prev = 
+		const Image *const prev = 
                         SIFT3D_PYR_IM_GET(&sift3d->dog, o, s - 1);
-		const Image const *cur = 
+		const Image *const cur = 
                         SIFT3D_PYR_IM_GET(&sift3d->dog, o, s);
-		const Image const *next = 
+		const Image *const next = 
                         SIFT3D_PYR_IM_GET(&sift3d->dog, o, s + 1);
 
 		// Bound the translation to all non-boundary pixels
