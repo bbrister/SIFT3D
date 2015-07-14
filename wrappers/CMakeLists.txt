@@ -11,7 +11,7 @@ set (WRAPPERS_PATH "${CMAKE_BINARY_DIR}/${WRAPPERS_DIR}")
 # Look for MATLAB
 find_package (Matlab QUIET)
 if (${Matlab_FOUND})
-        message ("-- Matlab was found. Building the Matlab wrappers.")
+        message ("-- Found Matlab. Building the Matlab wrappers")
 endif ()
 
 # Subdirectories for each language

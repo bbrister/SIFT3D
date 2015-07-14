@@ -11,7 +11,6 @@ set (TOOLBOX_PATH "${WRAPPERS_PATH}/${TOOLBOX_NAME}")
 # The mex files are shared libraries
 matlab_add_mex (NAME mexDetectSift3D 
         SRC mexDetectSift3D.c 
-        OUTPUT_NAME "mexDetectSift3D"
         LINK_TO sift3D imutil)
 
 # Copy the Matlab files
