@@ -41,19 +41,19 @@ set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${RELEASE_FLAGS}")
 
 # OS-specific build flags
 if (APPLE)
-        set(CMAKE_MACOSX_RPATH ON)
+        set (CMAKE_MACOSX_RPATH ON)
 endif()
 
 # Find the system libraries
-find_library(M_LIBRARY m)
-find_library(Z_LIBRARY z)
+find_library (M_LIBRARY m)
+find_library (Z_LIBRARY z)
 
 # Find LAPACK
 find_package (LAPACK QUIET)
 
 # Mac OSX workaround for LAPACK
 if (APPLE)
-        find_library(name LAPACK)
+        find_library (name LAPACK)
 endif ()
 
 if (NOT LAPACK_FOUND)
@@ -67,7 +67,7 @@ if (NOT LAPACK_FOUND)
 	)
 
 	set (LAPACK_LIBRARIES "-llapack -lblas")
-endif()
+endif ()
 
 # Try to find ITK
 find_package (ITK 4 QUIET)
@@ -77,6 +77,7 @@ add_subdirectory (imutil)
 add_subdirectory (sift3d)
 add_subdirectory (reg)
 add_subdirectory (cli)
+add_subdirectory (wrappers)
 if (${BUILD_EXAMPLES})
         add_subdirectory (examples)
 endif ()
