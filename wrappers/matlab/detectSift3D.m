@@ -3,7 +3,7 @@ function keys = detectSift3D(im, sift3d)
 %   Detailed explanation goes here
 
 % Verify inputs
-if (ndims(im) != 3)
+if (ndims(im) ~= 3)
    error(['im must have 3 dimensions, detected ' num2str(ndims(im))]); 
 end
 
