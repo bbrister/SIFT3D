@@ -141,7 +141,6 @@ int main(int argc, char *argv[]) {
         }
 
         // Initialize parameters to defaults        
-        warped_path = match_path = tform_path = NULL;
         type = type_default;
 
         // Parse the SIFT3D options
@@ -345,7 +344,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Optionally draw the matches
-        if (concat_path != NULL || keys_path != NULL || match_path != NULL) {
+        if (concat_path != NULL || keys_path != NULL || lines_path != NULL) {
 
                 Image concat, keys, lines;
                 Mat_rm keys_src, keys_ref;
