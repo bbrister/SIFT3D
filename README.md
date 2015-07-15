@@ -30,6 +30,7 @@ If you are using [ITK](http://www.itk.org), the build system will automatically 
 This code requires the following tools to compile:
 - [CMake](http://www.cmake.org)
 - A suitable C/C++ compiler, such as GCC or Clang/LLVM.
+- A suitable FORTRAN compiler, such as gfortran.
 
 On Ubuntu, as of version 14.04, the following command will install all dependencies and build tools:
 
@@ -51,6 +52,26 @@ Use the following command to install the files:
 	sudo make install
 
 In principle you can use CMake to compile this code on Windows, but some modifications may be required to resolve the external dependencies.
+
+### Matlab wrappers with Linux
+
+**Note: The following section describes a workaround necessary to use the Matlab wrappers on Linux systems. If you are not using Linux, or you are not using Matlab, you can skip this section.**
+
+Matlab loads an outdated version of the gfortran library, but LAPACK requires the newer version installed in your system. In order to use the Matlab wrappers on Linux systems, we must force Matlab to load the newer version of the library.
+
+First, we need to find the location of libgfortran in your system, and not Matlab's out-of-date version. On Ubuntu 14.04, this can be done with the following command:
+
+        locate libgfortran.so
+
+Choose one of the files not containing "MATLAB" in its path. We will force Matlab to load this library by adding it to the LD_PRELOAD environment variable. Add the following line to your .bashrc file:
+
+       alias matlab='LD_PRELOAD="${LD_PRELOAD}:<path-to-libgfortran.so>" matlab'
+
+For example, on Ubuntu 14.04, using GCC 4.8, we have the following alias:
+
+       alias matlab='LD_PRELOAD="${LD_PRELOAD}:/usr/lib/x86_64-linux-gnu/libgfortran.so.3" matlab'
+
+Afterwards, Matlab will load the up-to-date libraries when launched with the "matlab" command from a bash shell.
 
 ## Usage instructions
 
