@@ -8,14 +8,10 @@
 set (TOOLBOX_NAME "matlab")
 set (TOOLBOX_PATH "${WRAPPERS_PATH}/${TOOLBOX_NAME}")
 
-# Find static LAPACK and BLAS libraries
-find_library (BLAS_ARCHIVE libblas.a)
-find_library (LAPACK_ARCHIVE liblapack.a)
-
 # The mex files are shared libraries
 matlab_add_mex (NAME mexDetectSift3D 
         SRC mexDetectSift3D.c 
-        LINK_TO ${LAPACK_ARCHIVE} ${BLAS_ARCHIVE} sift3D imutil
+        LINK_TO sift3D imutil
 )
 
 # Copy the Matlab files

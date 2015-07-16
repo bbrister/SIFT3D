@@ -4,9 +4,12 @@
 # Build file for the image processing utility library.
 ################################################################################
 
+# Find LAPACKE
+find_library(LAPACKE_LIBRARY lapacke)
+
 add_library (imutil SHARED imutil.c)
 target_include_directories (imutil PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries (imutil PUBLIC ${LAPACK_LIBRARIES} ${Z_LIBRARY} ${M_LIBRARY})
+target_link_libraries (imutil PUBLIC ${LAPACKE_LIBRARY} ${LAPACK_LIBRARIES} ${Z_LIBRARY} ${M_LIBRARY})
 install (FILES types.h macros.h imutil.h kernels.cl DESTINATION include/sift3d)
 
 if (ITK_FOUND)
