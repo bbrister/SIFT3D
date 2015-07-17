@@ -1271,7 +1271,7 @@ void im_default_stride(Image *im) {
 
 /* Pads an image to a new size. Prior to calling this function, initialize 
  * pad with all dimensions and strides, as in im_resize. */
-int im_pad(Image *im, Image *pad) {
+int im_pad(const Image *const im, Image *const pad) {
 
     int x, y, z, c;
 

@@ -136,7 +136,7 @@ int im_transpose(const Image *const src, const int dim1, const int dim2,
 
 int im_upsample_2x(Image *src, Image *dst);
 
-int im_pad(Image *im, Image *pad);
+int im_pad(const Image *const im, Image *const pad);
 
 void im_default_stride(Image *im);
 

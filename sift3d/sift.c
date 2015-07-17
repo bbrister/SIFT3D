@@ -2589,11 +2589,28 @@ int draw_matches(const Image *const left, const Image *const right,
 		 const Mat_rm *const match_left, const Mat_rm *const match_right,
 		 Image *const concat, Image *const keys, Image *const lines) {
 
-        Image concat_temp;
+        Image concat_temp, left_padded, right_padded;
 	Mat_rm keys_right_draw, match_right_draw;
 	int i;
+	int nx_pad, ny_pad, nz_pad;
 
         const double right_pad = (double) left->nx;
+
+        init_im(&left_padded);
+        init_im(&right_padded);
+
+        nx_pad = SIFT3D_MAX(right->nx, left->nx);
+		ny_pad = SIFT3D_MAX(right->ny, left->ny);
+		nz_pad = SIFT3D_MAX(right->nz, left->nz);
+
+		if (init_im_first_time(&right_padded, nx_pad, ny_pad, nz_pad, 1) || 
+	    	init_im_first_time(&left_padded, nx_pad, ny_pad, nz_pad, 1) || 
+	    	im_pad(right, &right_padded) || 
+	    	im_pad(left, &left_padded)) {
+			fprintf(stderr, "draw_matches: unable to pad images \n");
+            return SIFT3D_FAILURE;
+		}
+
 
         // Choose which image to use for concatenation 
         Image *const concat_arg = concat == NULL ? &concat_temp : concat;
@@ -2631,7 +2648,7 @@ int draw_matches(const Image *const left, const Image *const right,
 	        return SIFT3D_FAILURE;
 
 	// Draw a concatenated image
-	if (im_concat(left, right, 0, concat_arg)) {
+	if (im_concat(&left_padded, &right_padded, 0, concat_arg)) {
                 fprintf(stderr, "draw_matches: Could not concatenate the "
                         "images \n");
                 goto draw_matches_quit;
@@ -2670,7 +2687,7 @@ int draw_matches(const Image *const left, const Image *const right,
                 }
 
                 // Draw the lines
-                if (draw_lines(match_left, &match_right_draw, concat->dims, 
+                if (draw_lines(match_left, &match_right_draw, concat_arg->dims, 
                         lines))
                         goto draw_matches_quit;
         }
