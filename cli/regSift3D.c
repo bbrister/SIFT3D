@@ -144,7 +144,8 @@ int main(int argc, char *argv[]) {
         type = type_default;
 
         // Parse the SIFT3D options
-        parse_args_SIFT3D(&sift3d, argc, argv, &optind, 0);
+        if ((argc = parse_args_SIFT3D(&sift3d, argc, argv, SIFT3D_FALSE)) < 0)
+                return 1;
         set_SIFT3D_Reg_SIFT3D(&reg, &sift3d);
 
         // Parse the remaining options 

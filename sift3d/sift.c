@@ -171,9 +171,8 @@ static void SIFT3D_desc_acc_interp(const SIFT3D * const sift3d,
 				   SIFT3D_Descriptor * const desc);
 static void extract_descrip(SIFT3D *sift3d, Image *im,
 	   Keypoint *key, SIFT3D_Descriptor *desc);
-static int argv_permute(const int argc, char *const *argv, 
-                        const unsigned char *processed, 
-                        const int optind_start);
+static int argv_remove(const int argc, char **argv, 
+                        const unsigned char *processed);
 static int extract_dense_descriptors_no_rotate(SIFT3D *const sift3d,
         const Image *const in, Image *const desc);
 static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
@@ -604,60 +603,25 @@ void cleanup_SIFT3D(SIFT3D *const sift3d) {
 #endif
 }
 
-/* Helper function to permute the arguments so that all unprocessed arguments
- * are at the end of the array. This function only processes the closed 
- * interval [optind_start, infinity]. The variable optind is reset to the
- * first unprocessed argument in this interval, in the final argv array. */
-static int argv_permute(const int argc, char *const *argv, 
-                        const unsigned char *processed, 
-                        const int optind_start) {
+/* Helper function to remove the processed arguments from argv. 
+ * Returns the number of remaining arguments. */
+static int argv_remove(const int argc, char **argv, 
+                        const unsigned char *processed) {
 
-        char **next_processed, **next_unprocessed;
-        char **argv_in;
-        int i, num_processed;
+        int i, new_pos;
 
-        const size_t argv_size = argc * sizeof(char *);
-
-        // Allocate memory
-        if ((argv_in = (char **) malloc(argv_size)) == NULL) {
-                fprintf(stderr, "argv_permute: out of memory \n");
-                return SIFT3D_FAILURE;
-        }
-
-        // Copy the input argv array 
-        memcpy(argv_in, argv, argv_size);
-
-        // Get the number of processed arguments
-        num_processed = 0;
-        for (i = optind_start; i < argc; i++) {
-                if (!processed[i])
+        // Remove the processed arguments in-place
+        new_pos = 0;
+        for (i = 0; i < argc; i++) {
+                // Skip processed arguments
+                if (processed[i])
                         continue;
-                num_processed++;
+
+                // Add the unprocessed arguments to the new argv
+                argv[new_pos++] = argv[i];                 
         }
 
-        // Get the starting locations for each section of argv
-        next_processed = (char **) argv + optind_start;
-        next_unprocessed = next_processed + num_processed;
-
-        // Build the permuted argv in the place of the original 
-        for (i = optind_start; i < argc; i++) {
-                
-                char *const arg = argv_in[i];
-
-                if (processed[i]) {
-                        *next_processed++ = arg;
-                } else {
-                        *next_unprocessed++ = arg;
-                } 
-        }
-
-        // Clean up
-        free(argv_in);
-
-        // Reset optind
-        optind = optind_start + num_processed;
-
-        return SIFT3D_SUCCESS;
+        return new_pos;
 }
 
 /* Print the options for a SIFT3D struct to stdout. */
@@ -698,12 +662,10 @@ void print_opts_SIFT3D(void) {
 
 /* Set the parameters of a SIFT3D struct from the given command line 
  * arguments. The argument SIFT3D must be initialized with
- * init_SIFT3D prior to calling this function. All options not
- * specified in argv will remain at their previous values.
+ * init_SIFT3D prior to calling this function. 
  *
- * NOTE: This function uses the POSIX convention for getopt, i.e. processing 
- * stops at the first non-option argument. If you do not want to follow this
- * convention, you must reset the state by setting optind to 0.
+ * On return, all processed SIFT3D options will be removed from argv.
+ * Use argc_ret to get the number of remaining options.
  *
  * Options:
  * --first_octave	 - the first octave (int)
@@ -722,18 +684,16 @@ void print_opts_SIFT3D(void) {
  *      argv - An array of strings of arguments. All unproccesed arguments are
  *              permuted to the end.
  *      sift3d - The struct to be initialized
- *      optind_ret - If NULL, does nothing. Otherwise, an index to the remaining
- *             options is written to this address, as in GNU getopt.
  *      check_err - If nonzero, report unrecognized options as errors
+ *
  * Return value: 
- *      0 on success, -1 on error. */
+ *       Returns the new number of arguments in argv, or -1 on failure. */
 int parse_args_SIFT3D(SIFT3D *const sift3d,
-        const int argc, char *const *argv, int *optind_ret, 
-        const int check_err) {
+        const int argc, char **argv, const int check_err) {
 
         unsigned char *processed;
         double dval;
-        int c, err, ival;
+        int c, err, ival, argc_new;
 
 #define FIRST_OCTAVE 'a'
 #define PEAK_THRESH 'b'
@@ -756,7 +716,6 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
         };
 
         // Starting getopt variables 
-        const int optind_start = optind;
         const int opterr_start = opterr;
 
         // Set the error checking behavior
@@ -765,12 +724,12 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
         // Intialize intermediate data
         if ((processed = calloc(argc, sizeof(char *))) == NULL) {
                 fprintf(stderr, "parse_args_SIFT3D: out of memory \n");
-                return SIFT3D_FAILURE;
+                return -1;
         }
         err = SIFT3D_FALSE;
 
         // Process the arguments
-        while ((c = getopt_long(argc, argv, "+", longopts, NULL)) != -1) {
+        while ((c = getopt_long(argc, argv, "-", longopts, NULL)) != -1) {
 
                 const int idx = optind - 1;
 
@@ -850,7 +809,7 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
                         case '?':
                         default:
                                 if (!check_err)
-                                        break;
+                                        continue;
                                 err = SIFT3D_TRUE;
                 }
         }
@@ -864,28 +823,26 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
 #undef SIGMA0
 
         // Put all unprocessed options at the end
-        if (argv_permute(argc, argv, processed, optind_start))
-                goto parse_args_quit;
+        argc_new = argv_remove(argc, argv, processed);
 
         // Return to the default settings
         opterr = opterr_start;
 
-        // Return optind
-        if (optind_ret != NULL)
-                *optind_ret = optind;
-
         // Clean up
         free(processed);
 
-        // Return the error condition, if error checking is enabled
+        // Return an error, if error checking is enabled
         if (check_err && err)
-                return SIFT3D_FAILURE;
+                return -1;
+        
+        // Reset the state of getopt
+        optind = 0;
 
-        return SIFT3D_SUCCESS;
+        return argc_new;
 
 parse_args_quit:
         free(processed);
-        return SIFT3D_FAILURE;
+        return -1;
 }
 
 /* Helper routine to begin processing a new image. If the dimensions differ
