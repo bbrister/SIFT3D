@@ -21,7 +21,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <nifti1_io.h>
-#include <lapacke.h>
 #include "macros.h"
 #include "imutil.h"
 #include "types.h"
@@ -109,6 +108,35 @@ typedef struct _List {
   struct _List *prev;
   int idx;
 } List;
+
+/* LAPACK declarations */
+#ifdef SIFT3D_MEX
+        #include "mex.h"
+        typedef mwSignedIndex fortran_int;
+#else
+        typedef int32_t fortran_int;
+#endif
+extern double dlange_(const char *, const fortran_int *, const fortran_int *, 
+        const double *, const fortran_int *, double *);
+extern void dgecon_(const char *, const fortran_int *, double *, 
+        const fortran_int *, const double *, double *, 
+  	double *, fortran_int *, fortran_int *);
+
+extern void dgelss_ (const fortran_int *, const fortran_int *, 
+        const fortran_int *, const double *, const fortran_int *, double *, 
+        const fortran_int *, double *, const double *, fortran_int *, double *,
+        const fortran_int *, fortran_int *);
+
+extern void dgetrf_(const fortran_int *, const fortran_int *, double *, 
+        const fortran_int *, fortran_int *, fortran_int *);				
+
+extern void dgetrs_(const char *, const fortran_int *, const fortran_int *, 
+        const double *, const fortran_int *, fortran_int *, double *, 
+        const fortran_int *, fortran_int *);
+
+extern void dsyevd_(const char *, const char *, const fortran_int *, double *,
+        const fortran_int *, double *, double *, const fortran_int *, 
+        fortran_int *, const fortran_int *, fortran_int *);
 
 /* Internal helper routines */
 static char *read_file(const char *path);
@@ -2560,16 +2588,16 @@ int eigen_Mat_rm(Mat_rm *A, Mat_rm *Q, Mat_rm *L) {
 
     Mat_rm A_trans;
     double *work;
-    lapack_int *iwork;
+    fortran_int *iwork;
     double lwork_ret;
-    lapack_int info, lwork, liwork;
+    fortran_int info, lwork, liwork;
 
     const char jobz = Q == NULL ? 'N' : 'V';
     const char uplo = 'U';
-    const lapack_int n = A->num_cols;
-    const lapack_int lda = n;
-    const lapack_int lwork_query = -1;
-    const lapack_int liwork_query = -1;
+    const fortran_int n = A->num_cols;
+    const fortran_int lda = n;
+    const fortran_int lwork_query = -1;
+    const fortran_int liwork_query = -1;
 
     // Verify inputs
     if (A->num_rows != n) {
@@ -2599,8 +2627,8 @@ int eigen_Mat_rm(Mat_rm *A, Mat_rm *Q, Mat_rm *L) {
 	goto EIGEN_MAT_RM_QUIT;
 
     // Query for the workspace sizes
-    info = LAPACKE_dsyevd_work(LAPACK_COL_MAJOR, jobz, uplo, n, A_trans.u.data_double, lda, L->u.data_double,
-	    &lwork_ret, lwork_query, &liwork, liwork_query);
+    dsyevd_(&jobz, &uplo, &n, A_trans.u.data_double, &lda, L->u.data_double,
+	    &lwork_ret, &lwork_query, &liwork, &liwork_query, &info);
 
     if (info) {
 	printf("eigen_Mat_rm: LAPACK dsyevd workspace query error code %d",
@@ -2609,14 +2637,14 @@ int eigen_Mat_rm(Mat_rm *A, Mat_rm *Q, Mat_rm *L) {
     }
 
     // Allocate work spaces 
-    lwork = (lapack_int) lwork_ret;
+    lwork = (fortran_int) lwork_ret;
     if ((work = (double *) malloc(lwork * sizeof(double))) == NULL ||
-	(iwork = (lapack_int *) malloc(liwork * sizeof(lapack_int))) == NULL)
+	(iwork = (fortran_int *) malloc(liwork * sizeof(fortran_int))) == NULL)
 	goto EIGEN_MAT_RM_QUIT;
 
     // Compute the eigendecomposition
-    info = LAPACKE_dsyevd_work(LAPACK_COL_MAJOR, jobz, uplo, n, A_trans.u.data_double, lda, L->u.data_double,
-	    work, lwork, iwork, liwork);
+    dsyevd_(&jobz, &uplo, &n, A_trans.u.data_double, &lda, L->u.data_double,
+	    work, &lwork, iwork, &liwork, &info);
 
     if (info) {
 	printf("eigen_Mat_rm: LAPACK dsyevd error code %d", info);
@@ -2657,15 +2685,15 @@ int solve_Mat_rm(Mat_rm *A, Mat_rm *B, double limit, Mat_rm *X) {
 
     Mat_rm A_trans, B_trans;
     double *work;
-    lapack_int *ipiv, *iwork;
+    fortran_int *ipiv, *iwork;
     double anorm, rcond;
-    lapack_int info;
+    fortran_int info;
 
-    const lapack_int m = A->num_rows;
-    const lapack_int n = A->num_cols;
-    const lapack_int nrhs = B->num_cols;
-    const lapack_int lda = m;
-    const lapack_int ldb = B->num_rows;
+    const fortran_int m = A->num_rows;
+    const fortran_int n = A->num_cols;
+    const fortran_int nrhs = B->num_cols;
+    const fortran_int lda = m;
+    const fortran_int ldb = B->num_rows;
     const char norm_type = '1';
     const char trans = 'N';
 
@@ -2690,8 +2718,8 @@ int solve_Mat_rm(Mat_rm *A, Mat_rm *B, double limit, Mat_rm *X) {
     if (init_Mat_rm(&A_trans, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 	init_Mat_rm(&B_trans, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 	(work = (double *) malloc(n * 4 * sizeof(double))) == NULL ||
-	(iwork = (lapack_int *) malloc(n * sizeof(lapack_int))) == NULL ||
-	(ipiv = (lapack_int *) calloc(m, sizeof(lapack_int))) == NULL)
+	(iwork = (fortran_int *) malloc(n * sizeof(fortran_int))) == NULL ||
+	(ipiv = (fortran_int *) calloc(m, sizeof(fortran_int))) == NULL)
 	goto SOLVE_MAT_RM_QUIT;
 
     // Transpose matrices for LAPACK
@@ -2699,10 +2727,10 @@ int solve_Mat_rm(Mat_rm *A, Mat_rm *B, double limit, Mat_rm *X) {
 	goto SOLVE_MAT_RM_QUIT;
 
     // Compute the L1-norm of A
-    anorm = LAPACKE_dlange_work(LAPACK_COL_MAJOR, norm_type, m, n, A_trans.u.data_double, lda, work);
+    anorm = dlange_(&norm_type, &m, &n, A_trans.u.data_double, &lda, work);
 
     // Compute the LU decomposition of A in place
-    info = LAPACKE_dgetrf_work(LAPACK_COL_MAJOR, m, n, A_trans.u.data_double, lda, ipiv);
+    dgetrf_(&m, &n, A_trans.u.data_double, &lda, ipiv, &info);
     if (info < 0) {
 	printf("solve_Mat_rm: LAPACK dgetrf error code %d \n", info);
 	goto SOLVE_MAT_RM_QUIT;
@@ -2711,8 +2739,8 @@ int solve_Mat_rm(Mat_rm *A, Mat_rm *B, double limit, Mat_rm *X) {
     }	
 
     // Compute the reciprocal condition number of A
-    info = LAPACKE_dgecon_work(LAPACK_COL_MAJOR, norm_type, n, A_trans.u.data_double, lda, anorm, &rcond,
-	    work, iwork);
+    dgecon_(&norm_type, &n, A_trans.u.data_double, &lda, &anorm, &rcond,
+	    work, iwork, &info);
     if (info) {
 	printf("solve_Mat_rm: LAPACK dgecon error code %d \n", info);
 	goto SOLVE_MAT_RM_QUIT;
@@ -2723,8 +2751,8 @@ int solve_Mat_rm(Mat_rm *A, Mat_rm *B, double limit, Mat_rm *X) {
 	goto SOLVE_MAT_RM_SINGULAR;
    
     // Solve the system 
-    info = LAPACKE_dgetrs_work(LAPACK_COL_MAJOR, trans, n, nrhs, A_trans.u.data_double, lda, ipiv, 
-	   B_trans.u.data_double, ldb);
+    dgetrs_(&trans, &n, &nrhs, A_trans.u.data_double, &lda, ipiv, 
+	   B_trans.u.data_double, &ldb, &info);
 
     // Check for errors
     if (info) {
@@ -2778,16 +2806,16 @@ int solve_Mat_rm_ls(Mat_rm *A, Mat_rm *B, Mat_rm *X) {
     Mat_rm A_trans, B_trans;
     double *s, *work;
     double lwork_ret;
-    lapack_int info, rank, lwork;
+    fortran_int info, rank, lwork;
     int i, j; 
 
     const double rcond = -1;
-    const lapack_int m = A->num_rows;
-    const lapack_int n = A->num_cols;
-    const lapack_int nrhs = B->num_cols;
-    const lapack_int lda = m;
-    const lapack_int ldb = B->num_rows;
-    const lapack_int lwork_query = -1;
+    const fortran_int m = A->num_rows;
+    const fortran_int n = A->num_cols;
+    const fortran_int nrhs = B->num_cols;
+    const fortran_int lda = m;
+    const fortran_int ldb = B->num_rows;
+    const fortran_int lwork_query = -1;
 
     // Verify inputs 
     if (m != ldb) {
@@ -2819,23 +2847,21 @@ int solve_Mat_rm_ls(Mat_rm *A, Mat_rm *B, Mat_rm *X) {
 	goto SOLVE_MAT_RM_LS_QUIT;
 
     // Get the size of the workspace
-    info = LAPACKE_dgelss_work(LAPACK_COL_MAJOR, m, n, nrhs, A_trans.u.data_double, lda, 
-        B_trans.u.data_double, 
-	    ldb, s, rcond, &rank, &lwork_ret, lwork_query);
+    dgelss_(&m, &n, &nrhs, A_trans.u.data_double, &lda, B_trans.u.data_double, 
+	    &ldb, s, &rcond, &rank, &lwork_ret, &lwork_query, &info);
     if (info) {
 	printf("solve_mat_rm: LAPACK dgelss work query error code %d \n", 
 	       info);
     }
-    lwork = (lapack_int) lwork_ret;
+    lwork = (fortran_int) lwork_ret;
 
     // Allocate the workspace
     if ((work = (double *) malloc(lwork * sizeof(double))) == NULL)
 	goto SOLVE_MAT_RM_LS_QUIT;
 
     // Solve the system
-    info =  LAPACKE_dgelss_work(LAPACK_COL_MAJOR, m, n, nrhs, A_trans.u.data_double, lda, 
-        B_trans.u.data_double,
-	    ldb, s, rcond, &rank, work, lwork);
+    dgelss_(&m, &n, &nrhs, A_trans.u.data_double, &lda, B_trans.u.data_double,
+	    &ldb, s, &rcond, &rank, work, &lwork, &info);
     if (info) {
 	printf("solve_mat_rm: LAPACK dgelss error code %d \n", info);
 	goto SOLVE_MAT_RM_LS_QUIT;

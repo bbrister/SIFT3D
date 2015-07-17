@@ -48,14 +48,17 @@ static void err_msgu(const char *name, const char *msg) {
         print_bug_msg();
 }
 
-/* Convert an mxArray to an Image. mx must have IM_NDIMS dimensions. */
+/* Convert an mxArray to an Image. mx must have IM_NDIMS dimensions and be of
+ * type single (float). */
 static int mx2im(const mxArray *const mx, Image *const im) {
 
         const mwSize *mxDims;
-        int i;
+        float *mxData;
+        int i, x, y, z;
 
         // Verify inputs
-	if (mxGetNumberOfDimensions(mx) != IM_NDIMS)
+	if (mxGetNumberOfDimensions(mx) != IM_NDIMS ||
+                !mxIsSingle(mx))
                 return SIFT3D_FAILURE;
 
         // Copy the dimensions
@@ -69,6 +72,16 @@ static int mx2im(const mxArray *const mx, Image *const im) {
         im_default_stride(im);
         if (im_resize(im))
                 return SIFT3D_FAILURE;
+
+        // Get the data
+        if ((mxData = mxGetData(mx)) == NULL)
+                return SIFT3D_FAILURE;
+
+        // Transpose and copy the data
+        SIFT3D_IM_LOOP_START(im, x, y, z)
+                SIFT3D_IM_GET_VOX(im, x, y, z, 0) =
+                        mxData[y + x * im->ny + z * im->nx * im->ny];
+        SIFT3D_IM_LOOP_END
 
         return SIFT3D_SUCCESS;
 }
@@ -86,7 +99,7 @@ static int mat2mxArray(const Mat_rm *const mat, mxArray *const mx) {
         if ((mxData = mxGetData(mx)) == NULL)
                 return SIFT3D_FAILURE;
 
-        // Copy a transposed version
+        // Transpose and copy the data 
         SIFT3D_MAT_RM_LOOP_START(mat, i, j)
                 mxData[j + i * mat->num_cols] =
                         SIFT3D_MAT_RM_GET(mat, i, j, double);
@@ -131,18 +144,22 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         if (nlhs != 1) 
                 err_msgu("numOutputs", "This function takes 1 output.");
 
+        // Assign the inputs
+        mxIm = prhs[0];
+
         // Verify that the image is of type float
 	if (!mxIsSingle(mxIm) || mxIsComplex(mxIm)) 
                 err_msgu("imType", "im must have type single");
 
 	// Verify the number of image dimensions
 	imNDims = mxGetNumberOfDimensions(mxIm);
-	if (imNDims != 3) {
-                err_msgu("imType", "im must have 3 dimensions");
-        }
+	if (imNDims != IM_NDIMS) {
 
-        // Assign the inputs
-        mxIm = prhs[0];
+                char msg[1024];
+
+                sprintf(msg, "im must have %d dimensions", IM_NDIMS);
+                err_msgu("imType", msg);
+        }
 
         // Initialize intermediates
         mxCoords = mxScale = mxOri = NULL;

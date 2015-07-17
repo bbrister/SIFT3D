@@ -18,6 +18,14 @@ project (SIFT3D)
 # Paths 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
+# The name and location of the wrappers directory 
+set (WRAPPERS_DIR "wrappers")
+set (WRAPPERS_PATH "${CMAKE_BINARY_DIR}/${WRAPPERS_DIR}")
+
+# The name and location of the Matlab toolbox
+set (TOOLBOX_NAME "matlab")
+set (TOOLBOX_PATH "${WRAPPERS_PATH}/${TOOLBOX_NAME}")
+
 # Output directories
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set (CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -48,29 +56,11 @@ endif()
 find_library (M_LIBRARY m)
 find_library (Z_LIBRARY z)
 
-# Find LAPACK
-find_package (LAPACK QUIET)
-
-# Mac OSX workaround for LAPACK
-if (APPLE)
-        find_library (name LAPACK)
+# Look for MATLAB
+find_package (Matlab QUIET)
+if (${Matlab_FOUND})
+        message ("-- Found Matlab. Building the Matlab wrappers")
 endif ()
-
-if (NOT LAPACK_FOUND)
-	message ("LAPACK was not found on your system. Attempting to install from source...")
-
-	ExternalProject_Add (
-		LAPACK	
-		CMAKE_ARGS -DBUILD_SHARED_LIBS=ON
-		GIT_REPOSITORY https://github.com/qsnake/lapack.git 
-		INSTALL_COMMAND sudo make install
-	)
-
-	set (LAPACK_LIBRARIES "-llapack -lblas")
-endif ()
-
-# Try to find ITK
-find_package (ITK 4 QUIET)
 
 # Source subdirectories
 add_subdirectory (imutil)

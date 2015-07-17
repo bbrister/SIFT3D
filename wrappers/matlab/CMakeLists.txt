@@ -4,14 +4,10 @@
 # Build file for the Matlab wrapper toolbox.
 ################################################################################
 
-# The name and location of the Matlab toolbox
-set (TOOLBOX_NAME "matlab")
-set (TOOLBOX_PATH "${WRAPPERS_PATH}/${TOOLBOX_NAME}")
-
 # The mex files are shared libraries
 matlab_add_mex (NAME mexDetectSift3D 
         SRC mexDetectSift3D.c 
-        LINK_TO sift3D imutil
+        LINK_TO mexsift3D meximutil -lmwlapack -lmwblas
 )
 
 # Copy the Matlab files
