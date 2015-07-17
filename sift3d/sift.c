@@ -2592,25 +2592,10 @@ int draw_matches(const Image *const left, const Image *const right,
         Image concat_temp, left_padded, right_padded;
 	Mat_rm keys_right_draw, match_right_draw;
 	int i;
-	int nx_pad, ny_pad, nz_pad;
 
         const double right_pad = (double) left->nx;
-
-        init_im(&left_padded);
-        init_im(&right_padded);
-
-        nx_pad = SIFT3D_MAX(right->nx, left->nx);
-		ny_pad = SIFT3D_MAX(right->ny, left->ny);
-		nz_pad = SIFT3D_MAX(right->nz, left->nz);
-
-		if (init_im_first_time(&right_padded, nx_pad, ny_pad, nz_pad, 1) || 
-	    	init_im_first_time(&left_padded, nx_pad, ny_pad, nz_pad, 1) || 
-	    	im_pad(right, &right_padded) || 
-	    	im_pad(left, &left_padded)) {
-			fprintf(stderr, "draw_matches: unable to pad images \n");
-            return SIFT3D_FAILURE;
-		}
-
+        const int ny_pad = SIFT3D_MAX(right->ny, left->ny);
+	const int nz_pad = SIFT3D_MAX(right->nz, left->nz);
 
         // Choose which image to use for concatenation 
         Image *const concat_arg = concat == NULL ? &concat_temp : concat;
@@ -2643,9 +2628,20 @@ int draw_matches(const Image *const left, const Image *const right,
 
 	// Initialize intermediates		
         init_im(&concat_temp);
+        init_im(&left_padded);
+        init_im(&right_padded);
         if (init_Mat_rm(&keys_right_draw, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 	        init_Mat_rm(&match_right_draw, 0, 0, DOUBLE, SIFT3D_FALSE))
 	        return SIFT3D_FAILURE;
+
+        // Pad the images to be the same in all dimensions but x
+	if (init_im_first_time(&right_padded, right->nx, ny_pad, nz_pad, 1) || 
+	        init_im_first_time(&left_padded, left->nx, ny_pad, nz_pad, 1) || 
+	   	im_pad(right, &right_padded) || 
+	    	im_pad(left, &left_padded)) {
+			fprintf(stderr, "draw_matches: unable to pad images \n");
+                        return SIFT3D_FAILURE;
+	}
 
 	// Draw a concatenated image
 	if (im_concat(&left_padded, &right_padded, 0, concat_arg)) {
@@ -2694,13 +2690,16 @@ int draw_matches(const Image *const left, const Image *const right,
 
         // Clean up
         im_free(&concat_temp);
-        cleanup_Mat_rm(&keys_right_draw);
-        cleanup_Mat_rm(&match_right_draw);
-
+        im_free(&left_padded);
+        im_free(&right_padded); 
+        cleanup_Mat_rm(&keys_right_draw); 
+        cleanup_Mat_rm(&match_right_draw); 
 	return SIFT3D_SUCCESS;
 
 draw_matches_quit:
         im_free(&concat_temp);
+        im_free(&left_padded);
+        im_free(&right_padded); 
         cleanup_Mat_rm(&keys_right_draw);
         cleanup_Mat_rm(&match_right_draw);
         return SIFT3D_FAILURE;
