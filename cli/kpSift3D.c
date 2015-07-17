@@ -53,7 +53,7 @@ void err_msgu(const char *msg) {
 }
 
 /* CLI for 3D SIFT */
-int main(const int argc, char *const argv[]) {
+int main(int argc, char *argv[]) {
 
 	Image im;
 	SIFT3D sift3d;
@@ -91,7 +91,8 @@ int main(const int argc, char *const argv[]) {
         }
 
         // Parse the SIFT3D options and increment the argument list
-        parse_args_SIFT3D(&sift3d, argc, argv, &optind, 0);
+        if ((argc = parse_args_SIFT3D(&sift3d, argc, argv, 0)) < 0)
+                return 1;
 
         // Parse the kpSift3d options
         opterr = 1;
