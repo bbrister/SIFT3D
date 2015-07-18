@@ -80,8 +80,14 @@ static int mx2im(const mxArray *const mx, Image *const im) {
 
         // Transpose and copy the data
         SIFT3D_IM_LOOP_START(im, x, y, z)
-                SIFT3D_IM_GET_VOX(im, x, y, z, 0) =
-                        mxData[y + x * im->ny + z * im->nx * im->ny];
+
+                mwIndex idx;
+
+                const mwIndex subs[] = {x, y, z};
+
+                idx = mxCalcSingleSubscript(mx, *mxDims, subs);
+                SIFT3D_IM_GET_VOX(im, x, y, z, 0) = mxData[idx];
+
         SIFT3D_IM_LOOP_END
 
         return SIFT3D_SUCCESS;
@@ -125,8 +131,14 @@ static mxArray *mat2mx(const Mat_rm *const mat) {
 
 #define TRANSPOSE_AND_COPY(type) \
         SIFT3D_MAT_RM_LOOP_START(mat, i, j) \
-                mxData[i + j * mat->num_rows] = \
-                        (double) SIFT3D_MAT_RM_GET(mat, i, j, type); \
+        \
+                mwIndex idx; \
+        \
+                const mwIndex subs[] = {i, j}; \
+        \
+                idx = mxCalcSingleSubscript(mx, 2, subs); \
+                mxData[idx] = (double) SIFT3D_MAT_RM_GET(mat, i, j, type); \
+        \
         SIFT3D_MAT_RM_LOOP_END
 
         // Transpose and copy the data 
