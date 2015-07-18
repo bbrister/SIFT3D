@@ -7,7 +7,7 @@ Analogue of the scale-invariant feature transform (SIFT) for three-dimensional i
 ## Contents
 
 This code creates the following executables:
-- kpSift3D - Extract keypoints and descriptors form a single image.
+- kpSift3D - Extract keypoints and descriptors from a single image.
 - regSift3D - Extract matches and a geometric transformation from two images. 
 
 and the following libraries:
@@ -15,7 +15,10 @@ and the following libraries:
 - libsift3d.so - Extract and match SIFT3D features
 - libimutil.so - Utility library for image processing, regression and linear algebra.
 
-See /examples for sample programs using the C API.
+In addition, if Matlab is detected on your system, the following Matlab functions are created:
+- detectSift3D.m - Detect SIFT3D keypoints from a 3-dimensional array.
+
+See /examples for sample programs using the C and Matlab APIs.
 
 ## Dependencies
 
@@ -53,25 +56,11 @@ Use the following command to install the files:
 
 In principle you can use CMake to compile this code on Windows, but some modifications may be required to resolve the external dependencies.
 
-### Matlab wrappers with Linux
+### Matlab toolbox 
 
-**Note: The following section describes a workaround necessary to use the Matlab wrappers on Linux systems. If you are not using Linux, or you are not using Matlab, you can skip this section.**
+If Matlab is detected in your system, a Matlab toolbox is compiled in the /build/wrappers/matlab subdirectory. To install the toolbox, add the following line to your startup.m file:
 
-Matlab loads an outdated version of the gfortran library, but LAPACK requires the newer version installed in your system. In order to use the Matlab wrappers on Linux systems, we must force Matlab to load the newer version of the library.
-
-First, we need to find the location of libgfortran in your system, and not Matlab's out-of-date version. On Ubuntu 14.04, this can be done with the following command:
-
-        locate libgfortran.so
-
-Choose one of the files not containing "MATLAB" in its path. We will force Matlab to load this library by adding it to the LD_PRELOAD environment variable. Add the following line to your .bashrc file:
-
-       alias matlab='LD_PRELOAD="${LD_PRELOAD}:<path-to-libgfortran.so>" matlab'
-
-For example, on Ubuntu 14.04, using GCC 4.8, we have the following alias:
-
-       alias matlab='LD_PRELOAD="${LD_PRELOAD}:/usr/lib/x86_64-linux-gnu/libgfortran.so.3" matlab'
-
-Afterwards, Matlab will load the up-to-date libraries when launched with the "matlab" command from a bash shell.
+        run /path/to/SIFT3D/build/wrappers/matlab/setupSift3D
 
 ## Usage instructions
 

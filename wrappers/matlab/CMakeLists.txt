@@ -11,7 +11,8 @@ matlab_add_mex (NAME mexDetectSift3D
 )
 
 # Copy the Matlab files
-configure_file (detectSift3D.m ${TOOLBOX_PATH} COPYONLY)
+file (COPY setupSift3D.m detectSift3D.m 
+        DESTINATION ${TOOLBOX_PATH})
 
 # Send all files to the toolbox subdirectory 
 set_target_properties (mexDetectSift3D
