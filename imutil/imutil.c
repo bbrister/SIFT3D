@@ -662,7 +662,7 @@ int copy_Mat_rm(const Mat_rm *const src, Mat_rm *const dst) {
 }
 
 /* Print a matrix to stdout. The matrix must be initialized. */
-int print_Mat_rm(Mat_rm *mat) {
+int print_Mat_rm(const Mat_rm *const mat) {
 
 	int i, j;
 
