@@ -7,5 +7,5 @@ addpath(genpath(toolboxPath));
 % Load the data
 load data/data.mat
 
-% Process the data
-feat = detectSift3D(im1);
+% Detect keypoints
+keys = detectSift3D(im1);
