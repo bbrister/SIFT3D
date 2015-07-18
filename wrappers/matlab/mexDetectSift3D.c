@@ -7,6 +7,7 @@
  * -----------------------------------------------------------------------------
  */
 
+#include <stddef.h>
 #include "mex.h"
 #include "sift.h"
 #include "imutil.h"
@@ -25,12 +26,12 @@ const mwSize kpNDims = 1;
 const int nFields = sizeof(fieldNames) / sizeof(char *);
 
 /* Error message tag */
-const char *tag = "sift3D:main";
+const char *tag = "sift3D";
 
 /* Helper function declarations. */
 static void err_msg(const char *name, const char *msg);
 static void err_msgu(const char *name, const char *msg);
-static int mat2mxArray(const Mat_rm *const mat, mxArray *const mx);
+static mxArray *mat2mxArray(const Mat_rm *const mat, mxArray *const mx);
 
 /* Print an error message. */
 static void err_msg(const char *name, const char *msg) {
@@ -86,26 +87,58 @@ static int mx2im(const mxArray *const mx, Image *const im) {
         return SIFT3D_SUCCESS;
 }
 
-/* Convert a Mat_rm struct to an mxArray. Both must be initialized to the
- * correct size prior to calling this function. */
-static int mat2mxArray(const Mat_rm *const mat, mxArray *const mx) {
+/* Convert a Mat_rm struct to an mxArray. Returns the array, or NULL on
+ * failure. The returned array has type double, regardless of the input array
+ * type. */
+static mxArray *mat2mx(const Mat_rm *const mat) {
 
+        mxArray *mx;
         double *mxData;
         int i, j;
 
-        // TODO: get type of mx, convert mat to this type
+        const int rows = mat->num_rows;
+        const int cols = mat->num_cols;
+
+        // Create an array
+        if ((mx = mxCreateDoubleMatrix(rows, cols, mxREAL)) == NULL)
+                return NULL;
 
         // Get the data
         if ((mxData = mxGetData(mx)) == NULL)
-                return SIFT3D_FAILURE;
+                goto mat2mx_quit;
 
-        // Transpose and copy the data 
-        SIFT3D_MAT_RM_LOOP_START(mat, i, j)
-                mxData[j + i * mat->num_cols] =
-                        SIFT3D_MAT_RM_GET(mat, i, j, double);
+#define SIFT3D_MAT_TYPE_MACRO(mat, err_label, MACRO, ...) \
+        switch ((mat)->type) { \
+                case DOUBLE: \
+                        MACRO(double, ## __VA_ARGS__) \
+                        break; \
+                case FLOAT: \
+                        MACRO(float, ## __VA_ARGS__) \
+                        break; \
+                case INT: \
+                        MACRO(int, ## __VA_ARGS__) \
+                        break; \
+                default: \
+                        fprintf(stderr, "imutil: unknown matrix type"); \
+                        goto err_label; \
+        } \
+
+#define TRANSPOSE_AND_COPY(type) \
+        SIFT3D_MAT_RM_LOOP_START(mat, i, j) \
+                mxData[i + j * mat->num_rows] = \
+                        (double) SIFT3D_MAT_RM_GET(mat, i, j, type); \
         SIFT3D_MAT_RM_LOOP_END
 
-        return SIFT3D_SUCCESS;
+        // Transpose and copy the data 
+        SIFT3D_MAT_TYPE_MACRO(mat, mat2mx_quit, TRANSPOSE_AND_COPY);
+
+#undef TRANSPOSE_AND_COPY
+
+        return mx;
+
+mat2mx_quit:
+        mxDestroyArray(mx);
+        return NULL;
 }
 
 /* Entry point. */
@@ -113,13 +146,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
         SIFT3D sift3d;
         const mxArray *mxIm;
-        mxArray *mxKp, *mxCoords, *mxScale, *mxOri;
+        mxArray *mxKp;
         mwSize imNDims, numKp;
         Image im;
         Keypoint_store kp;
         const char *errName, *errMsg;
-        double *coords, *scale; 
-        int i;
+        int i, coordsNum, scaleNum, oriNum;
 
 /* Clean up and print an error */
 #define CLEAN_AND_QUIT(name, msg) { \
@@ -127,29 +159,23 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                 cleanup_Keypoint_store(&kp); \
                 cleanup_SIFT3D(&sift3d); \
                 err_msgu(name, msg); \
-                if (mxCoords != NULL) \
-                        mxDestroyArray(mxCoords); \
-                if (mxScale != NULL) \
-                        mxDestroyArray(mxScale); \
-                if (mxOri != NULL) \
-                        mxDestroyArray(mxOri); \
         }
 
 	// Verify the number of inputs
         //TODO: Add another input for sift3d parameters
 	if (nrhs > 1)
-                err_msgu("numInputs", "This function takes 1 input.");
+                err_msgu("main:numInputs", "This function takes 1 input.");
 
         // Verify the number of outputs
         if (nlhs != 1) 
-                err_msgu("numOutputs", "This function takes 1 output.");
+                err_msgu("main:numOutputs", "This function takes 1 output.");
 
         // Assign the inputs
         mxIm = prhs[0];
 
         // Verify that the image is of type float
 	if (!mxIsSingle(mxIm) || mxIsComplex(mxIm)) 
-                err_msgu("imType", "im must have type single");
+                err_msgu("main:imType", "im must have type single");
 
 	// Verify the number of image dimensions
 	imNDims = mxGetNumberOfDimensions(mxIm);
@@ -158,45 +184,57 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                 char msg[1024];
 
                 sprintf(msg, "im must have %d dimensions", IM_NDIMS);
-                err_msgu("imType", msg);
+                err_msgu("main:imType", msg);
         }
 
         // Initialize intermediates
-        mxCoords = mxScale = mxOri = NULL;
         if (init_SIFT3D(&sift3d))
-                err_msgu("initSift", "Failed to initialize SIFT3D");
+                err_msgu("main:initSift", "Failed to initialize SIFT3D");
         init_Keypoint_store(&kp);
         init_im(&im);
-        if ((mxCoords = mxCreateDoubleMatrix(1, IM_NDIMS, mxREAL)) == NULL ||
-                (mxScale = mxCreateDoubleMatrix(1, 1, mxREAL)) == NULL ||
-                (mxOri = mxCreateDoubleMatrix(IM_NDIMS, IM_NDIMS, mxREAL)) 
-                        == NULL)
-                CLEAN_AND_QUIT("initTemp", "Failed to initialize temporaries");
 
         //TODO: parse the sift3d parameters 
 
         // Copy the transposed image
         if (mx2im(mxIm, &im))
-                CLEAN_AND_QUIT("copyIm", "Failed to copy the input image");
+                CLEAN_AND_QUIT("main:copyIm", "Failed to copy the input image");
 
         // Detect keypoints
 	if (SIFT3D_detect_keypoints(&sift3d, &im, &kp))
-                CLEAN_AND_QUIT("detect", "Failed to detect keypoints");
+                CLEAN_AND_QUIT("main:detect", "Failed to detect keypoints");
 
 	// Make an array of structs for the output 
+        numKp = (mwSize) kp.slab.num;
 	mxKp = plhs[0] = mxCreateStructArray(kpNDims, &numKp, nFields, 
                                             fieldNames);
         if (mxKp == NULL)
-                CLEAN_AND_QUIT("createOutput", "Failed to create outputs");
+                CLEAN_AND_QUIT("main:createOutput", "Failed to create outputs");
 
-        // Get pointers to the internal arrays of the field matrices
-        coords = mxGetData(mxCoords); 
-        scale = mxGetData(mxScale); 
+        // Get the field indices in the structs
+        if ((coordsNum = mxGetFieldNumber(mxKp, COORDS_NAME)) < 0 ||
+                (scaleNum = mxGetFieldNumber(mxKp, SCALE_NAME)) < 0 ||
+                (oriNum = mxGetFieldNumber(mxKp, ORI_NAME)) < 0)
+                CLEAN_AND_QUIT("main:getFields", "Failed to get field indices");
 
         // Write the keypoints to the output
         for (i = 0; i < kp.slab.num; i++) {
 
+                mxArray *mxCoords, *mxScale, *mxOri;
+                double *coords, *scale;
+
                 const Keypoint *const key = kp.buf + i;
+
+                // Initialize arrays for the data
+                if ((mxCoords = 
+                        mxCreateDoubleMatrix(1, IM_NDIMS, mxREAL)) == NULL ||
+                        (mxScale =
+                                mxCreateDoubleMatrix(1, 1, mxREAL)) == NULL)
+                        CLEAN_AND_QUIT("main:initArrays", 
+                                "Failed to initialize field arrays");
+
+                // Get pointers to the internal data of the field matrices
+                coords = mxGetData(mxCoords); 
+                scale = mxGetData(mxScale); 
 
                 // Copy the coordinates 
                 coords[0] = key->xd;
@@ -205,28 +243,23 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
                 // Copy the scale
                 scale[0] = key->sd; 
-
+        
                 // Copy the transposed orientation
-                if (mat2mxArray(&key->R, mxOri))
-                        CLEAN_AND_QUIT("convertOri", "Failed to convert "
+                if ((mxOri = mat2mx(&key->R)) == NULL)
+                        CLEAN_AND_QUIT("main:convertOri", "Failed to convert "
                                 "orientation matrix");
 
                 // Set the struct fields
-                mxSetField(mxKp, i, COORDS_NAME, mxCoords);
-                mxSetField(mxKp, i, SCALE_NAME, mxScale);
-                mxSetField(mxKp, i, ORI_NAME, mxOri);
+                mxSetFieldByNumber(mxKp, i, coordsNum, mxCoords);
+                mxSetFieldByNumber(mxKp, i, scaleNum, mxScale);
+                mxSetFieldByNumber(mxKp, i, oriNum, mxOri);
         }
 
         // Clean up
         im_free(&im);
         cleanup_Keypoint_store(&kp);
         cleanup_SIFT3D(&sift3d);
-        if (mxCoords != NULL)
-                mxDestroyArray(mxCoords);
-        if (mxScale != NULL)
-                mxDestroyArray(mxScale);
-        if (mxOri != NULL)
-                mxDestroyArray(mxOri);
 
 #undef CLEAN_AND_QUIT
 }
+
