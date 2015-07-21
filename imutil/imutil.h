@@ -43,7 +43,7 @@ int set_Mat_rm_zero(Mat_rm *mat);
 
 int copy_Mat_rm(const Mat_rm *const src, Mat_rm *const dst);
 
-int print_Mat_rm(Mat_rm *mat);
+int print_Mat_rm(const Mat_rm *const mat);
 
 int resize_Mat_rm(Mat_rm *mat); 
 

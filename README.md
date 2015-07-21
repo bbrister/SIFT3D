@@ -7,7 +7,7 @@ Analogue of the scale-invariant feature transform (SIFT) for three-dimensional i
 ## Contents
 
 This code creates the following executables:
-- kpSift3D - Extract keypoints and descriptors form a single image.
+- kpSift3D - Extract keypoints and descriptors from a single image.
 - regSift3D - Extract matches and a geometric transformation from two images. 
 
 and the following libraries:
@@ -15,7 +15,10 @@ and the following libraries:
 - libsift3d.so - Extract and match SIFT3D features
 - libimutil.so - Utility library for image processing, regression and linear algebra.
 
-See /examples for sample programs using the C API.
+In addition, if Matlab is detected on your system, the following Matlab functions are created:
+- detectSift3D.m - Detect SIFT3D keypoints from a 3-dimensional array.
+
+See /examples for sample programs using the C and Matlab APIs.
 
 ## Dependencies
 
@@ -30,6 +33,7 @@ If you are using [ITK](http://www.itk.org), the build system will automatically 
 This code requires the following tools to compile:
 - [CMake](http://www.cmake.org)
 - A suitable C/C++ compiler, such as GCC or Clang/LLVM.
+- A suitable FORTRAN compiler, such as gfortran.
 
 On Ubuntu, as of version 14.04, the following command will install all dependencies and build tools:
 
@@ -51,6 +55,12 @@ Use the following command to install the files:
 	sudo make install
 
 In principle you can use CMake to compile this code on Windows, but some modifications may be required to resolve the external dependencies.
+
+### Matlab toolbox 
+
+If Matlab is detected in your system, a Matlab toolbox is compiled in the /build/wrappers/matlab subdirectory. To install the toolbox, add the following line to your startup.m file:
+
+        run /path/to/SIFT3D/build/wrappers/matlab/setupSift3D
 
 ## Usage instructions
 

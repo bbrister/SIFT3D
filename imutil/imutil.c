@@ -110,25 +110,33 @@ typedef struct _List {
 } List;
 
 /* LAPACK declarations */
-extern double dlange_(const char *, const int *, const int *, const double *, 
-		      const int *, double *);
-extern void dgecon_(const char *, const int *, double *, 
-		   const int *, const double *, double *, 
-	    	   double *, int *, int *);
+#ifdef SIFT3D_MEX
+        #include "mex.h"
+        typedef mwSignedIndex fortran_int;
+#else
+        typedef int32_t fortran_int;
+#endif
+extern double dlange_(const char *, const fortran_int *, const fortran_int *, 
+        const double *, const fortran_int *, double *);
+extern void dgecon_(const char *, const fortran_int *, double *, 
+        const fortran_int *, const double *, double *, 
+  	double *, fortran_int *, fortran_int *);
 
-extern void dgelss_ (const int *, const int *, const int *, const double *, 
-		     const int *, double *, const int *, double *, 
-		     const double *, int *, double *, const int *, int *);
+extern void dgelss_ (const fortran_int *, const fortran_int *, 
+        const fortran_int *, const double *, const fortran_int *, double *, 
+        const fortran_int *, double *, const double *, fortran_int *, double *,
+        const fortran_int *, fortran_int *);
 
-extern void dgetrf_(const int *, const int *, double *, const int *, 
-		   int *, int *);				
+extern void dgetrf_(const fortran_int *, const fortran_int *, double *, 
+        const fortran_int *, fortran_int *, fortran_int *);				
 
-extern void dgetrs_(const char *, const int *, const int *, const double *,
-		  const int *, int *, double *, const int *, int *);
+extern void dgetrs_(const char *, const fortran_int *, const fortran_int *, 
+        const double *, const fortran_int *, fortran_int *, double *, 
+        const fortran_int *, fortran_int *);
 
-extern void dsyevd_(const char *, const char *, const int *, double *,
-		    const int *, double *, double *, const int *, int *,
-		    const int *, int *);
+extern void dsyevd_(const char *, const char *, const fortran_int *, double *,
+        const fortran_int *, double *, double *, const fortran_int *, 
+        fortran_int *, const fortran_int *, fortran_int *);
 
 /* Internal helper routines */
 static char *read_file(const char *path);
@@ -662,7 +670,7 @@ int copy_Mat_rm(const Mat_rm *const src, Mat_rm *const dst) {
 }
 
 /* Print a matrix to stdout. The matrix must be initialized. */
-int print_Mat_rm(Mat_rm *mat) {
+int print_Mat_rm(const Mat_rm *const mat) {
 
 	int i, j;
 
@@ -2580,16 +2588,16 @@ int eigen_Mat_rm(Mat_rm *A, Mat_rm *Q, Mat_rm *L) {
 
     Mat_rm A_trans;
     double *work;
-    int *iwork;
+    fortran_int *iwork;
     double lwork_ret;
-    int info, lwork, liwork;
+    fortran_int info, lwork, liwork;
 
     const char jobz = Q == NULL ? 'N' : 'V';
     const char uplo = 'U';
-    const int n = A->num_cols;
-    const int lda = n;
-    const int lwork_query = -1;
-    const int liwork_query = -1;
+    const fortran_int n = A->num_cols;
+    const fortran_int lda = n;
+    const fortran_int lwork_query = -1;
+    const fortran_int liwork_query = -1;
 
     // Verify inputs
     if (A->num_rows != n) {
@@ -2629,9 +2637,9 @@ int eigen_Mat_rm(Mat_rm *A, Mat_rm *Q, Mat_rm *L) {
     }
 
     // Allocate work spaces 
-    lwork = (int) lwork_ret;
+    lwork = (fortran_int) lwork_ret;
     if ((work = (double *) malloc(lwork * sizeof(double))) == NULL ||
-	(iwork = (int *) malloc(liwork * sizeof(int))) == NULL)
+	(iwork = (fortran_int *) malloc(liwork * sizeof(fortran_int))) == NULL)
 	goto EIGEN_MAT_RM_QUIT;
 
     // Compute the eigendecomposition
@@ -2677,15 +2685,15 @@ int solve_Mat_rm(Mat_rm *A, Mat_rm *B, double limit, Mat_rm *X) {
 
     Mat_rm A_trans, B_trans;
     double *work;
-    int *ipiv, *iwork;
+    fortran_int *ipiv, *iwork;
     double anorm, rcond;
-    int info;
+    fortran_int info;
 
-    const int m = A->num_rows;
-    const int n = A->num_cols;
-    const int nrhs = B->num_cols;
-    const int lda = m;
-    const int ldb = B->num_rows;
+    const fortran_int m = A->num_rows;
+    const fortran_int n = A->num_cols;
+    const fortran_int nrhs = B->num_cols;
+    const fortran_int lda = m;
+    const fortran_int ldb = B->num_rows;
     const char norm_type = '1';
     const char trans = 'N';
 
@@ -2710,8 +2718,8 @@ int solve_Mat_rm(Mat_rm *A, Mat_rm *B, double limit, Mat_rm *X) {
     if (init_Mat_rm(&A_trans, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 	init_Mat_rm(&B_trans, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 	(work = (double *) malloc(n * 4 * sizeof(double))) == NULL ||
-	(iwork = (int *) malloc(n * sizeof(int))) == NULL ||
-	(ipiv = (int *) calloc(m, sizeof(int))) == NULL)
+	(iwork = (fortran_int *) malloc(n * sizeof(fortran_int))) == NULL ||
+	(ipiv = (fortran_int *) calloc(m, sizeof(fortran_int))) == NULL)
 	goto SOLVE_MAT_RM_QUIT;
 
     // Transpose matrices for LAPACK
@@ -2798,15 +2806,16 @@ int solve_Mat_rm_ls(Mat_rm *A, Mat_rm *B, Mat_rm *X) {
     Mat_rm A_trans, B_trans;
     double *s, *work;
     double lwork_ret;
-    int i, j, info, rank, lwork;
+    fortran_int info, rank, lwork;
+    int i, j; 
 
     const double rcond = -1;
-    const int m = A->num_rows;
-    const int n = A->num_cols;
-    const int nrhs = B->num_cols;
-    const int lda = m;
-    const int ldb = B->num_rows;
-    const int lwork_query = -1;
+    const fortran_int m = A->num_rows;
+    const fortran_int n = A->num_cols;
+    const fortran_int nrhs = B->num_cols;
+    const fortran_int lda = m;
+    const fortran_int ldb = B->num_rows;
+    const fortran_int lwork_query = -1;
 
     // Verify inputs 
     if (m != ldb) {
@@ -2844,7 +2853,7 @@ int solve_Mat_rm_ls(Mat_rm *A, Mat_rm *B, Mat_rm *X) {
 	printf("solve_mat_rm: LAPACK dgelss work query error code %d \n", 
 	       info);
     }
-    lwork = (int) lwork_ret;
+    lwork = (fortran_int) lwork_ret;
 
     // Allocate the workspace
     if ((work = (double *) malloc(lwork * sizeof(double))) == NULL)
