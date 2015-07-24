@@ -1258,7 +1258,10 @@ int init_im_first_time(Image *im, const int nx, const int ny, const int nz,
 	im->nx = nx;
 	im->ny = ny;
 	im->nz = nz;
-        im->nc = nc;
+    im->nc = nc;
+    im->ux = 1;
+    im->uy = 1;
+    im->uz = 1;
 	im_default_stride(im);
 	if (im_resize(im))
 		return SIFT3D_FAILURE;	
