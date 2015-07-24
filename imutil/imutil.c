@@ -1019,7 +1019,7 @@ int read_nii(const char *path, Image *im) {
 			last_relevant_index = dim_counter;
 		}
 	}
-	nifti->ndim = last_relevant_index;
+	
 	if (last_relevant_index > 3) {
 		fprintf(stderr, "FAILURE: file %s has unsupported"
 			   "dimensionality %d, %d\n", path, last_relevant_index);
