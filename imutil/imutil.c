@@ -1031,7 +1031,12 @@ int read_nii(const char *path, Image *im) {
 	im->nx = nifti->nx;
 	im->ny = nifti->ny;
 	im->nz = nifti->nz;
-        im->nc = 1;
+    im->nc = 1;
+    // Store real world coordinates
+    im->ux = nifti->dx;
+    im->uy = nifti->dy;
+    im->uz = nifti->dz;
+
 	im_default_stride(im);
 	im_resize(im);
 
