@@ -1011,10 +1011,19 @@ int read_nii(const char *path, Image *im) {
 	}
 	
 	// Validate inputs
+	// iterate through dimension array of size 8, finds dimensions 
+	int last_relevant_index = 0;
+	int dim_counter;
+	for(dim_counter = 0; dim_counter < 8; dim_counter++) {
+		if(nifti->dim[dim_counter] > 1) {
+			last_relevant_index = dim_counter;
+		}
+	}
+	nifti->ndim = last_relevant_index;
 	dim = nifti->ndim;
 	if (dim > 3) {
 		fprintf(stderr, "FAILURE: file %s has unsupported"
-			   "dimensionality %d", path, dim);
+			   "dimensionality %d, %d\n", path, dim, last_relevant_index);
 		goto read_nii_quit;
 	}	
 	
