@@ -1172,11 +1172,11 @@ static const char *get_file_ext(const char *name) {
 /* Write a matrix to a .csv or .csv.gz file. */
 int write_Mat_rm(const char *path, const Mat_rm *const mat) {
 
-    FILE *file;
+        FILE *file;
         gzFile gz;
         const char *ext;
         long int pos;
-    int i, j, compress;
+        int i, j, compress;
 
         const char *gz_ext = "gz";
         const char *mode = "w";
