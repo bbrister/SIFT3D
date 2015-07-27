@@ -999,42 +999,41 @@ draw_lines_quit:
 int read_nii(const char *path, Image *im) {
     
     nifti_image *nifti;
-    int x, y, z, dim_counter, last_relevant_index;
+    int x, y, z, dim_counter;
 
     // Init type pointers to NULL
     nifti = NULL;
     
     // Read NIFTI file
     if ((nifti = nifti_image_read(path, 1)) == NULL) {
-        fprintf(stderr, "FAILURE loading file %s", path);
+        fprintf(stderr, "read_nii: failure loading file %s", path);
         goto read_nii_quit;
     }
-    
-    // Validate inputs
-    // iterate through dimension array of size 8, finds dimensions 
-    last_relevant_index = 0;
-    for(dim_counter = 0; dim_counter < nifti->ndim; dim_counter++) {
+   
+    // Find the dimensionality of the array, given by the last dimension
+    // greater than 1. Note that the dimensions begin at dim[1].
+    for(dim_counter = nifti->ndim; dim_counter > 0; dim_counter--) {
         if(nifti->dim[dim_counter] > 1) {
-            last_relevant_index = dim_counter;
+                break;
         }
     }
     
-    if (last_relevant_index != 3) {
-        fprintf(stderr, "FAILURE: file %s has unsupported"
-               "dimensionality %d\n", path, last_relevant_index);
+    if (dim_counter != 3) {
+        fprintf(stderr, "read_nii: file %s has unsupported"
+               "dimensionality %d\n", path, dim_counter);
         goto read_nii_quit;
     }   
     
+    // Store the real world coordinates
+    im->ux = nifti->dx;
+    im->uy = nifti->dy;
+    im->uz = nifti->dz;
+
     // Resize im    
     im->nx = nifti->nx;
     im->ny = nifti->ny;
     im->nz = nifti->nz;
     im->nc = 1;
-    // Store real world coordinates
-    im->ux = nifti->dx;
-    im->uy = nifti->dy;
-    im->uz = nifti->dz;
-
     im_default_stride(im);
     im_resize(im);
 
@@ -1044,7 +1043,7 @@ int read_nii(const char *path, Image *im) {
         SIFT3D_IM_GET_IDX(im, x, y, z, 0)]; \
     SIFT3D_IM_LOOP_END
 
-    // Copy into im
+    // Copy the data into im
     switch (nifti->datatype) {
     case NIFTI_TYPE_UINT8:
         IM_COPY_FROM_TYPE(unsigned char);
@@ -1088,7 +1087,7 @@ int read_nii(const char *path, Image *im) {
     }
 #undef IM_COPY_FROM_TYPE
 
-    // Scale image to [0, 1]
+    // Scale the image to [0, 1]
     im_scale(im);       
 
     // Clean up NIFTI data
