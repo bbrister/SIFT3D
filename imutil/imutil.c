@@ -1021,7 +1021,7 @@ int read_nii(const char *path, Image *im) {
     
     if (last_relevant_index != 3) {
         fprintf(stderr, "FAILURE: file %s has unsupported"
-               "dimensionality %d, %d\n", path, last_relevant_index);
+               "dimensionality %d\n", path, last_relevant_index);
         goto read_nii_quit;
     }   
     
