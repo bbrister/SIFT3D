@@ -137,6 +137,7 @@ typedef struct _Image {
 	double s;		// scale-space location
 	size_t size;		// Total size in pixels
 	int nx, ny, nz;		// Dimensions in x, y, and z
+	int ux, uy, uz;		// Real world dimensions in x, y, and z
 	int x_stride;		// Stride in x direction
 	int y_stride;		// Stride in y direction
 	int z_stride;		// Stride in z direction
