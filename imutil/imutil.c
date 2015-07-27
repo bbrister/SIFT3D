@@ -999,7 +999,7 @@ draw_lines_quit:
 int read_nii(const char *path, Image *im) {
 	
 	nifti_image *nifti;
-	int x, y, z;
+	int x, y, z, dim_counter, last_relevant_index;
 
 	// Init type pointers to NULL
 	nifti = NULL;
@@ -1012,15 +1012,14 @@ int read_nii(const char *path, Image *im) {
 	
 	// Validate inputs
 	// iterate through dimension array of size 8, finds dimensions 
-	int last_relevant_index = 0;
-	int dim_counter;
+	last_relevant_index = 0;
 	for(dim_counter = 0; dim_counter < nifti->ndim; dim_counter++) {
 		if(nifti->dim[dim_counter] > 1) {
 			last_relevant_index = dim_counter;
 		}
 	}
 	
-	if (last_relevant_index > 3) {
+	if (last_relevant_index != 3) {
 		fprintf(stderr, "FAILURE: file %s has unsupported"
 			   "dimensionality %d, %d\n", path, last_relevant_index);
 		goto read_nii_quit;
@@ -1259,7 +1258,7 @@ int init_im_first_time(Image *im, const int nx, const int ny, const int nz,
 	im->nz = nz;
     im->nc = nc;
 
-	im_default_stride(im);
+    im_default_stride(im);
 	if (im_resize(im))
 		return SIFT3D_FAILURE;	
 
