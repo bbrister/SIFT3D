@@ -9,9 +9,13 @@ find_package (LAPACK REQUIRED)
 
 # Compile imutil
 add_library (imutil SHARED imutil.c)
-target_include_directories (imutil PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries (imutil PUBLIC ${LAPACK_LIBRARIES} ${Z_LIBRARY} ${M_LIBRARY})
-install (FILES types.h macros.h imutil.h kernels.cl DESTINATION include/sift3d)
+target_include_directories (imutil PUBLIC 
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+                $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
+)
+target_link_libraries (imutil PUBLIC ${LAPACK_LIBRARIES})
+install (FILES types.h macros.h imutil.h kernels.cl 
+        DESTINATION ${INSTALL_INCLUDE_DIR})
 
 # Try to find ITK
 find_package (ITK 4 QUIET)
@@ -31,6 +35,9 @@ else ()
 	target_include_directories (imutil PUBLIC ${NIFTI_INCLUDE_DIR})
 
 endif ()
+
+# Link to system libraries
+target_link_libraries(imutil PUBLIC ${Z_LIBRARY} ${M_LIBRARY})
 
 # If Matlab was found, compile a copy for use with Matlab libraries
 if (${Matlab_FOUND})
@@ -60,9 +67,11 @@ if (${Matlab_FOUND})
         endif ()
 endif ()
 
-install (TARGETS imutil 
-	 RUNTIME DESTINATION bin 
-	 LIBRARY DESTINATION lib/sift3d
-	 ARCHIVE DESTINATION lib/sift3d)
+# Configure the installation
+install (TARGETS imutil EXPORT SIFT3D-targets 
+	 RUNTIME DESTINATION ${INSTALL_BIN_DIR} 
+	 LIBRARY DESTINATION ${INSTALL_LIB_DIR} 
+	 ARCHIVE DESTINATION ${INSTALL_LIB_DIR})
 
+# Add the code snippets
 add_subdirectory (templates)

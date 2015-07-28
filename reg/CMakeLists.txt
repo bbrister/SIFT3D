@@ -6,9 +6,13 @@
 
 add_library (reg SHARED reg.c)
 target_link_libraries (reg PUBLIC sift3D imutil)
-target_include_directories (reg PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories (reg PUBLIC
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+                $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
+)
+install (FILES reg.h DESTINATION ${INSTALL_INCLUDE_DIR})
 
-install (TARGETS reg
-	 RUNTIME DESTINATION bin 
-	 LIBRARY DESTINATION lib/sift3d
-	 ARCHIVE DESTINATION lib/sift3d)
+install (TARGETS reg EXPORT SIFT3D-targets
+	 RUNTIME DESTINATION ${INSTALL_BIN_DIR} 
+	 LIBRARY DESTINATION ${INSTALL_LIB_DIR} 
+	 ARCHIVE DESTINATION ${INSTALL_LIB_DIR})

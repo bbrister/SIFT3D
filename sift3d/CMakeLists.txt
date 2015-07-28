@@ -6,7 +6,11 @@
 
 add_library (sift3D SHARED sift.c)
 target_link_libraries (sift3D PUBLIC imutil ${M_LIBRARY})
-target_include_directories (sift3D PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories (sift3D PUBLIC
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+                $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
+)
+install (FILES sift.h DESTINATION ${INSTALL_INCLUDE_DIR})
 
 # If Matlab was found, compile a copy for use with matlab wrappers
 if (${Matlab_FOUND})
@@ -22,7 +26,7 @@ if (${Matlab_FOUND})
         )
 endif ()
 
-install (TARGETS sift3D
-	 RUNTIME DESTINATION bin 
-	 LIBRARY DESTINATION lib/sift3d
-	 ARCHIVE DESTINATION lib/sift3d)
+install (TARGETS sift3D EXPORT SIFT3D-targets
+	 RUNTIME DESTINATION ${INSTALL_BIN_DIR} 
+	 LIBRARY DESTINATION ${INSTALL_LIB_DIR} 
+	 ARCHIVE DESTINATION ${INSTALL_LIB_DIR})

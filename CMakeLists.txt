@@ -15,7 +15,25 @@ cmake_minimum_required (VERSION 2.8)
 # Project name
 project (SIFT3D)
 
-# Paths 
+# Project version
+set (SIFT3D_VERSION 1.0.0)
+
+# Configurable paths        
+set (INSTALL_LIB_DIR lib/sift3d CACHE PATH 
+        "Installation directory for libraries")
+set (INSTALL_BIN_DIR bin/sift3d CACHE PATH 
+        "Installation directory for executables")
+set (INSTALL_INCLUDE_DIR include CACHE PATH 
+        "Installation directory for header files")
+if (WIN32 AND NOT CYGWIN)
+        set (DEFAULT_INSTALL_CMAKE_DIR cmake)
+else ()
+        set (DEFAULT_INSTALL_CMAKE_DIR lib/cmake/sift3d)
+endif ()
+set (INSTALL_CMAKE_DIR ${DEFAULT_INSTALL_CMAKE_DIR} CACHE PATH
+        "Installation directory for CMake files")
+
+# Internal paths 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
 # The name and location of the wrappers directory 
@@ -61,6 +79,22 @@ find_package (Matlab QUIET)
 if (${Matlab_FOUND})
         message ("-- Found Matlab. Building the Matlab wrappers")
 endif ()
+
+# Generate the package configuration files
+set (CMAKE_CONFIG_FILE ${CMAKE_CURRENT_BINARY_DIR}/SIFT3DConfig.cmake)
+set (CMAKE_VERSION_FILE ${CMAKE_CURRENT_BINARY_DIR}/SIFT3DConfigVersion.cmake)
+configure_file (SIFT3DConfig.cmake.in
+        ${CMAKE_CONFIG_FILE} @ONLY
+)
+configure_file (SIFT3DConfigVersion.cmake.in
+        ${CMAKE_VERSION_FILE} @ONLY)
+
+# Install the package configuration files
+install (FILES ${CMAKE_CONFIG_FILE} ${CMAKE_VERSION_FILE} 
+        DESTINATION ${INSTALL_CMAKE_DIR})
+
+# Install the targets file
+install (EXPORT SIFT3D-targets DESTINATION ${INSTALL_CMAKE_DIR})
 
 # Source subdirectories
 add_subdirectory (imutil)
