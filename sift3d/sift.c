@@ -26,6 +26,7 @@
 /* Implementation options */
 //#define SIFT3D_ORI_SOLID_ANGLE_WEIGHT // Weight bins by solid angle
 //#define SIFT3D_MATCH_MAX_DIST 0.3 // Maximum distance between matching features 
+//#define CUBOID_EXTREMA // Search for extrema in a cuboid region
 
 /* Safety checks */
 #if defined ICOS_HIST && !defined EIG_ORI
@@ -1007,35 +1008,47 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 	kp->ny = cur->ny;
 	kp->nz = cur->nz;
 
+#ifdef CUBOID_EXTREMA
 #define CMP_NEIGHBORS(im, x, y, z, CMP, IGNORESELF, val) ( \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),    (z) - 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y),    (z) - 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y),    (z) - 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) - 1,(z) - 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) + 1,(z) - 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y) - 1,(z) - 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) - 1,(z) - 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y) + 1,(z) - 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) + 1,(z) - 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),     (z) - 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y),     (z) - 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y),     (z) - 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) - 1, (z) - 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) + 1, (z) - 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y) - 1, (z) - 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) - 1, (z) - 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y) + 1, (z) - 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) + 1, (z) - 1, 0) && \
 	((val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),    (z), 0   ) || \
 	    IGNORESELF) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y),    (z), 0    ) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y),    (z), 0    ) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) - 1,(z), 0    ) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) + 1,(z), 0    ) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y) - 1,(z), 0    ) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) - 1,(z), 0    ) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y) + 1,(z), 0    ) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) + 1,(z), 0    ) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),    (z) + 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y),    (z) + 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y),    (z) + 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) - 1,(z) + 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) + 1,(z) + 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y) - 1,(z) + 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) - 1,(z) + 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y) + 1,(z) + 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) + 1,(z) + 1, 0) )
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y),     (z), 0    ) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y),     (z), 0    ) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) - 1, (z), 0    ) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) + 1, (z), 0    ) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y) - 1, (z), 0    ) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) - 1, (z), 0    ) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y) + 1, (z), 0    ) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) + 1, (z), 0    ) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),     (z) + 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y),     (z) + 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y),     (z) + 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) - 1, (z) + 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) + 1, (z) + 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y) - 1, (z) + 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) - 1, (z) + 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y) + 1, (z) + 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) + 1, (z) + 1, 0) )
+#else
+#define CMP_NEIGHBORS(im, x, y, z, CMP, IGNORESELF, val) ( \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y),     (z), 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y),     (z), 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) + 1, (z), 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) - 1, (z), 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),     (z) - 1, 0) && \
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),     (z) + 1, 0) && \
+	((val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),    (z), 0) || \
+	    IGNORESELF) )
+#endif
 
 	num = 0;
 	SIFT3D_PYR_LOOP_LIMITED_START(o, s, o_start, o_end, s_start, s_end)  
@@ -2664,8 +2677,9 @@ int draw_matches(const Image *const left, const Image *const right,
                 }
 
                 // Draw the points
-                if (draw_points(keys_left, concat->dims, 1, keys) ||
-                        draw_points(&keys_right_draw, concat->dims, 1, keys))
+                if (draw_points(keys_left, concat_arg->dims, 1, keys) ||
+                        draw_points(&keys_right_draw, concat_arg->dims, 1, 
+                                keys))
                         goto draw_matches_quit;
         }
 
