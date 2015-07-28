@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Parse the SIFT3D options and increment the argument list
-        if ((argc = parse_args_SIFT3D(&sift3d, argc, argv, 0)) < 0)
+        if ((argc = parse_args_SIFT3D(&sift3d, argc, argv, SIFT3D_FALSE)) < 0)
                 return 1;
 
         // Parse the kpSift3d options
