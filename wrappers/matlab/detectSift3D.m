@@ -20,7 +20,7 @@ if nargin < 1
 end
 
 if (ndims(im) ~= 3)
-   error(['im must have 3 dimensions, detected ' num2str(ndims(im))]); 
+   error(['im must have 3 dimensions, detected ' num2str(ndims(im))]);
 end
 
 % Scale and convert the image to single precision
@@ -28,7 +28,7 @@ im = single(im);
 im = im / max(im(:));
 
 % Detect features
-[keys] = mexDetectSift3D(im);
+keys = mexDetectSift3D(im);
 
 end
 

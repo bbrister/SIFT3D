@@ -8,7 +8,6 @@
  */
 
 #include "mex.h"
-#include "sift.h"
 #include "imutil.h"
 #include "macros.h"
 #include "mexutil.h"
@@ -44,11 +43,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         }
 
 	// Verify the number of inputs
-	if (nrhs > 1)
+	if (nrhs != 1)
                 err_msgu("main:numInputs", "This function takes 1 input.");
 
         // Verify the number of outputs
-        if (nlhs != 1) 
+        if (nlhs > 1) 
                 err_msgu("main:numOutputs", "This function takes 1 output.");
 
         // Assign the inputs
