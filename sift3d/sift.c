@@ -170,8 +170,8 @@ static void SIFT3D_desc_acc_interp(const SIFT3D * const sift3d,
 				   const Cvec * const vbins, 
 				   const Cvec * const grad,
 				   SIFT3D_Descriptor * const desc);
-static void extract_descrip(SIFT3D *sift3d, Image *im,
-	   Keypoint *key, SIFT3D_Descriptor *desc);
+static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
+	   const Keypoint *const key, SIFT3D_Descriptor *const desc);
 static int argv_remove(const int argc, char **argv, 
                         const unsigned char *processed);
 static int extract_dense_descriptors_no_rotate(SIFT3D *const sift3d,
@@ -1759,8 +1759,8 @@ static void hist_zero(Hist *hist) {
 }
 
 /* Helper routine to extract a single SIFT3D descriptor */
-static void extract_descrip(SIFT3D *sift3d, Image *im,
-	   Keypoint *key, SIFT3D_Descriptor *desc) {
+static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
+	   const Keypoint *const key, SIFT3D_Descriptor *const desc) {
 
 	Cvec vcenter, vim, vkp, vbins, grad, grad_rot;
 	Hist *hist;
@@ -1857,12 +1857,11 @@ static void extract_descrip(SIFT3D *sift3d, Image *im,
  *  kp - keypoint list populated by a feature detector 
  *  desc - (initialized) struct to hold the descriptors
  *  use_gpyr - see im for details */
-int SIFT3D_extract_descriptors(SIFT3D *sift3d, void *im,
-	Keypoint_store *kp,	SIFT3D_Descriptor_store *desc, int use_gpyr) {
+int SIFT3D_extract_descriptors(SIFT3D *const sift3d, const void *const im,
+	const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc,
+        const int use_gpyr) {
 
-	Image *level;
-	SIFT3D_Descriptor *descrip;
-	Keypoint *key;
+	const Image *first_level;
 	int i;
 
 	// Parse inputs
@@ -1880,20 +1879,22 @@ int SIFT3D_extract_descriptors(SIFT3D *sift3d, void *im,
 
 	// Initialize the image info
 	if (use_gpyr) {
-		Pyramid *gpyr;
-		gpyr = (Pyramid *) im;
-		level = SIFT3D_PYR_IM_GET(gpyr, gpyr->first_octave, gpyr->first_level);
+		const Pyramid *const gpyr = (Pyramid *) im;
+		first_level = SIFT3D_PYR_IM_GET(gpyr, gpyr->first_octave, 
+                        gpyr->first_level);
 	} else
-		level = im;
-	desc->nx = level->nx;	
-	desc->ny = level->ny;	
-	desc->nz = level->nz;	
+		first_level = im;
+	desc->nx = first_level->nx;	
+	desc->ny = first_level->ny;	
+	desc->nz = first_level->nz;	
 
         // Extract the descriptors
 	for (i = 0; i < desc->num; i++) {
-		key = kp->buf + i;
-		descrip = desc->buf + i;
-		level = SIFT3D_PYR_IM_GET((Pyramid *) im, key->o, key->s);
+
+		const Keypoint *const key = kp->buf + i;
+		SIFT3D_Descriptor *const descrip = desc->buf + i;
+		const Image *const level = 
+                        SIFT3D_PYR_IM_GET((Pyramid *) im, key->o, key->s);
 		extract_descrip(sift3d, level, key, descrip);
 	}	
 
