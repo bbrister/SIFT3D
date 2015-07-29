@@ -1526,7 +1526,7 @@ static int assign_orientations(SIFT3D *sift3d,
 /* Detect keypoint locations and orientations. You must initialize
  * the SIFT3D struct, image, and keypoint store with the appropriate
  * functions prior to calling this function. */
-int SIFT3D_detect_keypoints(SIFT3D *const sift3d, Image *const im, 
+int SIFT3D_detect_keypoints(SIFT3D *const sift3d, const Image *const im,
 			    Keypoint_store *const kp) {
 
         // Verify inputs

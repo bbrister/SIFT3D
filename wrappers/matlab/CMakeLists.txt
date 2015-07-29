@@ -4,10 +4,18 @@
 # Build file for the Matlab wrapper toolbox.
 ################################################################################
 
-# The mex files are shared libraries
+# Build the mex utility library
+add_library (mexutil SHARED mexutil.c)
+target_include_directories (mexutil PUBLIC
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+                $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
+)
+target_link_libraries (mexutil PUBLIC mexsift3D meximutil)
+
+# Build the mex files
 matlab_add_mex (NAME mexDetectSift3D 
         SRC mexDetectSift3D.c 
-        LINK_TO mexsift3D meximutil -lmwlapack -lmwblas
+        LINK_TO mexutil meximutil -lmwlapack -lmwblas
 )
 
 # Copy the Matlab files

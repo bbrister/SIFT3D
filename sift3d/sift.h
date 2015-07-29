@@ -52,7 +52,7 @@ void print_opts_SIFT3D(void);
 int parse_args_SIFT3D(SIFT3D *const sift3d,
         const int argc, char **argv, const int check_err);
 
-int SIFT3D_detect_keypoints(SIFT3D *const sift3d, Image *const im, 
+int SIFT3D_detect_keypoints(SIFT3D *const sift3d, const Image *const im,
 			    Keypoint_store *const kp);
 
 int SIFT3D_extract_descriptors(SIFT3D *sift3d, void *im,
