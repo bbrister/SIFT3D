@@ -2652,8 +2652,8 @@ int draw_matches(const Image *const left, const Image *const right,
 	        return SIFT3D_FAILURE;
 
         // Pad the images to be the same in all dimensions but x
-	if (init_im_first_time(&right_padded, right->nx, ny_pad, nz_pad, 1) || 
-	        init_im_first_time(&left_padded, left->nx, ny_pad, nz_pad, 1) ||
+	if (init_im_with_dims(&right_padded, right->nx, ny_pad, nz_pad, 1) || 
+	        init_im_with_dims(&left_padded, left->nx, ny_pad, nz_pad, 1) ||
 	   	im_pad(right, &right_padded) || 
 	    	im_pad(left, &left_padded)) {
                 fprintf(stderr, "draw_matches: unable to pad images \n");

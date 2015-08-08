@@ -112,7 +112,7 @@ int write_nii(const char *path, Image *im);
 
 int write_Mat_rm(const char *path, const Mat_rm *const mat);
 
-int init_im_first_time(Image *im, const int nx, const int ny, const int nz,
+int init_im_with_dims(Image *im, const int nx, const int ny, const int nz,
                         const int nc);
 
 int im_load_cl(Image *im, int blocking);

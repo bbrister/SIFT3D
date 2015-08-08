@@ -859,7 +859,7 @@ int draw_grid(Image * grid, int nx, int ny, int nz, int spacing, int line_width)
 	if (spacing < 2 || line_width < 1 || line_width > spacing)
 		return SIFT3D_FAILURE;
 
-	if (init_im_first_time(grid, nx, ny, nz, 1))
+	if (init_im_with_dims(grid, nx, ny, nz, 1))
 		return SIFT3D_FAILURE;
 
 	SIFT3D_IM_LOOP_START(grid, x, y, z)
@@ -1297,8 +1297,8 @@ int write_Mat_rm(const char *path, const Mat_rm * const mat)
 /* Shortcut to initialize an image for first-time use.
  * Allocates memory, and assumes the default stride. This
  * function calls init_im and initializes all values to 0. */
-int init_im_first_time(Image * im, const int nx, const int ny, const int nz,
-		       const int nc)
+int init_im_with_dims(Image * im, const int nx, const int ny, const int nz,
+        const int nc)
 {
 
 	int x, y, z, c;
@@ -1390,7 +1390,7 @@ int im_pad(const Image * const im, Image * const pad)
  * -z_stride (can be set by im_default_stride(im)) 
  *
  * All of this initialization can also be done with
- * init_im_first_time(), which calls this function.
+ * init_im_with_dims(), which calls this function.
  */
 int im_resize(Image * im)
 {
