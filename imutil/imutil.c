@@ -617,53 +617,72 @@ void sprint_type_Mat_rm(const Mat_rm * const mat, char *const str)
 	}
 }
 
-/* Horizontally concatenate two matrices, i.e dst = [left right]. */
-int concat_h_Mat_rm(const Mat_rm * const left, const Mat_rm * const right,
-		    Mat_rm * const dst)
+/* Concatenate two matrices. If dim = 0, concatenates vertically, i.e. 
+ *      dst = [src1
+ *             src2].
+ * If dim = 1, concatenates horizontally, i.e  
+ *      dst = [src1 src2]. 
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE on failure. */
+int concat_Mat_rm(const Mat_rm * const src1, const Mat_rm * const src2,
+		    Mat_rm * const dst, const int dim)
 {
 
+        int off[2], dst_dims[2];
 	int i, j;
 
-	const int lnc = left->num_cols;
+        const int dims1[] = {src1->num_rows, src1->num_cols};
+        const int dims2[] = {src2->num_rows, src2->num_cols};
 
 	// Verify inputs
-	if (left->num_rows != right->num_rows) {
-		fprintf(stderr, "concat_h_Mat_rm: incompatible dimensions: "
-			"left: [%d x %d] right: [%d x %d] \n", left->num_rows,
-			left->num_cols, right->num_rows, right->num_cols);
+	if (dims1[1 - dim] != dims2[1 - dim]) {
+		fprintf(stderr, "concat_Mat_rm: incompatible dimensions: "
+			"left: [%d x %d] right: [%d x %d] dim: %d \n", 
+                        dims1[0], dims1[1], dims2[0], dims2[1], dim);
 		return SIFT3D_FAILURE;
 	}
-	if (left->type != right->type) {
+	if (src1->type != src2->type) {
 
-		char left_type[1024], right_type[1024];
+		char type1[1024], type2[1024];
 
-		sprint_type_Mat_rm(left, left_type);
-		sprint_type_Mat_rm(right, right_type);
+		sprint_type_Mat_rm(src1, type1);
+		sprint_type_Mat_rm(src2, type2);
 
-		fprintf(stderr, "concat_h_Mat_rm: incompatible types: "
-			"left: <%s> right: <%s> \n", left_type, right_type);
+		fprintf(stderr, "concat_Mat_rm: incompatible types: "
+			"left: <%s> right: <%s> \n", type1, type2);
 
 		return SIFT3D_FAILURE;
 	}
+
+        // Compute the destination dimensions
+        for (i = 0; i < 2; i++) {
+                dst_dims[i] = dim == i ? dims1[i] + dims2[i] : dims1[i];
+        }
+
 	// Resize dst
-	dst->type = left->type;
-	dst->num_rows = left->num_rows;
-	dst->num_cols = left->num_cols + left->num_cols;
+	dst->type = src1->type;
+	dst->num_rows = dst_dims[0];
+	dst->num_cols = dst_dims[1];
 	if (resize_Mat_rm(dst))
 		return SIFT3D_FAILURE;
 
+        // Compute the offsets
+        for (i = 0; i < 2; i++) {
+                off[i] = dim == i ? dims1[i] : 0;
+        }
+
 #define COPY_DATA(type) \
-        /* Copy the left data */ \
-        SIFT3D_MAT_RM_LOOP_START(left, i, j) \
+        /* Copy src1 data */ \
+        SIFT3D_MAT_RM_LOOP_START(src1, i, j) \
                 SIFT3D_MAT_RM_GET(dst, i, j, type) = \
-                        SIFT3D_MAT_RM_GET(left, i, j, type); \
+                        SIFT3D_MAT_RM_GET(src1, i, j, type); \
         SIFT3D_MAT_RM_LOOP_END \
         \
-        /* Copy the right data */ \
-        SIFT3D_MAT_RM_LOOP_START(right, i, j) \
+        /* Copy src2 data */ \
+        SIFT3D_MAT_RM_LOOP_START(src2, i, j) \
         \
-                SIFT3D_MAT_RM_GET(dst, i, j + lnc, type) = \
-                        SIFT3D_MAT_RM_GET(right, i, j, type); \
+                SIFT3D_MAT_RM_GET(dst, i + off[0], j + off[1], type) = \
+                        SIFT3D_MAT_RM_GET(src2, i, j, type); \
         \
         SIFT3D_MAT_RM_LOOP_END
 
@@ -679,7 +698,7 @@ int concat_h_Mat_rm(const Mat_rm * const left, const Mat_rm * const right,
 		COPY_DATA(int);
 		break;
 	default:
-		fprintf(stderr, "concat_h_Mat_rm: unknown type \n");
+		fprintf(stderr, "concat_Mat_rm: unknown type \n");
 		return SIFT3D_FAILURE;
 	}
 

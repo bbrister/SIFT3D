@@ -2600,11 +2600,12 @@ match_reject: ;
  */
 int draw_matches(const Image *const left, const Image *const right,
                  const Mat_rm *const keys_left, const Mat_rm *const keys_right,
-		 const Mat_rm *const match_left, const Mat_rm *const match_right,
-		 Image *const concat, Image *const keys, Image *const lines) {
+		 const Mat_rm *const match_left, 
+                 const Mat_rm *const match_right, Image *const concat, 
+                 Image *const keys, Image *const lines) {
 
         Image concat_temp, left_padded, right_padded;
-	Mat_rm keys_right_draw, match_right_draw;
+	Mat_rm keys_right_draw, keys_left_draw, keys_draw, match_right_draw;
 	int i;
 
         const double right_pad = (double) left->nx;
@@ -2645,16 +2646,18 @@ int draw_matches(const Image *const left, const Image *const right,
         init_im(&left_padded);
         init_im(&right_padded);
         if (init_Mat_rm(&keys_right_draw, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-	        init_Mat_rm(&match_right_draw, 0, 0, DOUBLE, SIFT3D_FALSE))
+	        init_Mat_rm(&match_right_draw, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+                init_Mat_rm(&keys_left_draw, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+                init_Mat_rm(&keys_draw, 0, 0, DOUBLE, SIFT3D_FALSE))
 	        return SIFT3D_FAILURE;
 
         // Pad the images to be the same in all dimensions but x
 	if (init_im_first_time(&right_padded, right->nx, ny_pad, nz_pad, 1) || 
-	        init_im_first_time(&left_padded, left->nx, ny_pad, nz_pad, 1) || 
+	        init_im_first_time(&left_padded, left->nx, ny_pad, nz_pad, 1) ||
 	   	im_pad(right, &right_padded) || 
 	    	im_pad(left, &left_padded)) {
-			fprintf(stderr, "draw_matches: unable to pad images \n");
-                        return SIFT3D_FAILURE;
+                fprintf(stderr, "draw_matches: unable to pad images \n");
+                return SIFT3D_FAILURE;
 	}
 
 	// Draw a concatenated image
@@ -2667,8 +2670,9 @@ int draw_matches(const Image *const left, const Image *const right,
         // Optionally draw the keypoints
         if (keys != NULL) { 
 
-                // Convert input to double
-                if (convert_Mat_rm(keys_right, &keys_right_draw, DOUBLE))
+                // Convert inputs to double
+                if (convert_Mat_rm(keys_right, &keys_right_draw, DOUBLE) ||
+                        convert_Mat_rm(keys_left, &keys_left_draw, DOUBLE))
                         goto draw_matches_quit;
        
                 // Pad the x-coordinate 
@@ -2677,10 +2681,13 @@ int draw_matches(const Image *const left, const Image *const right,
                                 right_pad; 
                 }
 
+                // Concatenate the points
+                if (concat_Mat_rm(&keys_left_draw, &keys_right_draw,
+                        &keys_draw, 0))
+                        goto draw_matches_quit;
+
                 // Draw the points
-                if (draw_points(keys_left, concat_arg->dims, 1, keys) ||
-                        draw_points(&keys_right_draw, concat_arg->dims, 1, 
-                                keys))
+                if (draw_points(&keys_draw, concat_arg->dims, 1, keys))
                         goto draw_matches_quit;
         }
 
@@ -2698,7 +2705,7 @@ int draw_matches(const Image *const left, const Image *const right,
                 }
 
                 // Draw the lines
-                if (draw_lines(match_left, &match_right_draw, concat_arg->dims, 
+                if (draw_lines(match_left, &match_right_draw, concat_arg->dims,
                         lines))
                         goto draw_matches_quit;
         }
@@ -2708,6 +2715,8 @@ int draw_matches(const Image *const left, const Image *const right,
         im_free(&left_padded);
         im_free(&right_padded); 
         cleanup_Mat_rm(&keys_right_draw); 
+        cleanup_Mat_rm(&keys_left_draw); 
+        cleanup_Mat_rm(&keys_draw); 
         cleanup_Mat_rm(&match_right_draw); 
 	return SIFT3D_SUCCESS;
 
@@ -2716,6 +2725,8 @@ draw_matches_quit:
         im_free(&left_padded);
         im_free(&right_padded); 
         cleanup_Mat_rm(&keys_right_draw);
+        cleanup_Mat_rm(&keys_left_draw); 
+        cleanup_Mat_rm(&keys_draw); 
         cleanup_Mat_rm(&match_right_draw);
         return SIFT3D_FAILURE;
 }

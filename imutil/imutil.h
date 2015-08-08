@@ -36,8 +36,8 @@ int init_Mat_rm_p(Mat_rm *mat, const void *p, int num_rows,
 
 void sprint_type_Mat_rm(const Mat_rm *const mat, char *const str);
 
-int concat_h_Mat_rm(const Mat_rm *const left, const Mat_rm *const right,
-        Mat_rm *const dst);
+int concat_Mat_rm(const Mat_rm * const src1, const Mat_rm * const src2,
+		    Mat_rm * const dst, const int dim);
 
 int set_Mat_rm_zero(Mat_rm *mat);
 
