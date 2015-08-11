@@ -181,7 +181,7 @@ void init_Pyramid(Pyramid *const pyr);
 
 int copy_Pyramid(const Pyramid *const src, Pyramid *const dst);
 
-int resize_Pyramid(Pyramid *pyr, Image *im);
+int resize_Pyramid(const Image *const im, Pyramid *const pyr);
 
 void cleanup_Pyramid(Pyramid *const pyr);
 

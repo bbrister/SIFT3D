@@ -880,10 +880,17 @@ static int resize_SIFT3D(SIFT3D *const sift3d) {
 	// Compute the number of octaves, if not specified by user
 	if ((num_octaves = sift3d->gpyr.num_octaves) == -1) {
 		last_octave = (int) log2((double) SIFT3D_MIN(
-                        // The minimum size is 8 in any dimension
-                        SIFT3D_MIN(im->nx, im->ny), im->nz)) - 3 - first_octave;
+                // The minimum size is 8 in any dimension
+                SIFT3D_MIN(im->nx, im->ny), im->nz)) - 3 - first_octave;
 
 		num_octaves = last_octave - first_octave + 1;
+
+                if (num_octaves < 1) {
+                        fputs("resize_SIFT3D: input image is too small: \n"
+                              "must have at least 8 voxels in each dimension",
+                              stderr);
+                        return SIFT3D_FAILURE;
+                }
 	} else {
 		// Number of octaves specified by user: compute last octave
 		last_octave = num_octaves + first_octave - 1;
@@ -894,8 +901,8 @@ static int resize_SIFT3D(SIFT3D *const sift3d) {
 	sift3d->dog.num_octaves = sift3d->gpyr.num_octaves = num_octaves;
 
 	// Resize the pyramid
-	if (resize_Pyramid(&sift3d->gpyr, sift3d->im) ||
-		resize_Pyramid(&sift3d->dog, sift3d->im))
+	if (resize_Pyramid(sift3d->im, &sift3d->gpyr) ||
+		resize_Pyramid(sift3d->im, &sift3d->dog))
 		return SIFT3D_FAILURE;
 
 	// Compute the Gaussian filters

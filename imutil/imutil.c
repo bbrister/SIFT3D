@@ -3508,27 +3508,48 @@ void init_Pyramid(Pyramid * const pyr)
  *       can be used to quickly resize an existing 
  *       pyramid. 
  */
-int resize_Pyramid(Pyramid * pyr, Image * im)
+int resize_Pyramid(const Image *const im, Pyramid *const pyr)
 {
 
 	Image *level;
 	double factor;
 	int o, s, nx, ny, nz, num_total_levels;
 
+        const int num_octaves = pyr->num_octaves;
+        const int num_levels = pyr->num_levels;
+
+        // Verify inputs
+        if (num_octaves < 0) {
+                fprintf(stderr, "resize_Pyramid: invalid num_octaves: %d",
+                        num_octaves);
+                return SIFT3D_FAILURE;
+        }
+        if (num_levels < 0) {
+                fprintf(stderr, "resize_Pyramid: invalid num_levels: %d",
+                        num_levels);
+        }
+
+        // Do nothing if the pyramid has no levels
+        if (num_octaves == 0 || num_levels == 0)
+                return SIFT3D_SUCCESS;
+
 	// Compute missing parameters
-	pyr->last_level = pyr->first_level + pyr->num_levels - 1;
+	pyr->last_level = pyr->first_level + num_levels - 1;
 
 	// Initialize outer array
-	num_total_levels = pyr->num_levels * pyr->num_octaves;
+	num_total_levels = num_levels * num_octaves;
 	if (pyr->levels == NULL) {
 		// Pyramid has not been used before. Initialize buffers to NULL.
 		if ((pyr->levels = malloc(num_total_levels *
 					  sizeof(Image))) == NULL)
 			return SIFT3D_FAILURE;
+
 		SIFT3D_PYR_LOOP_START(pyr, o, s)
-		    level = SIFT3D_PYR_IM_GET(pyr, o, s);
-		init_im(level);
-	SIFT3D_PYR_LOOP_END} else {
+		        level = SIFT3D_PYR_IM_GET(pyr, o, s);
+		        init_im(level);
+	        SIFT3D_PYR_LOOP_END
+
+        } else {
 		// Array has been used before. Resize it.
 		if ((pyr->levels = realloc(pyr->levels, num_total_levels *
 					   sizeof(Image))) == NULL)
@@ -3537,32 +3558,36 @@ int resize_Pyramid(Pyramid * pyr, Image * im)
 
 	// Calculate base image dimensions
 	factor = pow(2, -pyr->first_octave);
-	nx = (int)(im->nx * factor);
-	ny = (int)(im->ny * factor);
-	nz = (int)(im->nz * factor);
+	nx = (int) (im->nx * factor);
+	ny = (int) (im->ny * factor);
+	nz = (int) (im->nz * factor);
 
 	// Initialize each level separately
 	SIFT3D_PYR_LOOP_START(pyr, o, s)
-	    // Initialize Image fields
-	    level = SIFT3D_PYR_IM_GET(pyr, o, s);
-	level->s = factor * pyr->sigma0 *
-	    pow(2, o + (double)s / pyr->num_kp_levels);
-	level->nx = nx;
-	level->ny = ny;
-	level->nz = nz;
-	level->nc = im->nc;
-	im_default_stride(level);
+                        // Initialize Image fields
+                        level = SIFT3D_PYR_IM_GET(pyr, o, s);
+                        level->s = factor * pyr->sigma0 *
+	                        pow(2, o + (double)s / pyr->num_kp_levels);
+	                level->nx = nx;
+	                level->ny = ny;
+	                level->nz = nz;
+	                level->nc = im->nc;
+	                im_default_stride(level);
 
-	// Re-size data memory
-	if (im_resize(level))
-		return SIFT3D_FAILURE;
+                        // Re-size data memory
+                        if (im_resize(level))
+                                return SIFT3D_FAILURE;
 
-	SIFT3D_PYR_LOOP_SCALE_END
-	    // Adjust dimensions and recalculate image size
-	    nx /= 2;
-	ny /= 2;
-	nz /= 2;
-	SIFT3D_PYR_LOOP_OCTAVE_END return SIFT3D_SUCCESS;
+	        SIFT3D_PYR_LOOP_SCALE_END
+
+	        // Adjust dimensions and recalculate image size
+	        nx /= 2;
+	        ny /= 2;
+	        nz /= 2;
+
+	SIFT3D_PYR_LOOP_OCTAVE_END 
+
+        return SIFT3D_SUCCESS;
 }
 
 /* Make a deep copy of a pyramid. */
