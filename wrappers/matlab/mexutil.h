@@ -21,6 +21,8 @@ int mx2im(const mxArray *const mx, Image *const im);
 
 mxArray *mat2mx(const Mat_rm *const mat);
 
+mxArray *kp2mx(const Keypoint_store *const);
+
 int mex_SIFT3D_detect_keypoints(const Image *const im, 
         Keypoint_store *const kp);
 

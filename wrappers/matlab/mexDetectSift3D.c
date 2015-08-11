@@ -12,28 +12,13 @@
 #include "macros.h"
 #include "mexutil.h"
 
-/* Keypoint struct information */
-#define COORDS_NAME "coords"
-#define SCALE_NAME "scale"
-#define ORI_NAME "ori"
-const char *fieldNames[] = {
-        COORDS_NAME,
-        SCALE_NAME,
-        ORI_NAME 
-};
-const mwSize kpNDims = 1;
-const int nFields = sizeof(fieldNames) / sizeof(char *);
-
-/* Entry point. */
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
         const mxArray *mxIm;
-        mxArray *mxKp;
-        mwSize imNDims, numKp;
+        mwSize imNDims;
         Image im;
         Keypoint_store kp;
         const char *errName, *errMsg;
-        int i, coordsNum, scaleNum, oriNum;
 
 /* Clean up and print an error */
 #define CLEAN_AND_QUIT(name, msg) { \
@@ -79,57 +64,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 	if (mex_SIFT3D_detect_keypoints(&im, &kp))
                 CLEAN_AND_QUIT("main:detect", "Failed to detect keypoints");
 
-	// Make an array of structs for the output 
-        numKp = (mwSize) kp.slab.num;
-	mxKp = plhs[0] = mxCreateStructArray(kpNDims, &numKp, nFields, 
-                                            fieldNames);
-        if (mxKp == NULL)
-                CLEAN_AND_QUIT("main:createOutput", "Failed to create outputs");
-
-        // Get the field indices in the structs
-        if ((coordsNum = mxGetFieldNumber(mxKp, COORDS_NAME)) < 0 ||
-                (scaleNum = mxGetFieldNumber(mxKp, SCALE_NAME)) < 0 ||
-                (oriNum = mxGetFieldNumber(mxKp, ORI_NAME)) < 0)
-                CLEAN_AND_QUIT("main:getFields", "Failed to get field indices");
-
-        // Write the keypoints to the output
-        for (i = 0; i < kp.slab.num; i++) {
-
-                mxArray *mxCoords, *mxScale, *mxOri;
-                double *coords, *scale;
-
-                const Keypoint *const key = kp.buf + i;
-
-                // Initialize arrays for the data
-                if ((mxCoords = 
-                        mxCreateDoubleMatrix(1, IM_NDIMS, mxREAL)) == NULL ||
-                        (mxScale =
-                                mxCreateDoubleMatrix(1, 1, mxREAL)) == NULL)
-                        CLEAN_AND_QUIT("main:initArrays", 
-                                "Failed to initialize field arrays");
-
-                // Get pointers to the internal data of the field matrices
-                coords = mxGetData(mxCoords); 
-                scale = mxGetData(mxScale); 
-
-                // Copy the coordinates 
-                coords[0] = key->xd;
-                coords[1] = key->yd;
-                coords[2] = key->zd;
-
-                // Copy the scale
-                scale[0] = key->sd; 
-        
-                // Copy the transposed orientation
-                if ((mxOri = mat2mx(&key->R)) == NULL)
-                        CLEAN_AND_QUIT("main:convertOri", "Failed to convert "
-                                "orientation matrix");
-
-                // Set the struct fields
-                mxSetFieldByNumber(mxKp, i, coordsNum, mxCoords);
-                mxSetFieldByNumber(mxKp, i, scaleNum, mxScale);
-                mxSetFieldByNumber(mxKp, i, oriNum, mxOri);
-        }
+        // Convert the output to a MATLAB array of structs
+        if ((plhs[0] = kp2mx(&kp)) == NULL)
+                CLEAN_AND_QUIT("main:convertToStructs", "Failed to convert "
+                        "keypoints to structs");
 
         // Clean up
         im_free(&im);

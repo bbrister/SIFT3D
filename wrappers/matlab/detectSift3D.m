@@ -9,6 +9,12 @@ function keys = detectSift3D(im)
 %       key.coords - The [x y z] coordinates.
 %       key.scale - The scale coordinate.
 %       key.ori - A [3x3] rotation matrix representing the 3D orientation.
+%       key.octave - The pyramid octave index.
+%       key.level - The pyramid level index within that octave.
+%
+%   Keypoint coordinates are scaled relative to their pyramid octave index.
+%   To convert to the input image space, use the following transformation:
+%        key.coords * pow(2, -key.octave)
 %
 %  Example:
 %     im = rand(50, 50, 50);

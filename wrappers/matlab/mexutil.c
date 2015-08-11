@@ -15,6 +15,23 @@
 #include "sift.h"
 #include "mexutil.h"
 
+/* Keypoint struct information */
+#define COORDS_NAME "coords"
+#define SCALE_NAME "scale"
+#define ORI_NAME "ori"
+#define OCTAVE_NAME "octave"
+#define LEVEL_NAME "level"
+const char *fieldNames[] = {
+        COORDS_NAME,
+        SCALE_NAME,
+        ORI_NAME,
+        OCTAVE_NAME,
+        LEVEL_NAME 
+};
+const mwSize kpNDims = 1;
+const int kpNFields = sizeof(fieldNames) / sizeof(char *);
+
+/* Entry point. */
 SIFT3D sift3d;
 
 /* Error message tag */
@@ -153,6 +170,79 @@ mxArray *mat2mx(const Mat_rm *const mat) {
 mat2mx_quit:
         mxDestroyArray(mx);
         return NULL;
+}
+
+/* Convert from a Keypoint_store to an array of MATLAB keypoint structs. 
+ * Returns the array of keypoints, or NULL on failure. */
+mxArray *kp2mx(const Keypoint_store *const kp) {
+
+        mxArray *mxKp;
+        int i, coordsNum, scaleNum, oriNum, octaveNum, levelNum;
+
+        const mwSize numKp = (mwSize) kp->slab.num;
+
+	// Make an array of structs for the output 
+	mxKp = mxCreateStructArray(kpNDims, &numKp, kpNFields, 
+                                            fieldNames);
+        if (mxKp == NULL)
+                return NULL;
+
+        // Get the field indices in the structs
+        if ((coordsNum = mxGetFieldNumber(mxKp, COORDS_NAME)) < 0 ||
+                (scaleNum = mxGetFieldNumber(mxKp, SCALE_NAME)) < 0 ||
+                (oriNum = mxGetFieldNumber(mxKp, ORI_NAME)) < 0 ||
+                (octaveNum = mxGetFieldNumber(mxKp, OCTAVE_NAME)) < 0 || 
+                (levelNum = mxGetFieldNumber(mxKp, LEVEL_NAME)) < 0)
+                return NULL;
+
+        // Write the keypoints to the output
+        for (i = 0; i < kp->slab.num; i++) {
+
+                mxArray *mxCoords, *mxScale, *mxOri, *mxOctave, *mxLevel;
+                double *coords;
+
+                const Keypoint *const key = kp->buf + i;
+
+                // Initialize the coordinate array
+                if ((mxCoords = 
+                        mxCreateDoubleMatrix(1, IM_NDIMS, mxREAL)) == NULL)
+                        return NULL;
+
+                // Copy the coordinates 
+                coords = mxGetData(mxCoords); 
+                coords[0] = key->xd;
+                coords[1] = key->yd;
+                coords[2] = key->zd;
+
+                // Copy the transposed orientation
+                if ((mxOri = mat2mx(&key->R)) == NULL)
+                        return NULL;
+
+                // Copy the scale 
+                mxScale = mxCreateDoubleScalar(key->sd);
+
+                // Copy the octave index
+                mxOctave = mxCreateDoubleScalar((double) key->o); 
+
+                // Copy the level index
+                mxLevel = mxCreateDoubleScalar((double) key->s);
+                
+                // Set the struct fields
+                mxSetFieldByNumber(mxKp, i, coordsNum, mxCoords);
+                mxSetFieldByNumber(mxKp, i, scaleNum, mxScale);
+                mxSetFieldByNumber(mxKp, i, oriNum, mxOri);
+                mxSetFieldByNumber(mxKp, i, octaveNum, mxOctave);
+                mxSetFieldByNumber(mxKp, i, levelNum, mxLevel);
+        }
+
+        return mxKp;
+}
+
+/* Convert an array of MATLAB keypoint structs to a Keypoint_store. */
+int mx2kp(mxArray *mx, Keypoint_store *const kp) {
+
+        //TODO
+
 }
 
 /* Wrapper for SIFT3D_detect_keypoints. */
