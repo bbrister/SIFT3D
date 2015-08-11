@@ -250,3 +250,10 @@ int mex_SIFT3D_detect_keypoints(const Image *const im,
         Keypoint_store *const kp) {
         return SIFT3D_detect_keypoints(&sift3d, im, kp);
 }
+
+/* Wrapper for SIFT3D_extract_descriptors. */
+int mex_SIFT3D_extract_descriptors(const Image *const im, 
+        const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc, 
+        const int useGpyr) {
+        return SIFT3D_extract_desciptors(&sift3d, im, &kp, &desc, useGpyr);
+}
