@@ -23,11 +23,15 @@ mxArray *mat2mx(const Mat_rm *const mat);
 
 mxArray *kp2mx(const Keypoint_store *const);
 
+int mx2kp(const mxArray *const mx, Keypoint_store *const);
+
 int mex_SIFT3D_detect_keypoints(const Image *const im, 
         Keypoint_store *const kp);
 
 int mex_SIFT3D_extract_descriptors(const Image *const im, 
         const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc, 
         const int useGpyr);
+
+int isDouble(const mxArray *const mx);
 
 #endif

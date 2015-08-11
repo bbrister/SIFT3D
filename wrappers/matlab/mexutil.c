@@ -78,7 +78,7 @@ int mx2im(const mxArray *const mx, Image *const im) {
 
         // Verify inputs
 	if (mxGetNumberOfDimensions(mx) != IM_NDIMS ||
-                !mxIsSingle(mx))
+                !mxIsSingle(mx) || mxIsComplex(mx))
                 return SIFT3D_FAILURE;
 
         // Copy the dimensions
@@ -238,12 +238,67 @@ mxArray *kp2mx(const Keypoint_store *const kp) {
         return mxKp;
 }
 
-/* Convert an array of MATLAB keypoint structs to a Keypoint_store. */
-int mx2kp(mxArray *mx, Keypoint_store *const kp) {
+#if 0
+/* Convert an array of MATLAB keypoint structs to a Keypoint_store. mx must be
+ * a vector, and each struct element must have type double. */
+int mx2kp(const mxArray *const mx, Keypoint_store *const) {
 
-        //TODO
+        mwSize *mxDims;
+        mwSize ndims, numKp, kpRows, kpCols;
+        int i, coordsNum, scaleNum, oriNum, octaveNum, levelNum;
 
+        // Parse the input dimensions
+        ndims = mxGetNumberOfDimensions(mx);
+        mxDims = mxGetDimensions(mx);
+        kpRows = mxDims[0];
+        switch(ndims) {
+        case 1:
+                numKp = kpRows;
+        case 2:
+                kpCols = mxDims[1];
+                if (kpRows == 1)
+                        numKp = kpCols; 
+                else if (kpCols == 1)
+                        numKp = kpRows;
+                else
+                        return SIFT3D_FAILURE; 
+        default:
+                return SIFT3D_FAILURE;
+        }
+
+        // Verify the struct size 
+        if (!mxIsStruct(mx) || mxGetNumberOfFields(mx) != kpNFields)
+                return SIFT3D_FAILURE;
+
+        // Get the field indices
+        if ((coordsNum = mxGetFieldNumber(mxKp, COORDS_NAME)) < 0 ||
+                (scaleNum = mxGetFieldNumber(mxKp, SCALE_NAME)) < 0 ||
+                (oriNum = mxGetFieldNumber(mxKp, ORI_NAME)) < 0 ||
+                (octaveNum = mxGetFieldNumber(mxKp, OCTAVE_NAME)) < 0 || 
+                (levelNum = mxGetFieldNumber(mxKp, LEVEL_NAME)) < 0)
+                return SIFT3D_FAILURE;
+
+        // Verify each struct element
+        for (i = 0; i < kpNFields; i++) {
+
+                mxArray *mxCoords, *mxScale, *mxOri, *mxOctave, *mxLevel;
+
+                // Check for type double
+                if (!isDouble(mxCoords) ||
+                        !isDouble(mxScale) ||
+                        !isDouble(mxOri) ||
+                        !isDouble(mxOctave) ||
+                        !isDouble(mxLevel))
+                        return SIFT3D_FAILURE;
+
+                // Check the dimensions
+        }
+
+        // Copy the data
+
+        return SIFT3D_SUCCESS;
 }
+#endif
 
 /* Wrapper for SIFT3D_detect_keypoints. */
 int mex_SIFT3D_detect_keypoints(const Image *const im, 
@@ -255,5 +310,11 @@ int mex_SIFT3D_detect_keypoints(const Image *const im,
 int mex_SIFT3D_extract_descriptors(const Image *const im, 
         const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc, 
         const int useGpyr) {
-        return SIFT3D_extract_desciptors(&sift3d, im, &kp, &desc, useGpyr);
+        return SIFT3D_extract_descriptors(&sift3d, im, kp, desc, useGpyr);
+}
+
+/* Returns SIFT3D_TRUE if the input is a real-valued double-precision floating
+ * point array, aka "double" in C. */
+int isDouble(const mxArray *const mx) {
+        return mxIsDouble(mx) && !mxIsComplex(mx);
 }
