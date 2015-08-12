@@ -129,7 +129,7 @@ int mx2im(const mxArray *const mx, Image *const im) {
 
                 const mwIndex subs[] = {x, y, z};
 
-                idx = mxCalcSingleSubscript(mx, *mxDims, subs);
+                idx = mxCalcSingleSubscript(mx, IM_NDIMS, subs);
                 SIFT3D_IM_GET_VOX(im, x, y, z, 0) = mxData[idx];
 
         SIFT3D_IM_LOOP_END
@@ -215,7 +215,7 @@ int mx2mat(const mxArray *const mx, Mat_rm *const mat) {
 \
                 const mwIndex subs[] = {i, j}; \
 \
-                idx = mxCalcSingleSubscript(mx, *mxDims, subs); \
+                idx = mxCalcSingleSubscript(mx, 2, subs); \
                 SIFT3D_MAT_RM_GET(mat, i, j, type) = (type) data[idx]; \
 \
         SIFT3D_MAT_RM_LOOP_END
