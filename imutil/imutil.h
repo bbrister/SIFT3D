@@ -28,11 +28,12 @@ int init_cl(CL_data *user_cl_data, const char *platform_name,
 int convert_Mat_rm(const Mat_rm *const in, Mat_rm *const out, 
         const data_type type);
 
-int init_Mat_rm(Mat_rm *mat, int num_rows, int num_cols,
-				data_type type, int set_zero);
+int init_Mat_rm(Mat_rm *const mat, const int num_rows, const int num_cols,
+                const data_type type, const int set_zero);
 
-int init_Mat_rm_p(Mat_rm *mat, const void *p, int num_rows, 
-				  int num_cols,	data_type type, int set_zero);
+int init_Mat_rm_p(Mat_rm *const mat, const void *const p, const int num_rows, 
+                  const int num_cols, const data_type type, 
+                  const int set_zero);
 
 void sprint_type_Mat_rm(const Mat_rm *const mat, char *const str);
 

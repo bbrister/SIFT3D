@@ -115,11 +115,12 @@ typedef struct _Mat_rm {
 		float  *data_float;
 		int *data_int;
 	} u;
-	data_type type;
-	int num_cols;
-	int num_rows;	
-	size_t numel;		// number of elements
-	size_t size;		// size of the buffer, in bytes
+	size_t numel;		// Number of elements
+	size_t size;		// Size of the buffer, in bytes
+	int num_cols;           // Number of rows
+	int num_rows;           // Number of columns	
+        int static_mem;         // Flag for statically-allocated memory
+	data_type type;         // DOUBLE, FLOAT, or INT
 
 } Mat_rm;
 
@@ -228,7 +229,7 @@ typedef struct _Slab {
 
 	void *buf;			// Buffer
 	size_t num;			// Number of elements currently in buffer
-	size_t buf_length;	// Maximum number of elements in buffer
+	size_t buf_size;	        // Buffer capactiy, in bytes
 
 } Slab;
 

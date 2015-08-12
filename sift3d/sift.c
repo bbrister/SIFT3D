@@ -373,6 +373,25 @@ void init_Keypoint_store(Keypoint_store *const kp) {
 	kp->buf = (Keypoint *) kp->slab.buf;
 }
 
+/* Copy one Keypoint struct into another. */
+int copy_Keypoint(const Keypoint *const src, Keypoint *const dst) {
+
+        // Copy the shallow data 
+        dst->xd = src->xd;
+        dst->yd = src->yd;
+        dst->zd = src->zd;
+        dst->sd = src->sd;
+        dst->sd_rel = src->sd_rel;
+        dst->xi = src->xi;
+        dst->yi = src->yi;
+        dst->zi = src->zi;
+        dst->o = src->o;
+        dst->s = src->s;
+
+        // Copy the orienation matrix
+        return copy_Mat_rm(&src->R, &dst->R);
+}
+
 /* Free all memory associated with a Keypoint_store. kp cannot be
  * used after calling this function, unless re-initialized. */
 void cleanup_Keypoint_store(Keypoint_store *const kp) {
@@ -1495,7 +1514,8 @@ static int assign_orientations(SIFT3D *sift3d,
                 const double sigma = ori_sig_fctr * key->sd_rel;
 
 		// Initialize the orientation matrix
-		if (init_Mat_rm_p(R, key->r_data, 3, 3, FLOAT, SIFT3D_FALSE))
+		if (init_Mat_rm_p(R, key->r_data, IM_NDIMS, IM_NDIMS, FLOAT, 
+                        SIFT3D_FALSE))
 			return SIFT3D_FAILURE;
 
 		// Compute dominant orientations
@@ -1512,7 +1532,8 @@ static int assign_orientations(SIFT3D *sift3d,
 		}
 		
 		// Rebuild the Keypoint buffer in place
-		*kp_pos++ = *key; 
+                copy_Keypoint(key, kp_pos);
+                kp_pos++;
 	}
 
 	// Release unneeded keypoint memory

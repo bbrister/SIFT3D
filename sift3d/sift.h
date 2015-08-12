@@ -14,6 +14,8 @@
 
 void init_Keypoint_store(Keypoint_store *const kp);
 
+int copy_Keypoint(const Keypoint *const src, Keypoint *const dst);
+
 void cleanup_Keypoint_store(Keypoint_store *const kp);
 
 void init_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *const desc);

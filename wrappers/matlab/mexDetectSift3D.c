@@ -38,20 +38,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         // Assign the inputs
         mxIm = prhs[0];
 
-        // Verify that the image is of type float
-	if (!mxIsSingle(mxIm) || mxIsComplex(mxIm)) 
-                err_msgu("main:imType", "im must have type single");
-
-	// Verify the number of image dimensions
-	imNDims = mxGetNumberOfDimensions(mxIm);
-	if (imNDims != IM_NDIMS) {
-
-                char msg[1024];
-
-                sprintf(msg, "im must have %d dimensions", IM_NDIMS);
-                err_msgu("main:imType", msg);
-        }
-
         // Initialize intermediates
         init_Keypoint_store(&kp);
         init_im(&im);

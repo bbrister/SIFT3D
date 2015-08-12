@@ -512,56 +512,52 @@ int convert_Mat_rm(const Mat_rm *const in, Mat_rm *const out,
 }
 
 /* Shortcut function to initalize a matrix. data_type is the type
- * of matrix elements. If set_zero == TURE, sets all elements to 
+ * of matrix elements. If set_zero == TRUE, sets all elements to 
  * zero. */ 
-int init_Mat_rm(Mat_rm *mat, int num_rows, int num_cols,
-                data_type type, int set_zero) {
+int init_Mat_rm(Mat_rm *const mat, const int num_rows, const int num_cols,
+                const data_type type, const int set_zero) {
 
-    switch (type) {
-        case DOUBLE:
-            mat->type = DOUBLE;
-            break;
-        case FLOAT:
-            mat->type = FLOAT;
-            break;
-        case INT:
-            mat->type = INT;
-            break;
-        default:
-            return SIFT3D_FAILURE;
-    }
+        mat->type = type;
+        mat->num_rows = num_rows;
+        mat->num_cols = num_cols;
+        mat->u.data_double = NULL;
+        mat->size = 0;
+        mat->static_mem = SIFT3D_FALSE;
 
-    mat->num_rows = num_rows;
-    mat->num_cols = num_cols;
-    mat->u.data_double = NULL;
-
-    if (resize_Mat_rm(mat))
-        return SIFT3D_FAILURE;
+        if (resize_Mat_rm(mat))
+                return SIFT3D_FAILURE;
+        
+        if (set_zero && zero_Mat_rm(mat))
+                return SIFT3D_FAILURE;
     
-    if (set_zero && zero_Mat_rm(mat))
-        return SIFT3D_FAILURE;
-    
-    return SIFT3D_SUCCESS;
+        return SIFT3D_SUCCESS;
 }
-/* As above, but aliases data memory with pointer p. */ 
-int init_Mat_rm_p(Mat_rm *mat, const void *p, int num_rows, 
-                  int num_cols, data_type type, int set_zero) {
 
-    // Perform normal initialization
-    if (init_Mat_rm(mat, num_rows, num_cols, type, set_zero))
-        return SIFT3D_FAILURE;
+/* As above, but aliases data memory with pointer p. The flag mat->static_mem
+ * is set, and the matrix does not need to be freed with cleanup_Mat_rm. But, 
+ * an error will be thrown if the user attempts to resize the memory. That is,
+ * resize_Mat_rm will only return success if the size of the matrix does not
+ * change. */ 
+int init_Mat_rm_p(Mat_rm *const mat, const void *const p, const int num_rows, 
+                  const int num_cols, const data_type type, 
+                  const int set_zero) {
 
-    // Clean up memory
-    cleanup_Mat_rm(mat);
+        // Perform normal initialization
+        if (init_Mat_rm(mat, num_rows, num_cols, type, set_zero))
+                return SIFT3D_FAILURE;
 
-    // Alias with provided memory
-    mat->u.data_double = (double *) p;
+        // Clean up any existing memory
+        cleanup_Mat_rm(mat);
 
-    // Re-zero
-    if (set_zero && zero_Mat_rm(mat))
-        return SIFT3D_FAILURE;
+        // Alias with provided memory and set the static flag
+        mat->u.data_double = (double *) p;
+        mat->static_mem = SIFT3D_TRUE;
 
-    return SIFT3D_SUCCESS;
+        // Optionally set to zero 
+        if (set_zero && zero_Mat_rm(mat))
+                return SIFT3D_FAILURE;
+
+        return SIFT3D_SUCCESS;
 }
 
 /* Prints the type of mat into the string str. */
@@ -716,22 +712,14 @@ int resize_Mat_rm(Mat_rm *mat) {
 
     size_t type_size, total_size;
 
+    const int num_rows = mat->num_rows;
+    const int num_cols = mat->num_cols;
     double **const data = &mat->u.data_double;
-    const size_t numel = mat->num_rows * mat->num_cols;
+    const size_t numel = num_rows * num_cols;
+    const data_type type = mat->type;
 
-    // Check for the trivial case
-    if (numel == 0) {
-
-        if (*data != NULL)
-        free(*data);
-
-        *data = NULL;
-        mat->numel = 0;
-        mat->size = 0;
-        return SIFT3D_SUCCESS;
-    }
-
-    switch (mat->type) {
+    // Get the size of the underyling datatype
+    switch (type) {
         case DOUBLE:
             type_size = sizeof(double);
             break;
@@ -743,14 +731,29 @@ int resize_Mat_rm(Mat_rm *mat) {
             break;
         default:
 #ifndef NDEBUG
-            puts("resize_Mat_rm: unknown type! \n");
+            fputs("resize_Mat_rm: unknown type! \n", stderr);
 #endif
             return SIFT3D_FAILURE;
     }
 
+    // Calculate the new size
     total_size = type_size * numel;
-    *data = (double *) realloc(*data, numel * type_size);
 
+    // Do nothing if the size has not changed
+    if (total_size == mat->size)
+        return SIFT3D_SUCCESS;
+
+    // Check for static reallocation
+    if (mat->static_mem) {
+        fputs("resize_Mat_rm: illegal re-allocation of static matrix \n", 
+                stderr);
+        return SIFT3D_FAILURE;
+    }
+
+    // Re-allocate the memory
+    *data = (double *) realloc(*data, total_size);
+
+    // Save the data
     mat->numel = numel;
     mat->size = total_size;
     return *data == NULL ? SIFT3D_FAILURE : SIFT3D_SUCCESS;
@@ -782,12 +785,15 @@ int zero_Mat_rm(Mat_rm *mat) {
     return SIFT3D_SUCCESS;
 }
 
-/* De-allocate the memory for a Mat_rm struct. */
+/* De-allocate the memory for a Mat_rm struct, unless it was initialized in
+ * static mode. */
 void cleanup_Mat_rm(Mat_rm *mat) {
+
     if (mat->u.data_double == NULL)
         return;
 
-    free(mat->u.data_double);
+    if (!mat->static_mem)
+        free(mat->u.data_double);
 }
 
 /* Make a grid with the specified spacing between lines and line width. 
@@ -1366,7 +1372,7 @@ int im_resize(Image *im) {
                 return SIFT3D_FAILURE;
         }
 
-    // Check for the trivial case
+    // Do nothing if the size has not changed
     if (im->size == size)
         return SIFT3D_SUCCESS;
 
@@ -3527,7 +3533,7 @@ void cleanup_Pyramid(Pyramid *const pyr) {
 
 /* Initialize a Slab for first use */
 void init_Slab(Slab *const slab) {
-    slab->buf_length = slab->num = 0;
+    slab->buf_size = slab->num = 0;
     slab->buf = NULL;
 }
 

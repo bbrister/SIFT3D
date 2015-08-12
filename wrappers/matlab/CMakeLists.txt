@@ -18,12 +18,17 @@ matlab_add_mex (NAME mexDetectSift3D
         LINK_TO mexutil meximutil -lmwlapack -lmwblas
 )
 
+matlab_add_mex (NAME mexExtractSift3D
+        SRC mexExtractSift3D.c
+        LINK_TO mexutil meximutil -lmwlapack -lmwblas
+)
+
 # Copy the Matlab files
-file (COPY setupSift3D.m detectSift3D.m 
+file (COPY setupSift3D.m detectSift3D.m extractSift3D.m
         DESTINATION ${TOOLBOX_PATH})
 
 # Send all files to the toolbox subdirectory 
-set_target_properties (mexDetectSift3D
+set_target_properties (mexDetectSift3D mexExtractSift3D
         PROPERTIES
         ARCHIVE_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
         LIBRARY_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
