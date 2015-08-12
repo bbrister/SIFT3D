@@ -36,7 +36,7 @@
 /* Default SIFT3D parameters. These may be overriden by 
  * the calling appropriate functions. */
 const int first_octave_default = 0; // Starting octave index
-const double peak_thresh_default = 0.03; // DoG peak threshold
+const double peak_thresh_default = 0.1; // DoG peak threshold
 const int num_kp_levels_default = 3; // Number of levels per octave in which keypoints are found
 const double corner_thresh_default = 0.5; // Minimum corner score
 const double sigma_n_default = 1.15; // Nominal scale of input data
@@ -630,27 +630,28 @@ void print_opts_SIFT3D(void) {
 
         printf("SIFT3D Options: \n"
                " --%s [value] \n"
-               "    The first octave of the pyramid. Must be an integer. "
-               "(default: %d) \n"
+               "    The first octave of the pyramid. Must be an integer. \n"
+               "        (default: %d) \n"
                " --%s [value] \n"
-               "    The smallest allowed absolute DoG value, on the interval "
-               "(0, inf). (default: %.2f) \n"
+               "    The smallest allowed absolute DoG value, as a fraction \n"
+               "        of the largest. Must be on the interval (0, 1]. \n"
+               "        (default: %.2f) \n" 
                " --%s [value] \n"
-               "    The smallest allowed corner score, on the interval [0, 1]."
-               " (default: %.2f) \n"
+               "    The smallest allowed corner score, on the interval \n"
+               "        [0, 1]. (default: %.2f) \n"
                " --%s [value] \n"
-               "    The number of octaves to process. Must be a positive "
-               "integer. (default: process as many as we can) \n"
+               "    The number of octaves to process. Must be a positive \n"
+               "        integer. (default: process as many as we can) \n"
                " --%s [value] \n"
-               "    The number of pyramid levels per octave in which "
-               "keypoints are found. Must be a positive integer. "
-               "(default: %d) \n"
+               "    The number of pyramid levels per octave in which \n"
+               "        keypoints are found. Must be a positive integer. \n"
+               "        (default: %d) \n"
                " --%s [value] \n"
-               "    The nominal scale parameter of the input data, on the "
-               "interval (0, inf). (default: %.2f) \n"
+               "    The nominal scale parameter of the input data, on the \n"
+               "        interval (0, inf). (default: %.2f) \n"
                " --%s [value] \n"
-               "    The scale parameter of the first level of octave 0, on "
-               "the interval (0, inf). (default: %.2f) \n",
+               "    The scale parameter of the first level of octave 0, on \n"
+               "        the interval (0, inf). (default: %.2f) \n",
                opt_first_octave, first_octave_default,
                opt_peak_thresh, peak_thresh_default,
                opt_corner_thresh, corner_thresh_default,
@@ -1015,8 +1016,7 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 	kp->ny = cur->ny;
 	kp->nz = cur->nz;
 
-#ifdef CUBOID_EXTREMA
-#define CMP_NEIGHBORS(im, x, y, z, CMP, IGNORESELF, val) ( \
+#define CMP_CUBE(im, x, y, z, CMP, IGNORESELF, val) ( \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),     (z) - 1, 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y),     (z) - 1, 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y),     (z) - 1, 0) && \
@@ -1045,16 +1045,27 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) - 1, (z) + 1, 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y) + 1, (z) + 1, 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) + 1, (z) + 1, 0) )
+#ifdef CUBOID_EXTREMA
+#define CMP_PREV(im, x, y, z, CMP, val) \
+        CMP_CUBE(im, x, y, z, CMP, SIFT3D_FALSE, val)
+#define CMP_CUR(im, x, y, z, CMP, val) \
+        CMP_CUBE(im, x, y, z, CMP, SIFT3D_TRUE, val)
+#define CMP_NEXT \
+        CMP_CUBE(im, x, y, z, CMP, SIFT3D_FALSE, val)
 #else
-#define CMP_NEIGHBORS(im, x, y, z, CMP, IGNORESELF, val) ( \
+#define CMP_PREV(im, x, y, z, CMP, val) ( \
+        (val) CMP SIFT3D_IM_GET_VOX( (im), (x), (y), (z), 0) \
+)
+#define CMP_CUR(im, x, y, z, CMP, val) ( \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y),     (z), 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y),     (z), 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) + 1, (z), 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) - 1, (z), 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),     (z) - 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),     (z) + 1, 0) && \
-	((val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),    (z), 0) || \
-	    IGNORESELF) )
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),     (z) + 1, 0) \
+)
+#define CMP_NEXT(im, x, y, z, CMP, val) \
+        CMP_PREV(im, x, y, z, CMP, val)
 #endif
 
 	num = 0;
@@ -1087,13 +1098,13 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 			// Apply the peak threshold
 			if ((pcur > peak_thresh || pcur < -peak_thresh) && ((
 				// Compare to the neighbors
-				CMP_NEIGHBORS(prev, x, y, z, >, SIFT3D_FALSE, pcur) &&
-				CMP_NEIGHBORS(cur, x, y, z, >, SIFT3D_TRUE, pcur) &&
-				CMP_NEIGHBORS(next, x, y, z, >, SIFT3D_FALSE, pcur)
+				CMP_PREV(prev, x, y, z, >, pcur) &&
+				CMP_CUR(cur, x, y, z, >, pcur) &&
+				CMP_NEXT(next, x, y, z, >, pcur)
 				) || (
-				CMP_NEIGHBORS(prev, x, y, z, <, SIFT3D_FALSE, pcur) &&
-				CMP_NEIGHBORS(cur, x, y, z, <, SIFT3D_TRUE, pcur) &&
-				CMP_NEIGHBORS(next, x, y, z, <, SIFT3D_FALSE, pcur))))
+				CMP_PREV(prev, x, y, z, <, pcur) &&
+				CMP_CUR(cur, x, y, z, <, pcur) &&
+				CMP_NEXT(next, x, y, z, <, pcur))))
 				{
 					// Add a keypoint candidate
 					num++;
