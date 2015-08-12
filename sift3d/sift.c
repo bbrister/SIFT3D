@@ -1090,8 +1090,7 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 				{
 					// Add a keypoint candidate
 					num++;
-					SIFT3D_RESIZE_KP_STORE(kp, num, 
-                                                sizeof(Keypoint));
+					SIFT3D_RESIZE_KP_STORE(kp, num);
 					key = kp->buf + num - 1;
 					key->o = o;
 					key->s = s;
@@ -1518,7 +1517,7 @@ static int assign_orientations(SIFT3D *sift3d,
 
 	// Release unneeded keypoint memory
 	num = kp_pos - kp->buf;
-	SIFT3D_RESIZE_KP_STORE(kp, num, sizeof(Keypoint));
+	SIFT3D_RESIZE_KP_STORE(kp, num);
 
 	return SIFT3D_SUCCESS;
 }
