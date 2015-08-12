@@ -37,8 +37,8 @@ int init_Mat_rm_p(Mat_rm *const mat, const void *const p, const int num_rows,
 
 void sprint_type_Mat_rm(const Mat_rm *const mat, char *const str);
 
-int concat_h_Mat_rm(const Mat_rm *const left, const Mat_rm *const right,
-        Mat_rm *const dst);
+int concat_Mat_rm(const Mat_rm * const src1, const Mat_rm * const src2,
+		    Mat_rm * const dst, const int dim);
 
 int set_Mat_rm_zero(Mat_rm *mat);
 
@@ -113,7 +113,7 @@ int write_nii(const char *path, Image *im);
 
 int write_Mat_rm(const char *path, const Mat_rm *const mat);
 
-int init_im_first_time(Image *im, const int nx, const int ny, const int nz,
+int init_im_with_dims(Image *im, const int nx, const int ny, const int nz,
                         const int nc);
 
 int im_load_cl(Image *im, int blocking);
@@ -182,7 +182,7 @@ void init_Pyramid(Pyramid *const pyr);
 
 int copy_Pyramid(const Pyramid *const src, Pyramid *const dst);
 
-int resize_Pyramid(Pyramid *pyr, Image *im);
+int resize_Pyramid(const Image *const im, Pyramid *const pyr);
 
 void cleanup_Pyramid(Pyramid *const pyr);
 

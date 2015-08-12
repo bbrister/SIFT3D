@@ -287,7 +287,7 @@ int main(int argc, char *argv[]) {
                 init_Mat_rm(&matches, 0, 0, DOUBLE, SIFT3D_FALSE);
 
                 // Form a combined matrix for both sets of matches
-                if (concat_h_Mat_rm(&match_src, &match_ref, &matches)) {
+                if (concat_Mat_rm(&match_src, &match_ref, &matches, 1)) {
                         err_msgu("Failed to concatenate the matches.");
                         return 1;
                 }

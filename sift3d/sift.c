@@ -36,7 +36,7 @@
 /* Default SIFT3D parameters. These may be overriden by 
  * the calling appropriate functions. */
 const int first_octave_default = 0; // Starting octave index
-const double peak_thresh_default = 0.03; // DoG peak threshold
+const double peak_thresh_default = 0.1; // DoG peak threshold
 const int num_kp_levels_default = 3; // Number of levels per octave in which keypoints are found
 const double corner_thresh_default = 0.5; // Minimum corner score
 const double sigma_n_default = 1.15; // Nominal scale of input data
@@ -649,27 +649,28 @@ void print_opts_SIFT3D(void) {
 
         printf("SIFT3D Options: \n"
                " --%s [value] \n"
-               "    The first octave of the pyramid. Must be an integer. "
-               "(default: %d) \n"
+               "    The first octave of the pyramid. Must be an integer. \n"
+               "        (default: %d) \n"
                " --%s [value] \n"
-               "    The smallest allowed absolute DoG value, on the interval "
-               "(0, inf). (default: %.2f) \n"
+               "    The smallest allowed absolute DoG value, as a fraction \n"
+               "        of the largest. Must be on the interval (0, 1]. \n"
+               "        (default: %.2f) \n" 
                " --%s [value] \n"
-               "    The smallest allowed corner score, on the interval [0, 1]."
-               " (default: %.2f) \n"
+               "    The smallest allowed corner score, on the interval \n"
+               "        [0, 1]. (default: %.2f) \n"
                " --%s [value] \n"
-               "    The number of octaves to process. Must be a positive "
-               "integer. (default: process as many as we can) \n"
+               "    The number of octaves to process. Must be a positive \n"
+               "        integer. (default: process as many as we can) \n"
                " --%s [value] \n"
-               "    The number of pyramid levels per octave in which "
-               "keypoints are found. Must be a positive integer. "
-               "(default: %d) \n"
+               "    The number of pyramid levels per octave in which \n"
+               "        keypoints are found. Must be a positive integer. \n"
+               "        (default: %d) \n"
                " --%s [value] \n"
-               "    The nominal scale parameter of the input data, on the "
-               "interval (0, inf). (default: %.2f) \n"
+               "    The nominal scale parameter of the input data, on the \n"
+               "        interval (0, inf). (default: %.2f) \n"
                " --%s [value] \n"
-               "    The scale parameter of the first level of octave 0, on "
-               "the interval (0, inf). (default: %.2f) \n",
+               "    The scale parameter of the first level of octave 0, on \n"
+               "        the interval (0, inf). (default: %.2f) \n",
                opt_first_octave, first_octave_default,
                opt_peak_thresh, peak_thresh_default,
                opt_corner_thresh, corner_thresh_default,
@@ -899,10 +900,17 @@ static int resize_SIFT3D(SIFT3D *const sift3d) {
 	// Compute the number of octaves, if not specified by user
 	if ((num_octaves = sift3d->gpyr.num_octaves) == -1) {
 		last_octave = (int) log2((double) SIFT3D_MIN(
-                        // The minimum size is 8 in any dimension
-                        SIFT3D_MIN(im->nx, im->ny), im->nz)) - 3 - first_octave;
+                // The minimum size is 8 in any dimension
+                SIFT3D_MIN(im->nx, im->ny), im->nz)) - 3 - first_octave;
 
 		num_octaves = last_octave - first_octave + 1;
+
+                if (num_octaves < 1) {
+                        fputs("resize_SIFT3D: input image is too small: \n"
+                              "must have at least 8 voxels in each dimension",
+                              stderr);
+                        return SIFT3D_FAILURE;
+                }
 	} else {
 		// Number of octaves specified by user: compute last octave
 		last_octave = num_octaves + first_octave - 1;
@@ -913,8 +921,8 @@ static int resize_SIFT3D(SIFT3D *const sift3d) {
 	sift3d->dog.num_octaves = sift3d->gpyr.num_octaves = num_octaves;
 
 	// Resize the pyramid
-	if (resize_Pyramid(&sift3d->gpyr, sift3d->im) ||
-		resize_Pyramid(&sift3d->dog, sift3d->im))
+	if (resize_Pyramid(sift3d->im, &sift3d->gpyr) ||
+		resize_Pyramid(sift3d->im, &sift3d->dog))
 		return SIFT3D_FAILURE;
 
 	// Compute the Gaussian filters
@@ -1027,8 +1035,7 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 	kp->ny = cur->ny;
 	kp->nz = cur->nz;
 
-#ifdef CUBOID_EXTREMA
-#define CMP_NEIGHBORS(im, x, y, z, CMP, IGNORESELF, val) ( \
+#define CMP_CUBE(im, x, y, z, CMP, IGNORESELF, val) ( \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),     (z) - 1, 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y),     (z) - 1, 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y),     (z) - 1, 0) && \
@@ -1057,16 +1064,27 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) - 1, (z) + 1, 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y) + 1, (z) + 1, 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y) + 1, (z) + 1, 0) )
+#ifdef CUBOID_EXTREMA
+#define CMP_PREV(im, x, y, z, CMP, val) \
+        CMP_CUBE(im, x, y, z, CMP, SIFT3D_FALSE, val)
+#define CMP_CUR(im, x, y, z, CMP, val) \
+        CMP_CUBE(im, x, y, z, CMP, SIFT3D_TRUE, val)
+#define CMP_NEXT \
+        CMP_CUBE(im, x, y, z, CMP, SIFT3D_FALSE, val)
 #else
-#define CMP_NEIGHBORS(im, x, y, z, CMP, IGNORESELF, val) ( \
+#define CMP_PREV(im, x, y, z, CMP, val) ( \
+        (val) CMP SIFT3D_IM_GET_VOX( (im), (x), (y), (z), 0) \
+)
+#define CMP_CUR(im, x, y, z, CMP, val) ( \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) + 1, (y),     (z), 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x) - 1, (y),     (z), 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) + 1, (z), 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y) - 1, (z), 0) && \
 	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),     (z) - 1, 0) && \
-	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),     (z) + 1, 0) && \
-	((val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),    (z), 0) || \
-	    IGNORESELF) )
+	(val) CMP SIFT3D_IM_GET_VOX( (im), (x),     (y),     (z) + 1, 0) \
+)
+#define CMP_NEXT(im, x, y, z, CMP, val) \
+        CMP_PREV(im, x, y, z, CMP, val)
 #endif
 
 	num = 0;
@@ -1099,13 +1117,13 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 			// Apply the peak threshold
 			if ((pcur > peak_thresh || pcur < -peak_thresh) && ((
 				// Compare to the neighbors
-				CMP_NEIGHBORS(prev, x, y, z, >, SIFT3D_FALSE, pcur) &&
-				CMP_NEIGHBORS(cur, x, y, z, >, SIFT3D_TRUE, pcur) &&
-				CMP_NEIGHBORS(next, x, y, z, >, SIFT3D_FALSE, pcur)
+				CMP_PREV(prev, x, y, z, >, pcur) &&
+				CMP_CUR(cur, x, y, z, >, pcur) &&
+				CMP_NEXT(next, x, y, z, >, pcur)
 				) || (
-				CMP_NEIGHBORS(prev, x, y, z, <, SIFT3D_FALSE, pcur) &&
-				CMP_NEIGHBORS(cur, x, y, z, <, SIFT3D_TRUE, pcur) &&
-				CMP_NEIGHBORS(next, x, y, z, <, SIFT3D_FALSE, pcur))))
+				CMP_PREV(prev, x, y, z, <, pcur) &&
+				CMP_CUR(cur, x, y, z, <, pcur) &&
+				CMP_NEXT(next, x, y, z, <, pcur))))
 				{
 					// Add a keypoint candidate
 					num++;
@@ -2620,11 +2638,12 @@ match_reject: ;
  */
 int draw_matches(const Image *const left, const Image *const right,
                  const Mat_rm *const keys_left, const Mat_rm *const keys_right,
-		 const Mat_rm *const match_left, const Mat_rm *const match_right,
-		 Image *const concat, Image *const keys, Image *const lines) {
+		 const Mat_rm *const match_left, 
+                 const Mat_rm *const match_right, Image *const concat, 
+                 Image *const keys, Image *const lines) {
 
         Image concat_temp, left_padded, right_padded;
-	Mat_rm keys_right_draw, match_right_draw;
+	Mat_rm keys_right_draw, keys_left_draw, keys_draw, match_right_draw;
 	int i;
 
         const double right_pad = (double) left->nx;
@@ -2665,16 +2684,18 @@ int draw_matches(const Image *const left, const Image *const right,
         init_im(&left_padded);
         init_im(&right_padded);
         if (init_Mat_rm(&keys_right_draw, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-	        init_Mat_rm(&match_right_draw, 0, 0, DOUBLE, SIFT3D_FALSE))
+	        init_Mat_rm(&match_right_draw, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+                init_Mat_rm(&keys_left_draw, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+                init_Mat_rm(&keys_draw, 0, 0, DOUBLE, SIFT3D_FALSE))
 	        return SIFT3D_FAILURE;
 
         // Pad the images to be the same in all dimensions but x
-	if (init_im_first_time(&right_padded, right->nx, ny_pad, nz_pad, 1) || 
-	        init_im_first_time(&left_padded, left->nx, ny_pad, nz_pad, 1) || 
+	if (init_im_with_dims(&right_padded, right->nx, ny_pad, nz_pad, 1) || 
+	        init_im_with_dims(&left_padded, left->nx, ny_pad, nz_pad, 1) ||
 	   	im_pad(right, &right_padded) || 
 	    	im_pad(left, &left_padded)) {
-			fprintf(stderr, "draw_matches: unable to pad images \n");
-                        return SIFT3D_FAILURE;
+                fprintf(stderr, "draw_matches: unable to pad images \n");
+                return SIFT3D_FAILURE;
 	}
 
 	// Draw a concatenated image
@@ -2687,8 +2708,9 @@ int draw_matches(const Image *const left, const Image *const right,
         // Optionally draw the keypoints
         if (keys != NULL) { 
 
-                // Convert input to double
-                if (convert_Mat_rm(keys_right, &keys_right_draw, DOUBLE))
+                // Convert inputs to double
+                if (convert_Mat_rm(keys_right, &keys_right_draw, DOUBLE) ||
+                        convert_Mat_rm(keys_left, &keys_left_draw, DOUBLE))
                         goto draw_matches_quit;
        
                 // Pad the x-coordinate 
@@ -2697,10 +2719,13 @@ int draw_matches(const Image *const left, const Image *const right,
                                 right_pad; 
                 }
 
+                // Concatenate the points
+                if (concat_Mat_rm(&keys_left_draw, &keys_right_draw,
+                        &keys_draw, 0))
+                        goto draw_matches_quit;
+
                 // Draw the points
-                if (draw_points(keys_left, concat_arg->dims, 1, keys) ||
-                        draw_points(&keys_right_draw, concat_arg->dims, 1, 
-                                keys))
+                if (draw_points(&keys_draw, concat_arg->dims, 1, keys))
                         goto draw_matches_quit;
         }
 
@@ -2718,7 +2743,7 @@ int draw_matches(const Image *const left, const Image *const right,
                 }
 
                 // Draw the lines
-                if (draw_lines(match_left, &match_right_draw, concat_arg->dims, 
+                if (draw_lines(match_left, &match_right_draw, concat_arg->dims,
                         lines))
                         goto draw_matches_quit;
         }
@@ -2728,6 +2753,8 @@ int draw_matches(const Image *const left, const Image *const right,
         im_free(&left_padded);
         im_free(&right_padded); 
         cleanup_Mat_rm(&keys_right_draw); 
+        cleanup_Mat_rm(&keys_left_draw); 
+        cleanup_Mat_rm(&keys_draw); 
         cleanup_Mat_rm(&match_right_draw); 
 	return SIFT3D_SUCCESS;
 
@@ -2736,6 +2763,8 @@ draw_matches_quit:
         im_free(&left_padded);
         im_free(&right_padded); 
         cleanup_Mat_rm(&keys_right_draw);
+        cleanup_Mat_rm(&keys_left_draw); 
+        cleanup_Mat_rm(&keys_draw); 
         cleanup_Mat_rm(&match_right_draw);
         return SIFT3D_FAILURE;
 }
