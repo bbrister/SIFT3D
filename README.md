@@ -26,14 +26,13 @@ This code requires the following external libraries:
 - [LAPACK](http://www.netlib.org/lapack/)
 - [nifticlib](http://sourceforge.net/projects/niftilib/files/nifticlib/)
 
-If the build system cannot find LAPACK, it will try to download and compile the source.
+LAPACK ships with Mac and is found in most Linux package managers.
 
 If you are using [ITK](http://www.itk.org), the build system will automatically find nifticlib there. Otherwise, you must install nifticlib yourself. (See the Ubuntu installation command below.)
 
 This code requires the following tools to compile:
 - [CMake](http://www.cmake.org)
 - A suitable C/C++ compiler, such as GCC or Clang/LLVM.
-- A suitable FORTRAN compiler, such as gfortran.
 
 On Ubuntu, as of version 14.04, the following command will install all dependencies and build tools:
 
