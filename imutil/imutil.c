@@ -1049,7 +1049,7 @@ int draw_lines(const Mat_rm * const points1, const Mat_rm * const points2,
  *
  * Supported formats:
  * - NIFTI */
-int read_nii(const char *path, Image * im)
+int read_nii(const char *path, Image *const im)
 {
 
 	nifti_image *nifti;
@@ -1159,7 +1159,7 @@ int read_nii(const char *path, Image * im)
 /* Write an Image to the specified path.
  * Supported formats:
  * -NIFTI (.nii, .nii.gz) */
-int write_nii(const char *path, Image * im)
+int write_nii(const char *path, const Image *const im)
 {
 
 	nifti_image *nifti;
