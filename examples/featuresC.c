@@ -43,7 +43,7 @@ int demo(void) {
         }
 
         // Read the image
-        if (read_nii(im_path, &im))
+        if (im_read(im_path, &im))
                 goto demo_quit;
 
         // Detect keypoints
@@ -74,7 +74,7 @@ int demo(void) {
                 goto demo_quit;
 
         // Write the drawn keypoints to a file
-        if (write_nii(draw_path, &draw))
+        if (im_write(draw_path, &draw))
                 goto demo_quit;
         printf("Keypoints drawn in %s. \n", draw_path);
 

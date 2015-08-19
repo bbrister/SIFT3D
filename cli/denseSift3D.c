@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
         }
 
         /* Read the image */        
-        if (read_nii(in_path, &im)) {
+        if (im_read(in_path, &im)) {
                 
                 char msg[BUF_SIZE];
 
@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
                 strcat(out_name, marker + 1);
 
                 /* Write the channel */
-                if (write_nii(out_name, &chan)) {
+                if (im_write(out_name, &chan)) {
 
                         char msg[BUF_SIZE];
 

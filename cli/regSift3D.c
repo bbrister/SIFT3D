@@ -235,7 +235,7 @@ int main(int argc, char *argv[]) {
                 return 1;
 
         // Read the images
-        if (read_nii(src_path, &src)) {
+        if (im_read(src_path, &src)) {
 
                 char msg[1024];
 
@@ -244,7 +244,7 @@ int main(int argc, char *argv[]) {
                 err_msg(msg);
                 return 1;
         }
-        if (read_nii(ref_path, &ref)) {
+        if (im_read(ref_path, &ref)) {
 
                 char msg[1024];
 
@@ -330,7 +330,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 // Write the warped image
-                if (write_nii(warped_path, &warped)) {
+                if (im_write(warped_path, &warped)) {
 
                         char msg[1024];
 
@@ -383,7 +383,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 // Optionally write a concatenated image
-                if (concat_path != NULL && write_nii(concat_path, &concat)) {
+                if (concat_path != NULL && im_write(concat_path, &concat)) {
 
                         char msg[1024];
 
@@ -394,7 +394,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 // Optionally write the keypoints
-                if (keys_path != NULL && write_nii(keys_path, &keys)) {
+                if (keys_path != NULL && im_write(keys_path, &keys)) {
 
                         char msg[1024];
 
@@ -405,7 +405,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 // Optionally write the matches
-                if (lines_path != NULL && write_nii(lines_path, &lines)) {
+                if (lines_path != NULL && im_write(lines_path, &lines)) {
 
                         char msg[1024];
 

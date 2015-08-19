@@ -41,8 +41,8 @@ int demo(void) {
         }
 
         // Read the images
-        if (read_nii(src_path, &src) ||
-                read_nii(ref_path, &ref))
+        if (im_read(src_path, &src) ||
+                im_read(ref_path, &ref))
                 goto demo_quit;
 
         // Set the images
@@ -63,7 +63,7 @@ int demo(void) {
                 goto demo_quit;
 
         // Write the warped image to a file
-        if (write_nii(warped_path, &warped))
+        if (im_write(warped_path, &warped))
                 goto demo_quit;
 
         // Clean up

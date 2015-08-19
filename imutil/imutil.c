@@ -22,8 +22,9 @@
 #include <sys/types.h>
 #include <nifti1_io.h>
 #include "macros.h"
-#include "imutil.h"
 #include "types.h"
+#include "dicom.h"
+#include "imutil.h"
 
 /* zlib definitions */
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
@@ -52,6 +53,13 @@ const char bug_msg[] =
     "SIFT3D has encountered an unexpected error. We would appreciate it \n"
     "if you would report this issue at the following page: \n"
     "       https://github.com/bbrister/SIFT3D/issues \n";
+
+/* Supported file extensions */
+const char ext_analyze[] = "img";;
+const char ext_gz[] = "gz";
+const char ext_dcm[] = "dcm";
+const char ext_nii[] = "nii";
+const char ext_dir[] = "";
 
 /* Default parameters */
 const double min_inliers_default = 0.01;
@@ -182,6 +190,8 @@ static int convolve_sep_cl(const Image * const src, Image * const dst,
 static int convolve_sep_sym(const Image * const src, Image * const dst,
 			    const Sep_FIR_filter * const f, const int dim);
 static const char *get_file_ext(const char *name);
+static int read_nii(const char *path, Image *const im);
+static int write_nii(const char *path, const Image *const im);
 
 /* Unfinished public routines */
 int init_Tps(Tps * tps, int dim, int terms);
@@ -1040,8 +1050,67 @@ int draw_lines(const Mat_rm * const points1, const Mat_rm * const points2,
 	return SIFT3D_FAILURE;
 }
 
-/* Load a file into the specific Image object.
- * Prior to calling this function, use init_im(im)
+/* Detect the format of the supplied file name. */
+im_format im_get_format(const char *path) {
+
+        const char *ext;
+
+        // Get the file extension
+        ext = get_file_ext(path);
+
+        // Check the known types
+        if (!strcmp(ext, ext_analyze) || !strcmp(ext, ext_gz) ||
+                !strcmp(ext, ext_nii))
+                return NIFTI;
+
+        if (!strcmp(ext, ext_dcm))
+                return DICOM;
+
+        if (!strcmp(ext, ext_dir))
+                return DIRECTORY;
+
+        // The type was not recognized
+        return UNKNOWN;
+}
+
+/* Read an image from a file. The file extension must match one of the
+ * supported formats.
+ *
+ * Supported formats:
+ * - Analyze (.img, .img.gz)
+ * - DICOM (.dcm)
+ * - Directory of DICOM files
+ * - NIFTI-1 (.nii, .nii.gz)
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise.
+ */
+int im_read(const char *path, Image *const im) {
+
+        const char *ext;
+        im_format format;
+
+        // Get the file format and write the file
+        switch (im_get_format(path)) {
+        case ANALYZE:
+        case NIFTI:
+                return read_nii(path, im);
+        case DICOM:
+                return read_dcm(path, im);
+        case DIRECTORY:
+                return read_dcm_dir(path, im);
+        case UNKNOWN:
+        default:
+                fprintf(stderr, "im_read: unrecognized file extension "
+                        "from file %s \n", path);
+                return SIFT3D_FAILURE;
+        }
+
+        // Unreachable code
+        return SIFT3D_FAILURE;
+}
+
+/* Helper function to load a file into the specific Image object.
+ * Prior to calling this function, use init_im(im).
  * This function allocates memory.
  * 
  * Note: For performance, you can use this to resize
@@ -1049,7 +1118,7 @@ int draw_lines(const Mat_rm * const points1, const Mat_rm * const points2,
  *
  * Supported formats:
  * - NIFTI */
-int read_nii(const char *path, Image *const im)
+static int read_nii(const char *path, Image *const im)
 {
 
 	nifti_image *nifti;
@@ -1156,10 +1225,43 @@ int read_nii(const char *path, Image *const im)
 	return SIFT3D_FAILURE;
 }
 
-/* Write an Image to the specified path.
+/* Write an image to a file.
+ * 
+ * Supported formats:
+ * -DICOM (.dcm)
+ * -Directory of DICOM files
+ * -NIFTI (.nii, .nii.gz)
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise.
+ */
+int im_write(const char *path, const Image *const im) {
+
+        // Get the file format 
+        switch (im_get_format(path)) {
+        case ANALYZE:
+        case NIFTI:
+                return write_nii(path, im);
+        case DICOM:
+                return write_dcm(path, im);
+        case DIRECTORY:
+                return write_dcm_dir(path, im);
+        case UNKNOWN:
+        default:
+                // Otherwise, the file extension was not found
+                fprintf(stderr, "im_write: unrecognized file extension "
+                        "from file %s \n", path);
+
+                return SIFT3D_FAILURE;
+        }
+
+        // Unreachable code
+        return SIFT3D_FAILURE;
+}
+
+/* Helper function to write an Image to the specified path.
  * Supported formats:
  * -NIFTI (.nii, .nii.gz) */
-int write_nii(const char *path, const Image *const im)
+static int write_nii(const char *path, const Image *const im)
 {
 
 	nifti_image *nifti;
@@ -1231,7 +1333,6 @@ int write_Mat_rm(const char *path, const Mat_rm * const mat)
 	long int pos;
 	int i, j, compress;
 
-	const char *gz_ext = "gz";
 	const char *mode = "w";
 
 	// Validate and create the output directory
@@ -1242,7 +1343,7 @@ int write_Mat_rm(const char *path, const Mat_rm * const mat)
 	ext = get_file_ext(path);
 
 	// Check if we need to compress the file
-	compress = strcmp(ext, gz_ext) == 0;
+	compress = strcmp(ext, ext_gz) == 0;
 
 	// Open the file
 	if ((compress && (gz = gzopen(path, mode)) == NULL) ||

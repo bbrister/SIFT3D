@@ -86,6 +86,15 @@ extern "C" {
 #define HIST_NUMEL (NBINS_AZ * NBINS_PO)
 #endif
 
+/* Supported image file formats */
+typedef enum _im_format {
+        ANALYZE,
+        DICOM,
+        DIRECTORY,
+        NIFTI,
+        UNKNOWN
+} im_format;
+
 /* Possible data types for matrix elements */ 
 typedef enum _data_type {
 	DOUBLE,

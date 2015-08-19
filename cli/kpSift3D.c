@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
 	init_im(&im);
 
 	// Read the image
-	if (read_nii(im_path, &im)) {
+	if (im_read(im_path, &im)) {
 		err_msg("Could not read image.");
                 return 1;
         }
@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 // Write the output
-                if (write_nii(draw_path, &draw)) {
+                if (im_write(draw_path, &draw)) {
                         
                         char msg[1024];
 

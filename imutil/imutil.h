@@ -110,9 +110,11 @@ int draw_points(const Mat_rm *const in, const int *const dims, int radius,
 int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2, 
 	       const int *const dims, Image *const out);
 
-int read_nii(const char *path, Image *const im);
+im_format im_get_format(const char *path);
 
-int write_nii(const char *path, const Image *const im);
+int im_read(const char *path, Image *const im);
+
+int im_write(const char *path, const Image *const im);
 
 int write_Mat_rm(const char *path, const Mat_rm *const mat);
 
