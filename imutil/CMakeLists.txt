@@ -7,14 +7,17 @@
 # Find LAPACK
 find_package (LAPACK REQUIRED)
 
+# Find DCMTK
+find_package (DCMTK REQUIRED)
+
 # Compile imutil
-add_library (imutil SHARED imutil.c)
+add_library (imutil SHARED imutil.c dicom.cpp)
 target_include_directories (imutil PUBLIC 
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
 )
-target_link_libraries (imutil PUBLIC ${LAPACK_LIBRARIES})
-install (FILES types.h macros.h imutil.h kernels.cl 
+target_link_libraries (imutil PUBLIC ${LAPACK_LIBRARIES} ${DCMTK_LIBRARIES})
+install (FILES types.h macros.h imutil.h kernels.cl dicom.h
         DESTINATION ${INSTALL_INCLUDE_DIR})
 
 # Try to find ITK
@@ -42,7 +45,7 @@ target_link_libraries(imutil PUBLIC ${Z_LIBRARY} ${M_LIBRARY})
 # If Matlab was found, compile a copy for use with Matlab libraries
 if (${Matlab_FOUND})
 
-        add_library (meximutil SHARED imutil.c)
+        add_library (meximutil SHARED imutil.c dicom.cpp)
         target_compile_definitions (meximutil PUBLIC "-DSIFT3D_MEX")
         set_target_properties (meximutil 
                 PROPERTIES 
@@ -52,7 +55,8 @@ if (${Matlab_FOUND})
         )
         target_include_directories (meximutil PUBLIC 
                 ${Matlab_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR})
-        target_link_libraries (meximutil PUBLIC ${Z_LIBRARY} ${M_LIBRARY})
+        target_link_libraries (meximutil PUBLIC ${Z_LIBRARY} ${M_LIBRARY} 
+                ${DCMTK_LIBRARIES})
 
         if (${ITK_FOUND})
                 target_link_libraries(meximutil PUBLIC 

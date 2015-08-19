@@ -7,8 +7,50 @@
  * -----------------------------------------------------------------------------
  */
 
+
+/*----------------Include the very picky DCMTK----------------*/
+#include "dcmtk/config/osconfig.h"    /* make sure OS specific configuration is included first */
+
+//XXX
+#include "dcmtk/config/cfunix.h"
+
+#define INCLUDE_CSTDIO
+#define INCLUDE_CSTRING
+#include "dcmtk/ofstd/ofstdinc.h"
+
+#ifdef HAVE_GUSI_H
+#include <GUSI.h>
+#endif
+
+#include "dcmtk/dcmdata/dctk.h"          /* for various dcmdata headers */
+#include "dcmtk/dcmdata/cmdlnarg.h"      /* for prepareCmdLineArgs */
+#include "dcmtk/dcmdata/dcuid.h"         /* for dcmtk version name */
+
+#include "dcmtk/ofstd/ofconapp.h"        /* for OFConsoleApplication */
+#include "dcmtk/ofstd/ofcmdln.h"         /* for OFCommandLine */
+
+#include "dcmtk/oflog/oflog.h"           /* for OFLogger */
+
+#include "dcmtk/dcmimgle/dcmimage.h"     /* for DicomImage */
+#include "dcmtk/dcmimage/diregist.h"     /* include to support color images */
+#include "dcmtk/dcmdata/dcrledrg.h"      /* for DcmRLEDecoderRegistration */
+
+#ifdef BUILD_DCMSCALE_AS_DCMJSCAL
+#include "dcmtk/dcmjpeg/djdecode.h"      /* for dcmjpeg decoders */
+#include "dcmtk/dcmjpeg/dipijpeg.h"      /* for dcmimage JPEG plugin */
+#endif
+
+#ifdef WITH_ZLIB
+#include <zlib.h>          /* for zlibVersion() */
+#endif
+/*---------------------------------------------------------*/
+
+/* Other includes */
 #include <iostream>
-#include <cstdint>
+#include <stdint.h>
+#include "imutil.h"
+#include "macros.h"
+#include "dicom.h"
 
 /* Macro to call a C++ function and catch any exceptions it throws,
  * returning SIFT3D_FAILURE when an exception is caught. */
@@ -21,7 +63,7 @@
 \
         } catch (...) { \
 \
-                std::cerr << TAG ": unexpected exception " << std::endl; \
+                std::cerr << tag ": unexpected exception " << std::endl; \
 \
                 return SIFT3D_FAILURE; \
         } \
@@ -64,8 +106,8 @@ static int read_dcm_cpp(const char *path, Image *const im) {
 
         // Load the image
         DicomImage dicom(path);
-        if (image == NULL || dicom.getStatus != EIS_Normal) {
-               std::cerr << "read_dcm_dir_cpp: failed to open image " <<
+        if (dicom.getStatus() != EIS_Normal) {
+               std::cerr << "read_dcm_cpp: failed to open image " <<
                         path << " (" << 
                         DicomImage::getString(dicom.getStatus()) << ")" << 
                         std::endl; 
@@ -74,7 +116,7 @@ static int read_dcm_cpp(const char *path, Image *const im) {
 
         // Check for color images
         if (!dicom.isMonochrome()) {
-                std::cerr << "read_dcm_dir_cpp: reading of color DICOM " <<
+                std::cerr << "read_dcm_cpp: reading of color DICOM " <<
                         "images is not supported at this time" << std::endl;
                 return SIFT3D_FAILURE;
         }
@@ -83,8 +125,8 @@ static int read_dcm_cpp(const char *path, Image *const im) {
         dicom.setMinMaxWindow();
 
         // Get the dimensions
-        const int nx = getWidth();
-        const int ny = getHeight();
+        const int nx = dicom.getWidth();
+        const int ny = dicom.getHeight();
         const int nz = dicom.getFrameCount();
 
         // Resize the output
@@ -95,6 +137,56 @@ static int read_dcm_cpp(const char *path, Image *const im) {
         im_default_stride(im);
         if (im_resize(im))
                 return SIFT3D_FAILURE;
+
+        // Load the image as a DcmFileFormat 
+        DcmFileFormat fileformat;
+        OFCondition status = fileformat.loadFile(path);
+        if (!status.good()) {
+               std::cerr << "read_dcm_cpp: failed to read DICOM file " <<
+                        path << " (" << status.text() << ")" << 
+                        std::endl; 
+                return SIFT3D_FAILURE;
+        }
+
+        // Read the pixel spacing
+        Float64 pixelSpacing;
+        status =  fileformat.getMetaInfo()->findAndGetFloat64(DCM_PixelSpacing, 
+                pixelSpacing);
+        if (!status.good()) {
+                std::cerr << "read_dcm_cpp: failed to get pixel spacing " <<
+                        "from file " << path << " (" << status.text() << ")" <<
+                        std::endl;
+                return SIFT3D_FAILURE;
+        }
+        const double ux = static_cast<double>(pixelSpacing);
+        if (ux <= 0.0) {
+                std::cerr << "read_dcm_cpp: file " << path << " has " <<
+                        "invalid pixel spacing: " << ux << std::endl;
+                return SIFT3D_FAILURE;
+        }
+
+        // Read the slice thickness 
+        Float64 sliceThickness;
+        status = fileformat.getMetaInfo()->findAndGetFloat64(DCM_SliceThickness,
+                sliceThickness);
+        if (!status.good()) {
+                std::cerr << "read_dcm_cpp: failed to get slice thickness " <<
+                        "from file " << path << " (" << status.text() << ")" <<
+                        std::endl;
+        }
+
+        // Convert to double 
+        const double uz = static_cast<double>(sliceThickness);
+        if (uz  <= 0.0) {
+                std::cerr << "read_dcm_cpp: file " << path << " has " <<
+                        "invalid slice thickness: " << uz << std::endl;
+                return SIFT3D_FAILURE;
+        }
+
+        //TODO
+        // im->ux = ux;
+        // im->uy = ux * dicom.getHeightWidthRatio();
+        // im->uz = uz;
 
         // Read each frame
         for (int i = 0; i < nz; i++) { 
@@ -107,7 +199,7 @@ static int read_dcm_cpp(const char *path, Image *const im) {
                         std::cerr << "read_dcm_dir_cpp: could not get data "
                                 << "from image " << path << " frame " << i <<
                                 " (" << 
-                                DicomImage::getString(image->getStatus()) << 
+                                DicomImage::getString(dicom.getStatus()) << 
                                 ")" << std::endl; 
                 }
 

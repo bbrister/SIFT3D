@@ -1,14 +1,14 @@
 /* -----------------------------------------------------------------------------
- * dicom.hpp 
+ * dicom.h 
  * -----------------------------------------------------------------------------
  * Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
  * -----------------------------------------------------------------------------
- * Header file for the DCMTK wrapper.
+ * Internal header file for the DCMTK wrapper.
  * -----------------------------------------------------------------------------
  */
 
-#ifndef _DICOM_HPP
-#define _DICOM_HPP
+#ifndef _DICOM_H
+#define _DICOM_H
 
 #ifdef __cplusplus
 extern "C" {

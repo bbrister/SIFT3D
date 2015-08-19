@@ -12,6 +12,10 @@
 #ifndef _SIFT_H
 #define _SIFT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void init_Keypoint_store(Keypoint_store *const kp);
 
 void cleanup_Keypoint_store(Keypoint_store *const kp);
@@ -90,5 +94,9 @@ int write_Keypoint_store(const char *path, const Keypoint_store *const kp);
 
 int write_SIFT3D_Descriptor_store(const char *path, 
         const SIFT3D_Descriptor_store *const desc);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

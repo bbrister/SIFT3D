@@ -12,6 +12,10 @@
 #ifndef _REG_H
 #define _REG_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Parameters */
 const double nn_thresh_default = 0.8; // Default matching threshold
 
@@ -42,5 +46,9 @@ int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const ref);
 
 int get_matches_Reg_SIFT3D(const Reg_SIFT3D *const reg, Mat_rm *const match_src,
         Mat_rm *const match_ref);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

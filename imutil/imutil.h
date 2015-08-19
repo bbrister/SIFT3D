@@ -10,8 +10,12 @@
 #include <sys/types.h>
 #include "types.h"
 
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef _IMUTIL_H
+#define _IMUTIL_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Vendor-specific info */
 #define PLATFORM_NAME_NVIDIA "NVIDIA CUDA"
@@ -211,5 +215,9 @@ int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
 int parse_gnu(const int argc, char *const *argv);
 
 void print_bug_msg();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

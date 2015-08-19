@@ -13,6 +13,10 @@
 #ifndef _MEXUTIL_H
 #define _MEXUTIL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void err_msg(const char *name, const char *msg);
 
 void err_msgu(const char *name, const char *msg);
@@ -23,5 +27,9 @@ mxArray *mat2mx(const Mat_rm *const mat);
 
 int mex_SIFT3D_detect_keypoints(const Image *const im, 
         Keypoint_store *const kp);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -12,6 +12,10 @@
 #ifndef _TYPES_H
 #define _TYPES_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Return codes
 #define SIFT3D_SINGULAR 1
 #define SIFT3D_SUCCESS 0
@@ -374,5 +378,9 @@ typedef struct _Ransac {
  	double err_thresh; //error threshold for RANSAC inliers
 	int num_iter; //number of RANSAC iterations
 } Ransac;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

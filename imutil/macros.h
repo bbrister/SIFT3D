@@ -12,6 +12,10 @@
 #ifndef _MACROS_H
 #define _MACROS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Math macros
 #define SIFT3D_MIN(x, y) ((x) < (y) ? (x) : (y))
 #define SIFT3D_MAX(x, y) ((x) > (y) ? (x) : (y))
@@ -175,7 +179,6 @@
 #define SIFT3D_RESIZE_KP_STORE(store, num, size) \
 	SIFT3D_RESIZE_SLAB(&(store)->slab, num, size); \
 	(store)->buf = (store)->slab.buf
-#endif
 
 // Nested loop through all elements of a matrix
 #define SIFT3D_MAT_RM_LOOP_START(mat, row, col) \
@@ -269,3 +272,8 @@
 			     SIFT3D_MAT_RM_GET(mat, 2, 2, float) * (v_in)->z; \
 }
 
+#ifdef __cplusplus
+}
+#endif
+
+#endif
