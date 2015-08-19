@@ -183,10 +183,10 @@ static int read_dcm_cpp(const char *path, Image *const im) {
                 return SIFT3D_FAILURE;
         }
 
-        //TODO
-        // im->ux = ux;
-        // im->uy = ux * dicom.getHeightWidthRatio();
-        // im->uz = uz;
+        // Store the voxel spacing
+        im->ux = ux;
+        im->uy = ux * dicom.getHeightWidthRatio();
+        im->uz = uz;
 
         // Read each frame
         for (int i = 0; i < nz; i++) { 
