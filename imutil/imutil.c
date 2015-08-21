@@ -1427,7 +1427,7 @@ int init_im_with_dims(Image * im, const int nx, const int ny, const int nz,
  * -nc
  * If a dimension is not used, its size should be set
  * to 1. */
-void im_default_stride(Image * im)
+void im_default_stride(Image *const im)
 {
 
 	int i, prod;
@@ -1822,6 +1822,8 @@ int im_set_kernel_arg(cl_kernel kernel, int n, Image * im)
  */
 int im_copy_dims(const Image * const src, Image * dst)
 {
+        if (src->data == NULL)
+                return SIFT3D_FAILURE;
 
 	dst->nx = src->nx;
 	dst->ny = src->ny;
@@ -1830,6 +1832,9 @@ int im_copy_dims(const Image * const src, Image * dst)
 	dst->y_stride = src->y_stride;
 	dst->z_stride = src->z_stride;
 	dst->nc = src->nc;
+        dst->ux = src->ux;
+        dst->uy = src->uy;
+        dst->uz = src->uz;
 
 	return im_resize(dst);
 }
@@ -1840,20 +1845,25 @@ int im_copy_dims(const Image * const src, Image * dst)
 int im_copy_data(const Image * const src, Image * const dst)
 {
 
-	int i;
+	int x, y, z, c;
 
-	// Initialize dst
-	if (im_copy_dims(src, dst))
-		return SIFT3D_FAILURE;
+        // Return if src has no data 
+        if (src->data == NULL)
+                return SIFT3D_FAILURE;
 
 	// Return if src and dst are the same
 	if (dst->data == src->data)
 		return SIFT3D_SUCCESS;
 
+	// Resize dst
+	if (im_copy_dims(src, dst))
+		return SIFT3D_FAILURE;
+
 	// Copy data
-	for (i = 0; i < src->size; i++) {
-		dst->data[i] = src->data[i];
-	}
+        SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
+                SIFT3D_IM_GET_VOX(dst, x, y, z, c) = 
+                        SIFT3D_IM_GET_VOX(src, x, y, z, c);
+        SIFT3D_IM_LOOP_END_C
 
 	return SIFT3D_SUCCESS;
 }

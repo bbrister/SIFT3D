@@ -144,7 +144,7 @@ int im_upsample_2x(Image *src, Image *dst);
 
 int im_pad(const Image *const im, Image *const pad);
 
-void im_default_stride(Image *im);
+void im_default_stride(Image *const im);
 
 int im_resize(Image *im);
 
