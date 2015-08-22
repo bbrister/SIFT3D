@@ -650,17 +650,17 @@ static int write_dcm_cpp(const char *path, const Image *const im) {
                 numPixels *= im->dims[i];
         }
 
-        // Render the data to a 16-bit unsigned integer array
-        uint16_t *pixelData = new uint16_t[numPixels];
+        // Render the data to an 8-bit unsigned integer array
+        uint8_t *pixelData = new uint8_t[numPixels];
         int x, y, z;
         SIFT3D_IM_LOOP_START(im, x, y, z)
                 pixelData[x + y * im->nx + z * im->nx * im->ny] =
-                        static_cast<uint16_t>(
+                        static_cast<uint8_t>(
                         SIFT3D_IM_GET_VOX(im, x, y, z, 0));
         SIFT3D_IM_LOOP_END
 
         // Write the data
-        status = dataset->putAndInsertUint16Array(DCM_PixelData, pixelData, 
+        status = dataset->putAndInsertUint8Array(DCM_PixelData, pixelData, 
                 numPixels);
         delete pixelData;
         if (status.bad()) {
@@ -669,26 +669,26 @@ static int write_dcm_cpp(const char *path, const Image *const im) {
                 return SIFT3D_FAILURE;
         }
 
-        // Choose lossless JPEG format
-#if 1
+        // Choose the encoding format
+#if 0
         const E_TransferSyntax xfer = EXS_JPEGProcess14SV1TransferSyntax;
         DJ_RPLossless rp_lossless;
         status = dataset->chooseRepresentation(xfer, &rp_lossless);
 #else
-        const E_TransferSyntax xfer = dataset->getOriginalXfer();
+        const E_TransferSyntax xfer = EXS_LittleEndianExplicit;
         dataset->chooseRepresentation(xfer, NULL);
 #endif
         if (!dataset->canWriteXfer(xfer)) {
-                std::cerr << "write_dcm_cpp: Failed to choose the jpeg " <<
+                std::cerr << "write_dcm_cpp: Failed to choose the encoding " <<
                         "format " << std::endl;
                 return SIFT3D_FAILURE;
         }
 
         // Save the file
-        status = fileFormat.saveFile(path);
+        status = fileFormat.saveFile(path, xfer);
         if (status.bad()) {
                 std::cerr << "write_dcm_cpp: Failed to write file " <<
-                        path << std::endl;
+                        path << " (" << status.text() << ")" << std::endl;
                 return SIFT3D_FAILURE;
         }
 
