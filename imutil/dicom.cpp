@@ -40,6 +40,8 @@
 #include "dcmtk/dcmjpeg/dipijpeg.h"      /* for dcmimage JPEG plugin */
 #endif
 
+#include "dcmtk/dcmjpeg/djrplol.h"  /* for DJ_RPLossless */
+
 #include "dcmtk/dcmsr/dsrdoc.h" /* DSR report handling */
 
 #ifdef WITH_ZLIB
@@ -88,78 +90,59 @@ static int write_dcm_dir_cpp(const char *path, const Image *const im);
 /* Helper class to store DICOM data. */
 class Dicom {
 private:
-        Image im; // The image data
         std::string filename; // DICOM file name
         long long int patient; // Patient ID
         long long int study; // Study ID 
         long long int series; // Series number
         long long int instance; // Identifying instance number
+        double ux, uy, uz; // Voxel spacing in real-world coordinates
+        int nx, ny, nz, nc; // Image dimensions
         bool valid; // Data validity 
 
 public:
 
         /* Data is initially invalid */
         Dicom() : filename(""), patient(-1), study(-1), series(-1), 
-                instance(-1), valid(false) {
-                init_im(&im);
-        };
+                instance(-1), valid(false) {};
 
-        Dicom(const Dicom &dicom) : filename(dicom.filename), 
-                patient(dicom.patient), study(dicom.study), 
-                series(dicom.series), instance(dicom.instance), 
-                valid(dicom.valid) {
-
-                init_im(&im);
-
-                if (im_copy_data(dicom.getImage(), &im))
-                        throw -1;
-        }
-
-        ~Dicom() {
-                im_free(&im);
-        };
+        ~Dicom() {};
 
         /* Load a file */
         Dicom(std::string filename);
 
-        /* Get the data as a DicomImage object */
-        const Image *getImage(void) const {
-                return &im;
-        }
-        
         /* Get the x-dimension */
         int getNx(void) const {
-                return im.nx;
+                return nx;
         }
 
         /* Get the y-dimension */
         int getNy(void) const {
-                return im.ny;
+                return ny;
         }
 
         /* Get the z-dimension */
         int getNz(void) const {
-                return im.nz;
+                return nz;
         }
 
         /* Get the number of channels */
         int getNc(void) const {
-                return im.nc;
+                return nc;
         } 
 
         /* Get the x-spacing */
         double getUx(void) const {
-                return im.ux;
+                return ux;
         }
 
         /* Get the y-spacing */
         double getUy(void) const {
-                return im.uy;
+                return uy;
         }
 
         /* Get the z-spacing */
         double getUz(void) const {
-                return im.uz;
+                return uz;
         }
 
         /* Check whether or not the data is valid */
@@ -183,45 +166,10 @@ public:
                         study == dicom.study &&
                         series == dicom.series;
         }
-
-        // Shallow copy of another Dicom's data--use with caution
-        void shallowCopy(const Dicom &src) {
-                im = src.im;
-                filename = src.filename;
-                patient = src.patient;
-                study = src.study;
-                series = src.series; 
-                instance = src.instance;
-                valid = src.valid;
-        }
-
-        // Release the memory for an image without freeing--use with caution
-        void shallowRelease(void) {
-                im.data = NULL;
-        } 
 };
-
-/* Dont copy image data on a swap */
-namespace std {
-        template<>
-        void swap(Dicom &d1, Dicom &d2) {
-
-                Dicom temp; 
-
-                // Shallow copies
-                temp.shallowCopy(d1);
-                d1.shallowCopy(d2);
-                d2.shallowCopy(temp);
-
-                // Prevent double-free
-                temp.shallowRelease();
-        }
-}
 
 /* Load the data from a DICOM file */
 Dicom::Dicom(std::string path) : filename(path), valid(false) {
-
-        init_im(&im);
 
         // Load the image as a DcmFileFormat 
         DcmFileFormat fileFormat;
@@ -296,6 +244,18 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
                         "images is not supported at this time" << std::endl;
                 return;
         }
+        nc = 1;
+
+        // Read the dimensions
+        nx = image.getWidth();
+        ny = image.getHeight();
+        nz = image.getFrameCount();
+        if (nx < 1 || ny < 1 || nz < 1) {
+                std::cerr << "Dicom.Dicom: invalid dimensions for file "
+                        << filename << "(" << nx << ", " << ny << ", " << 
+                        nz << ")" << std::endl;
+                return;
+        }
 
         // Read the pixel spacing
         Float64 pixelSpacing;
@@ -307,13 +267,21 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
                         std::endl;
                 return;
         }
-        im.ux = static_cast<double>(pixelSpacing);
-        if (im.ux <= 0.0) {
+        ux = static_cast<double>(pixelSpacing);
+        if (ux <= 0.0) {
                 std::cerr << "Dicom.Dicom: file " << path << " has " <<
-                        "invalid pixel spacing: " << im.ux << std::endl;
+                        "invalid pixel spacing: " << ux << std::endl;
                 return;
         }
-        im.uy = im.ux * image.getHeightWidthRatio();
+
+        // Get the aspect ratio
+        const double ratio = image.getHeightWidthRatio();
+        uy = ux * ratio;
+        if (uy <= 0.0) {
+                std::cerr << "Dicom.Dicom: file " << path << " has invalid " <<
+                        "pixel aspect ratio: " << ratio << std::endl;
+                return;
+        }
 
         // Read the slice thickness 
         Float64 sliceThickness;
@@ -326,57 +294,15 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         }
 
         // Convert to double 
-        im.uz = sliceThickness;
-        if (im.uz <= 0.0) {
+        uz = sliceThickness;
+        if (uz <= 0.0) {
                 std::cerr << "Dicom.Dicom: file " << path << " has " <<
-                        "invalid slice thickness: " << im.uz << std::endl;
+                        "invalid slice thickness: " << uz << std::endl;
                 return;
         }
         
         // Set the window 
         image.setMinMaxWindow();
-
-        // Resize the internal image data
-        im.nx = image.getWidth();
-        im.ny = image.getHeight();
-        im.nz = image.getFrameCount();
-        im.nc = 1;
-        im_default_stride(&im);
-        if (im_resize(&im))
-                return;
-
-        // Read each frame
-        for (int i = 0; i < im.nz; i++) { 
-
-                // Get a pointer to the data, rendered as a 32-bit int
-                const uint32_t *const frameData = 
-                        static_cast<const uint32_t *const >(
-                                image.getOutputData(32, i));
-                if (frameData == NULL) {
-                        std::cerr << "read_dcm_dir_cpp: could not get data "
-                                << "from image " << path << " frame " << i <<
-                                " (" << 
-                                DicomImage::getString(image.getStatus()) << 
-                                ")" << std::endl; 
-                        return;
-                }
-
-                // Copy the frame
-                const int x_start = 0;
-                const int y_start = 0;
-                const int z_start = i;
-                const int x_end = im.nx - 1;
-                const int y_end = im.ny - 1;
-                const int z_end = z_start;
-                int x, y, z;
-                SIFT3D_IM_LOOP_LIMITED_START(&im, x, y, z, x_start, x_end, 
-                        y_start, y_end, z_start, z_end)
-
-                        SIFT3D_IM_GET_VOX(&im, x, y, z, 0) =
-                                static_cast<float>(frameData[x + y * im.nx]);
-
-                SIFT3D_IM_LOOP_END
-        }
 
         valid = true;
 }
@@ -425,14 +351,69 @@ int write_dcm_dir(const char *path, const Image *const im) {
 /* Helper function to read a DICOM file using C++ */
 static int read_dcm_cpp(const char *path, Image *const im) {
 
-        // Read the image
+        // Read the image metadata
         Dicom dicom(path);
         if (!dicom.isValid())
                 return SIFT3D_FAILURE;
 
-        // Copy the data
-        return im_copy_data(dicom.getImage(), im);
+        // Load the DicomImage object
+        DicomImage image(path);
+        if (image.getStatus() != EIS_Normal) {
+               std::cerr << "read_dcm_cpp: failed to open image " <<
+                        dicom.name() << " (" << 
+                        DicomImage::getString(image.getStatus()) << ")" << 
+                        std::endl; 
+                return SIFT3D_FAILURE;
+        }
 
+        // Initialize the image fields
+        im->nx = dicom.getNx();
+        im->ny = dicom.getNy();
+        im->nz = dicom.getNz();
+        im->nc = dicom.getNc();
+        im->ux = dicom.getUx();
+        im->uy = dicom.getUy();
+        im->uz = dicom.getUz();
+
+        // Resize the output
+        im_default_stride(im);
+        if (im_resize(im))
+                return SIFT3D_FAILURE;
+
+        // Read each frame
+        for (int i = 0; i < im->nz; i++) { 
+
+                // Get a pointer to the data, rendered as a 32-bit int
+                const uint32_t *const frameData = 
+                        static_cast<const uint32_t *const >(
+                                image.getOutputData(32, i));
+                if (frameData == NULL) {
+                        std::cerr << "read_dcm_dir_cpp: could not get data "
+                                << "from image " << path << " frame " << i <<
+                                " (" << 
+                                DicomImage::getString(image.getStatus()) << 
+                                ")" << std::endl; 
+                        return SIFT3D_FAILURE;
+                }
+
+                // Copy the frame
+                const int x_start = 0;
+                const int y_start = 0;
+                const int z_start = i;
+                const int x_end = im->nx - 1;
+                const int y_end = im->ny - 1;
+                const int z_end = z_start;
+                int x, y, z;
+                SIFT3D_IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, 
+                        y_start, y_end, z_start, z_end)
+
+                        SIFT3D_IM_GET_VOX(im, x, y, z, 0) =
+                                static_cast<float>(frameData[x + y * im->nx]);
+
+                SIFT3D_IM_LOOP_END
+        }
+
+        return SIFT3D_SUCCESS;
 }
 
 /* Helper funciton to read a directory of DICOM files using C++ */
@@ -549,6 +530,9 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
         im->ny = ny;
         im->nz = nz;
         im->nc = nc;
+        im->ux = first.getUx(); 
+        im->uy = first.getUy();
+        im->uz = first.getUz();
         im_default_stride(im);
         if (im_resize(im))
                 return SIFT3D_FAILURE;
@@ -556,25 +540,36 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
         // Sort the slices by instance number
         std::sort(dicoms.begin(), dicoms.end()); 
 
-        // Copy the data
+        // Allocate a temporary image for the slices
+        Image slice;
+        init_im(&slice);
+
+        // Read the image data
         off_z = 0;
         for (i = 0; i < num_files; i++) {
 
                 int x, y, z, c;
 
-                const Image *const slice = dicoms[i].getImage();
+                const char *slicename = dicoms[i].name().c_str();
 
-                // Copy the data
-                SIFT3D_IM_LOOP_START_C(slice, x, y, z, c)
+                // Read the slice 
+                if (read_dcm(slicename, &slice)) {
+                        im_free(&slice);
+                        return SIFT3D_FAILURE;
+                }
+
+                // Copy the data to the volume
+                SIFT3D_IM_LOOP_START_C(&slice, x, y, z, c)
 
                         SIFT3D_IM_GET_VOX(im, x, y, z + off_z, c) =
-                                SIFT3D_IM_GET_VOX(slice, x, y, z, c);
+                                SIFT3D_IM_GET_VOX(&slice, x, y, z, c);
 
                 SIFT3D_IM_LOOP_END_C
 
-                off_z += slice->nz;
+                off_z += slice.nz;
         }
         assert(off_z == nz);
+        im_free(&slice);
 
         return SIFT3D_SUCCESS;
 }
@@ -582,9 +577,123 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
 /* Helper function to write a DICOM file using C++ */
 static int write_dcm_cpp(const char *path, const Image *const im) {
 
-        //TODO
+        // Ensure the image is monochromatic
+        if (im->nc != 1) {
+                std::cerr << "write_dcm_cpp: image has " << im->nc <<
+                        " channels. Currently only single-channel images " <<
+                        "are supported." << std::endl;
+                return SIFT3D_FAILURE;
+        }
+
+        // Create a new fileformat object
+        DcmFileFormat fileFormat;
+
+        // Set the file type to derived
+        DcmDataset *const dataset = fileFormat.getDataset();
+        OFCondition status = dataset->putAndInsertString(DCM_ImageType, 
+                                                         "DERIVED");
+        if (status.bad()) {
+                std::cerr << "write_dcm_cpp: Failed to set the image type" <<
+                        std::endl;
+                return SIFT3D_FAILURE;
+        }
+
+        // Convert the dimensions to strings
+#define BUF_LEN 1024
+        char buf[BUF_LEN];
+
+        // Set the dimensions
+        snprintf(buf, BUF_LEN, "%d", im->nx);
+        OFCondition xstatus = dataset->putAndInsertString(DCM_Rows, buf); 
+        snprintf(buf, BUF_LEN, "%d", im->ny);
+        OFCondition ystatus = dataset->putAndInsertString(DCM_Columns, buf);
+        snprintf(buf, BUF_LEN, "%d", im->nz);
+        OFCondition zstatus = dataset->putAndInsertString(DCM_NumberOfFrames,
+                buf);
+        if (xstatus.bad() || ystatus.bad() || zstatus.bad()) {
+                std::cerr << "write_dcm_cpp: Failed to set the dimensions " <<
+                        std::endl;
+                return SIFT3D_FAILURE;
+        }
+
+        // Set the pixel spacing
+        snprintf(buf, BUF_LEN, "%f", im->ux);
+        status = dataset->putAndInsertString(DCM_PixelSpacing, buf);
+        if (status.bad()) {
+                std::cerr << "write_dcm_cpp: Failed to set the pixel " <<
+                        "spacing" << std::endl;
+                return SIFT3D_FAILURE;
+        }
+
+        // Set the aspect ratio
+        const double ratio = im->uy / im->ux;
+        snprintf(buf, BUF_LEN, "%f", ratio);
+        status = dataset->putAndInsertString(DCM_PixelAspectRatio, buf);
+        if (status.bad()) {
+                std::cerr << "write_dcm_cpp: Failed to set the pixel " <<
+                        "aspect ratio" << std::endl;
+                return SIFT3D_FAILURE;
+        }
+
+        // Set the slice thickness
+        snprintf(buf, BUF_LEN, "%f", im->uz);
+        status = dataset->putAndInsertString(DCM_SliceThickness, buf);
+        if (status.bad()) {
+                std::cerr << "write_dcm_cpp: Failed to set the slice " <<
+                        "thickness" << std::endl;
+                return SIFT3D_FAILURE;
+        }
+
+        // Count the number of pixels in the image
+        unsigned long numPixels = 1;
+        for (int i = 0; i < IM_NDIMS; i++) {
+                numPixels *= im->dims[i];
+        }
+
+        // Render the data to a 16-bit unsigned integer array
+        uint16_t *pixelData = new uint16_t[numPixels];
+        int x, y, z;
+        SIFT3D_IM_LOOP_START(im, x, y, z)
+                pixelData[x + y * im->nx + z * im->nx * im->ny] =
+                        static_cast<uint16_t>(
+                        SIFT3D_IM_GET_VOX(im, x, y, z, 0));
+        SIFT3D_IM_LOOP_END
+
+        // Write the data
+        status = dataset->putAndInsertUint16Array(DCM_PixelData, pixelData, 
+                numPixels);
+        delete pixelData;
+        if (status.bad()) {
+                std::cerr << "write_dcm_cpp: Failed to set the pixel data " <<
+                        std::endl;
+                return SIFT3D_FAILURE;
+        }
+
+        // Choose lossless JPEG format
+#if 1
+        const E_TransferSyntax xfer = EXS_JPEGProcess14SV1TransferSyntax;
+        DJ_RPLossless rp_lossless;
+        status = dataset->chooseRepresentation(xfer, &rp_lossless);
+#else
+        const E_TransferSyntax xfer = dataset->getOriginalXfer();
+        dataset->chooseRepresentation(xfer, NULL);
+#endif
+        if (!dataset->canWriteXfer(xfer)) {
+                std::cerr << "write_dcm_cpp: Failed to choose the jpeg " <<
+                        "format " << std::endl;
+                return SIFT3D_FAILURE;
+        }
+
+        // Save the file
+        status = fileFormat.saveFile(path);
+        if (status.bad()) {
+                std::cerr << "write_dcm_cpp: Failed to write file " <<
+                        path << std::endl;
+                return SIFT3D_FAILURE;
+        }
 
         return SIFT3D_SUCCESS;
+#undef BUF_LEN
 }
 
 /* Helper function to write an image to a directory of DICOM files using C++ */

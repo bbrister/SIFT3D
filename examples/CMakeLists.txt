@@ -22,8 +22,11 @@ target_link_libraries (featuresC PUBLIC sift3D imutil)
 add_executable (registerC registerC.c)
 target_link_libraries (registerC PUBLIC reg sift3D imutil)
 
+add_executable (ioC ioC.c)
+target_link_libraries (ioC PUBLIC imutil)
+
 # Send all files to the examples subdirectory 
-set_target_properties(featuresC registerC
+set_target_properties(featuresC registerC ioC
         PROPERTIES
         ARCHIVE_OUTPUT_DIRECTORY ${EXAMPLES_PATH}
         LIBRARY_OUTPUT_DIRECTORY ${EXAMPLES_PATH}
