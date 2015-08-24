@@ -60,15 +60,17 @@ if (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR
     set (RELEASE_FLAGS "${RELEASE_FLAGS} -ffast-math")
 endif ()
 
+# OS-specific build flags
+if (APPLE)
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -undefined dynamic_lookup")
+        set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -undefined dynamic_lookup")
+        set (CMAKE_MACOSX_RPATH ON)
+endif ()
+
 set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${DEBUG_FLAGS}")
 set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${DEBUG_FLAGS}")
 set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${RELEASE_FLAGS}")
 set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${RELEASE_FLAGS}")
-
-# OS-specific build flags
-if (APPLE)
-        set (CMAKE_MACOSX_RPATH ON)
-endif()
 
 # Find the system libraries
 find_library (M_LIBRARY m)

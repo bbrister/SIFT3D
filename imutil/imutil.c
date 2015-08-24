@@ -1105,7 +1105,7 @@ int draw_lines(const Mat_rm * const points1, const Mat_rm * const points2,
  *
  * Supported formats:
  * - NIFTI */
-int read_nii(const char *path, Image * im)
+int read_nii(const char *path, Image *const im)
 {
 
 	nifti_image *nifti;
@@ -1215,7 +1215,7 @@ int read_nii(const char *path, Image * im)
 /* Write an Image to the specified path.
  * Supported formats:
  * -NIFTI (.nii, .nii.gz) */
-int write_nii(const char *path, Image * im)
+int write_nii(const char *path, const Image *const im)
 {
 
 	nifti_image *nifti;
@@ -1533,7 +1533,11 @@ int im_resize(Image * im)
 	return im->data == NULL ? SIFT3D_FAILURE : SIFT3D_SUCCESS;
 }
 
-/* Concatenate two images in dimension dim. Resizes dst. */
+/* Concatenate two images in dimension dim, so that src1 comes before src2.
+ * For example, if dim == 0, the images are horizontally concatenated in x,
+ * so that src1 is on the left and src2 is on the right. Resizes dst. 
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
 int im_concat(const Image * const src1, const Image * const src2, const int dim,
 	      Image * const dst)
 {
@@ -1564,19 +1568,14 @@ int im_concat(const Image * const src1, const Image * const src2, const int dim,
 			src2->nc);
 		return SIFT3D_FAILURE;
 	}
-	// Get the output dimensions
+	// Get the output dimensions and offsets
 	for (i = 0; i < IM_NDIMS; i++) {
 
 		const int src1d = src1->dims[i];
 		const int src2d = src2->dims[i];
 
-		if (i == dim) {
-			dims_out[i] = src1d + src2d;
-			off[i] = src2d;
-		} else {
-			dims_out[i] = src1d;
-			off[i] = 0;
-		}
+                dims_out[i] = dim == i ? src1d + src2d : src1d;
+                off[i] = dim == i ? src1d : 0;
 	}
 
 	// Resize dst 
@@ -1586,20 +1585,27 @@ int im_concat(const Image * const src1, const Image * const src2, const int dim,
 	if (im_resize(dst))
 		return SIFT3D_FAILURE;
 
-	// Copy the data
+	// Copy the data from src1 
 	SIFT3D_IM_LOOP_START_C(src1, x, y, z, c)
 	    SIFT3D_IM_GET_VOX(dst, x, y, z, c) =
 	    SIFT3D_IM_GET_VOX(src1, x, y, z, c);
-	SIFT3D_IM_LOOP_END_C SIFT3D_IM_LOOP_START_C(src2, x, y, z, c)
-	    // Get the destination coordinates
-	const int x_dst = x + off[0];
-	const int y_dst = y + off[1];
-	const int z_dst = z + off[2];
+	SIFT3D_IM_LOOP_END_C 
 
-	// Write the pixels
-	SIFT3D_IM_GET_VOX(dst, x_dst, y_dst, z_dst, c) =
-	    SIFT3D_IM_GET_VOX(src2, x, y, z, c);
-	SIFT3D_IM_LOOP_END_C return SIFT3D_SUCCESS;
+        // Copy the data from src2
+        SIFT3D_IM_LOOP_START_C(src2, x, y, z, c)
+
+                // Get the destination coordinates with offsets
+                const int x_dst = x + off[0];
+                const int y_dst = y + off[1];
+                const int z_dst = z + off[2];
+
+                // Copy the data from src2
+                SIFT3D_IM_GET_VOX(dst, x_dst, y_dst, z_dst, c) =
+                    SIFT3D_IM_GET_VOX(src2, x, y, z, c);
+
+        SIFT3D_IM_LOOP_END_C 
+        
+        return SIFT3D_SUCCESS;
 }
 
 /* Upsample an image by a factor of 2 in each dimension.
