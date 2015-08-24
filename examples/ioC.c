@@ -14,7 +14,7 @@
 
 /* Example file paths */
 const char in_path[] = "1.nii.gz";
-const char out_path[] = "1.dcm";
+const char out_path[] = "1dicom";
 
 /* This illustrates how to use images within a function, and free all memory
  * afterwards. */
@@ -29,7 +29,7 @@ int demo(void) {
         if (im_read(in_path, &im))
                 goto demo_quit;
 
-        // Write it to a DICOM image
+        // Write it to a DICOM series
         if (im_write(out_path, &im))
                 goto demo_quit;
 

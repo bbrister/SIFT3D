@@ -40,6 +40,7 @@
 #include "dcmtk/dcmjpeg/dipijpeg.h"      /* for dcmimage JPEG plugin */
 #endif
 
+#include "dcmtk/dcmjpeg/djencode.h" /* for JPEG encoding */
 #include "dcmtk/dcmjpeg/djrplol.h"  /* for DJ_RPLossless */
 
 #include "dcmtk/dcmsr/dsrdoc.h" /* DSR report handling */
@@ -54,6 +55,7 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <cmath>
 #include <stdint.h>
 #include <dirent.h>
 #include "imutil.h"
@@ -84,7 +86,8 @@ const char sep = '/';
 /* Helper declarations */
 static int read_dcm_cpp(const char *path, Image *const im);
 static int read_dcm_dir_cpp(const char *path, Image *const im);
-static int write_dcm_cpp(const char *path, const Image *const im);
+static int write_dcm_cpp(const char *path, const Image *const im,
+        const unsigned int instance);
 static int write_dcm_dir_cpp(const char *path, const Image *const im);
 
 /* Helper class to store DICOM data. */
@@ -328,12 +331,14 @@ int read_dcm_dir(const char *path, Image *const im) {
         return ret;
 }
 
-/* Write an Image struct into a DICOM file. */
-int write_dcm(const char *path, const Image *const im) {
+/* Write an Image struct into a DICOM file. instance gives the instance number
+ * to be written in the DICOM header. */
+int write_dcm(const char *path, const Image *const im, 
+        const unsigned int instance) {
 
         int ret;
 
-        CATCH_EXCEPTIONS(ret, "write_dcm", write_dcm_cpp, path, im);
+        CATCH_EXCEPTIONS(ret, "write_dcm", write_dcm_cpp, path, im, instance);
 
         return ret;
 }
@@ -453,8 +458,8 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
                         continue;
 
                 // Form the whole file path
-                std::string fullfile = std::string(path) + std::string(&sep) +
-                        filename;
+                std::string fullfile(std::string(path) + std::string(&sep) +
+                        filename);
 
                 // Read the file
                 Dicom dicom(fullfile);
@@ -575,7 +580,8 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
 }
 
 /* Helper function to write a DICOM file using C++ */
-static int write_dcm_cpp(const char *path, const Image *const im) {
+static int write_dcm_cpp(const char *path, const Image *const im,
+        const unsigned int instance) {
 
         // Ensure the image is monochromatic
         if (im->nc != 1) {
@@ -615,6 +621,10 @@ static int write_dcm_cpp(const char *path, const Image *const im) {
                         std::endl;
                 return SIFT3D_FAILURE;
         }
+
+        // Set the instance number
+        snprintf(buf, BUF_LEN, "%u", instance);
+        status = dataset->putAndInsertString(DCM_InstanceNumber, buf);
 
         // Set the pixel spacing
         snprintf(buf, BUF_LEN, "%f", im->ux);
@@ -671,6 +681,7 @@ static int write_dcm_cpp(const char *path, const Image *const im) {
 
         // Choose the encoding format
 #if 0
+        DJEncoderRegistration::registerCodecs();
         const E_TransferSyntax xfer = EXS_JPEGProcess14SV1TransferSyntax;
         DJ_RPLossless rp_lossless;
         status = dataset->chooseRepresentation(xfer, &rp_lossless);
@@ -699,7 +710,63 @@ static int write_dcm_cpp(const char *path, const Image *const im) {
 /* Helper function to write an image to a directory of DICOM files using C++ */
 static int write_dcm_dir_cpp(const char *path, const Image *const im) {
 
-        //TODO copy each frame to a dummy image, write it with write_dcm
+        Image slice;
+
+        // Initialize C intermediates
+        init_im(&slice);
+
+        // Get the number of leading zeros for the file names
+        const int num_slices = im->nz;
+        const int num_zeros = static_cast<int>(ceil(log10(
+                static_cast<double>(num_slices))));
+
+        // Form the printf format string for file names
+#define BUF_LEN 16
+        char format[BUF_LEN];
+        snprintf(format, BUF_LEN, "%%0%dd.%s", num_zeros, ext_dcm); 
+#undef BUF_LEN
+
+        // Resize the slice buffer
+        slice.nx = im->nx; 
+        slice.ny = im->ny;
+        slice.nz = 1;
+        slice.nc = im->nc;
+        im_default_stride(&slice);
+        if (im_resize(&slice)) {
+                im_free(&slice);
+                return SIFT3D_FAILURE;
+        }
+
+        // Write each slice
+        for (int i = 0; i < num_slices; i++) {
+
+                // Form the slice file name
+#define BUF_LEN 1024
+                char filename[BUF_LEN];
+                snprintf(filename, BUF_LEN, format, i);
+
+                // Form the full file path
+                std::string fullfile(path + std::string(&sep) + filename);
+
+                // Copy the data to the slice
+                int x, y, z, c;
+                SIFT3D_IM_LOOP_START_C(&slice, x, y, z, c)
+                        SIFT3D_IM_GET_VOX(&slice, x, y, z, c) =
+                                SIFT3D_IM_GET_VOX(im, x, y, i, c);
+                SIFT3D_IM_LOOP_END_C
+
+                // Form the instance number
+                const unsigned int instance = static_cast<unsigned int>(i + 1);
+
+                // Write the slice to a file
+                if (write_dcm(fullfile.c_str(), &slice, instance)) {
+                        im_free(&slice);
+                        return SIFT3D_FAILURE;
+                }
+        }
+
+        // Clean up
+        im_free (&slice);
 
         return SIFT3D_SUCCESS;
 }

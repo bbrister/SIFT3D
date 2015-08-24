@@ -55,11 +55,14 @@ const char bug_msg[] =
     "       https://github.com/bbrister/SIFT3D/issues \n";
 
 /* Supported file extensions */
+extern const char ext_dcm[]; // dicom.h
 const char ext_analyze[] = "img";;
 const char ext_gz[] = "gz";
-const char ext_dcm[] = "dcm";
 const char ext_nii[] = "nii";
 const char ext_dir[] = "";
+
+/* Output file permissions */
+const mode_t out_mode = 0755;
 
 /* Default parameters */
 const double min_inliers_default = 0.01;
@@ -1236,14 +1239,26 @@ static int read_nii(const char *path, Image *const im)
  */
 int im_write(const char *path, const Image *const im) {
 
+	// Create the path
+	if (mkpath(path, out_mode))
+		return SIFT3D_FAILURE;
+
         // Get the file format 
         switch (im_get_format(path)) {
         case ANALYZE:
         case NIFTI:
                 return write_nii(path, im);
         case DICOM:
-                return write_dcm(path, im);
+                return write_dcm(path, im, 1);
         case DIRECTORY:
+
+                // Create the directory
+                if (do_mkdir(path, out_mode)) {
+                        fprintf(stderr, "im_write: failed to create directory "
+                                "%s \n", path);
+                        return SIFT3D_FAILURE;
+                }
+
                 return write_dcm_dir(path, im);
         case UNKNOWN:
         default:
@@ -1276,9 +1291,6 @@ static int write_nii(const char *path, const Image *const im)
 			"channel images.", im->nc);
 		return SIFT3D_FAILURE;
 	}
-	// Create the path
-	if (mkpath(path, 0777))
-		return SIFT3D_FAILURE;
 
 	// Init a nifti struct and allocate memory
 	if ((nifti = nifti_make_new_nim(dims, DT_FLOAT32, 1))
@@ -1336,7 +1348,7 @@ int write_Mat_rm(const char *path, const Mat_rm * const mat)
 	const char *mode = "w";
 
 	// Validate and create the output directory
-	if (mkpath(path, 0777))
+	if (mkpath(path, out_mode))
 		return SIFT3D_FAILURE;
 
 	// Get the file extension
@@ -3790,7 +3802,7 @@ int write_pyramid(const char *path, Pyramid * pyr)
 	int o, s;
 
 	// Validate or create output directory
-	if (mkpath(path, 0777))
+	if (mkpath(path, out_mode))
 		return SIFT3D_FAILURE;
 
 	// Save each image a separate file

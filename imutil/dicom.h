@@ -14,11 +14,14 @@
 extern "C" {
 #endif
 
+const char ext_dcm[] = "dcm";
+
 int read_dcm(const char *path, Image *const im);
 
 int read_dcm_dir(const char *path, Image *const im);
 
-int write_dcm(const char *path, const Image *const im);
+int write_dcm(const char *path, const Image *const im,
+        const unsigned int instance);
 
 int write_dcm_dir(const char *path, const Image *const im);
 
