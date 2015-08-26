@@ -24,7 +24,7 @@ matlab_add_mex (NAME mexExtractSift3D
 )
 
 # Copy the Matlab files
-file (COPY setupSift3D.m detectSift3D.m extractSift3D.m
+file (COPY setupSift3D.m detectSift3D.m extractSift3D.m Sift3DTest.m
         DESTINATION ${TOOLBOX_PATH})
 
 # Send all files to the toolbox subdirectory 

@@ -758,7 +758,6 @@ int print_Mat_rm(const Mat_rm * const mat)
  * -size
  * -u.data_* (Change is not guaranteed)
  */
-<<<<<<< HEAD
 int resize_Mat_rm(Mat_rm *mat) {
 
     size_t type_size, total_size;
@@ -783,46 +782,10 @@ int resize_Mat_rm(Mat_rm *mat) {
         default:
 #ifndef NDEBUG
             fputs("resize_Mat_rm: unknown type! \n", stderr);
-=======
-int resize_Mat_rm(Mat_rm * mat)
-{
-
-	size_t type_size, total_size;
-
-	double **const data = &mat->u.data_double;
-	const size_t numel = mat->num_rows * mat->num_cols;
-
-	// Check for the trivial case
-	if (numel == 0) {
-
-		if (*data != NULL)
-			free(*data);
-
-		*data = NULL;
-		mat->numel = 0;
-		mat->size = 0;
-		return SIFT3D_SUCCESS;
-	}
-
-	switch (mat->type) {
-	case DOUBLE:
-		type_size = sizeof(double);
-		break;
-	case FLOAT:
-		type_size = sizeof(float);
-		break;
-	case INT:
-		type_size = sizeof(int);
-		break;
-	default:
-#ifndef NDEBUG
-		puts("resize_Mat_rm: unknown type! \n");
->>>>>>> master
 #endif
 		return SIFT3D_FAILURE;
 	}
 
-<<<<<<< HEAD
     // Calculate the new size
     total_size = type_size * numel;
 
@@ -844,14 +807,6 @@ int resize_Mat_rm(Mat_rm * mat)
     mat->numel = numel;
     mat->size = total_size;
     return *data == NULL ? SIFT3D_FAILURE : SIFT3D_SUCCESS;
-=======
-	total_size = type_size * numel;
-	*data = (double *)realloc(*data, numel * type_size);
-
-	mat->numel = numel;
-	mat->size = total_size;
-	return *data == NULL ? SIFT3D_FAILURE : SIFT3D_SUCCESS;
->>>>>>> master
 }
 
 /* Set all elements to zero */
@@ -881,7 +836,6 @@ int zero_Mat_rm(Mat_rm * mat)
 	return SIFT3D_SUCCESS;
 }
 
-<<<<<<< HEAD
 /* De-allocate the memory for a Mat_rm struct, unless it was initialized in
  * static mode. */
 void cleanup_Mat_rm(Mat_rm *mat) {
@@ -891,15 +845,6 @@ void cleanup_Mat_rm(Mat_rm *mat) {
 
     if (!mat->static_mem)
         free(mat->u.data_double);
-=======
-/* De-allocate the memory for a Mat_rm struct. */
-void cleanup_Mat_rm(Mat_rm * mat)
-{
-	if (mat->u.data_double == NULL)
-		return;
-
-	free(mat->u.data_double);
->>>>>>> master
 }
 
 /* Make a grid with the specified spacing between lines and line width. 
@@ -1464,11 +1409,6 @@ int im_resize(Image * im)
 		if (dim > 0)
 			continue;
 
-<<<<<<< HEAD
-    // Do nothing if the size has not changed
-    if (im->size == size)
-        return SIFT3D_SUCCESS;
-=======
 		fprintf(stderr, "im_resize: invalid dimension %d: %d \n", i,
 			dim);
 		return SIFT3D_FAILURE;
@@ -1478,10 +1418,10 @@ int im_resize(Image * im)
 			im->nc);
 		return SIFT3D_FAILURE;
 	}
-	// Check for the trivial case
-	if (im->size == size)
-		return SIFT3D_SUCCESS;
->>>>>>> master
+
+        // Do nothing if the size has not changed
+        if (im->size == size)
+                return SIFT3D_SUCCESS;
 
 	im->size = size;
 	im->data = realloc(im->data, im->size * sizeof(float));
@@ -3712,16 +3652,9 @@ void cleanup_Pyramid(Pyramid * const pyr)
 SIFT3D_PYR_LOOP_END}
 
 /* Initialize a Slab for first use */
-<<<<<<< HEAD
 void init_Slab(Slab *const slab) {
     slab->buf_size = slab->num = 0;
     slab->buf = NULL;
-=======
-void init_Slab(Slab * const slab)
-{
-	slab->buf_length = slab->num = 0;
-	slab->buf = NULL;
->>>>>>> master
 }
 
 /* Free all memory associated with a slab. Slab cannot be re-used after 

@@ -15,6 +15,8 @@ function [desc, coords] = extractSift3D(keys, im)
 %    im = rand(50, 50, 50);
 %    keys = detectSift3D(im);
 %    desc = extractSift3D(keys);
+%
+% Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
 
 % Required field dimensions
 coordsSizeReq = [1 3];

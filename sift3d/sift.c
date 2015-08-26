@@ -2829,8 +2829,8 @@ write_kp_quit:
         return SIFT3D_FAILURE;
 }
 
-/* Write SIFT3D descriptors to a file. The descriptors are represented by a
- * matrix (.csv, .csv.gz) where each row is a descriptor. */
+/* Write SIFT3D descriptors to a text file.
+ * See SIFT3D_Descriptor_store_to_Mat_rm for the file format. */
 int write_SIFT3D_Descriptor_store(const char *path, 
         const SIFT3D_Descriptor_store *const desc) {
 
@@ -2844,25 +2844,8 @@ int write_SIFT3D_Descriptor_store(const char *path,
                 return SIFT3D_FAILURE;
      
         // Write the data into the matrix 
-        for (i = 0; i < num_rows; i++) { 
-
-                int col;
-
-                const SIFT3D_Descriptor *const d = desc->buf + i;
-
-                for (j = 0; j < DESC_NUM_TOTAL_HIST; j++) {
-
-                        int a, p;
-
-                        const Hist *const hist = d->hists + j;
-
-                        HIST_LOOP_START(a, p)
-                                const int col = HIST_GET_IDX(a, p) + j * HIST_NUMEL;
-                                SIFT3D_MAT_RM_GET(&mat, i, col, double) =   
-                                        HIST_GET(hist, a, p);
-                        HIST_LOOP_END
-                }
-        }
+        if (SIFT3D_Descriptor_store_to_Mat_rm(desc, &mat))
+                goto write_desc_quit;
 
         // Write the matrix to the file
         if (write_Mat_rm(path, &mat))

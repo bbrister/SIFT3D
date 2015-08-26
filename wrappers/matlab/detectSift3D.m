@@ -19,6 +19,8 @@ function keys = detectSift3D(im)
 %  Example:
 %     im = rand(50, 50, 50);
 %     keys = detectSift3D(im);
+%
+% Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
 
 % Verify inputs
 if nargin < 1
