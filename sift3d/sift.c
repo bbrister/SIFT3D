@@ -1130,17 +1130,18 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 				CMP_CUR(cur, x, y, z, <, pcur) &&
 				CMP_NEXT(next, x, y, z, <, pcur))))
 				{
-					// Add a keypoint candidate
-					num++;
-					SIFT3D_RESIZE_KP_STORE(kp, num);
-					key = kp->buf + num - 1;
-					key->o = o;
-					key->s = s;
-					key->xi = x;
-					key->yi = y;
-					key->zi = z;
 
-				}
+                                // Add a keypoint candidate
+                                num++;
+                                SIFT3D_RESIZE_KP_STORE(kp, num);
+                                key = kp->buf + num - 1;
+                                key->o = o;
+                                key->s = s;
+                                key->xi = x;
+                                key->yi = y;
+                                key->zi = z;
+
+                        }
 		SIFT3D_IM_LOOP_END
 	SIFT3D_PYR_LOOP_END
 #undef CMP_NEIGHBORS
@@ -1697,65 +1698,61 @@ void SIFT3D_desc_acc_interp(const SIFT3D * const sift3d,
 #endif
 	
 	for (dx = 0; dx < 2; dx++) {
-		for (dy = 0; dy < 2; dy++) {
-			for (dz = 0; dz < 2; dz++) {
+	for (dy = 0; dy < 2; dy++) {
+        for (dz = 0; dz < 2; dz++) {
 
-				x = (int) vbins->x + dx;
-				y = (int) vbins->y + dy;
-				z = (int) vbins->z + dz;
+                x = (int) vbins->x + dx;
+                y = (int) vbins->y + dy;
+                z = (int) vbins->z + dz;
 
-				// Check boundaries
-				if (x < 0 || x >= NHIST_PER_DIM ||
-					y < 0 || y >= NHIST_PER_DIM ||
-					z < 0 || z >= NHIST_PER_DIM)
-					continue;
+                // Check boundaries
+                if (x < 0 || x >= NHIST_PER_DIM ||
+                        y < 0 || y >= NHIST_PER_DIM ||
+                        z < 0 || z >= NHIST_PER_DIM)
+                        continue;
 
-				// Get the histogram
-				hist = desc->hists + x + y * y_stride + 
-					   z * z_stride;	
+                // Get the histogram
+                hist = desc->hists + x + y * y_stride + 
+                           z * z_stride;	
 
-				assert(x + y * y_stride + z * z_stride < DESC_NUM_TOTAL_HIST);
+                assert(x + y * y_stride + z * z_stride < DESC_NUM_TOTAL_HIST);
 
-				// Get the spatial interpolation weight
-				weight = ((dx == 0) ? (1.0f - dvbins.x) : 
-					 	dvbins.x) *
-					 ((dy == 0) ? (1.0f - dvbins.y) : 
-						dvbins.y) *
-					 ((dz == 0) ? (1.0f - dvbins.z) : 
-						dvbins.z);
+                // Get the spatial interpolation weight
+                weight = ((dx == 0) ? (1.0f - dvbins.x) : dvbins.x) *
+                        ((dy == 0) ? (1.0f - dvbins.y) : dvbins.y) *
+                        ((dz == 0) ? (1.0f - dvbins.z) : dvbins.z);
 
 				/* Add the value into the histogram */
 #ifdef ICOS_HIST
-				assert(HIST_NUMEL == ICOS_NVERT);
-				assert(bin >= 0 && bin < ICOS_NFACES);
+                assert(HIST_NUMEL == ICOS_NVERT);
+                assert(bin >= 0 && bin < ICOS_NFACES);
 
-				// Interpolate over three vertices
-				MESH_HIST_GET(mesh, hist, bin, 0) += mag * weight * bary.x;
-				MESH_HIST_GET(mesh, hist, bin, 1) += mag * weight * bary.y;
-				MESH_HIST_GET(mesh, hist, bin, 2) += mag * weight * bary.z; 
+                // Interpolate over three vertices
+                MESH_HIST_GET(mesh, hist, bin, 0) += mag * weight * bary.x;
+                MESH_HIST_GET(mesh, hist, bin, 1) += mag * weight * bary.y;
+                MESH_HIST_GET(mesh, hist, bin, 2) += mag * weight * bary.z; 
 #else
-				// Iterate over all angles
-				for (dp = 0; dp < 2; dp ++) {
-					for (da = 0; da < 2; da ++) {
+                // Iterate over all angles
+                for (dp = 0; dp < 2; dp ++) {
+                for (da = 0; da < 2; da ++) {
 
-						a = ((int) sbins.az + da) % NBINS_AZ;
-						p = (int) sbins.po + dp;
-						if (p >= NBINS_PO) {
-							// See HIST_GET_PO
-							a = (a + NBINS_AZ / 2) % NBINS_AZ;
-							p = NBINS_PO - 1;
-						}
+                        a = ((int) sbins.az + da) % NBINS_AZ;
+                        p = (int) sbins.po + dp;
+                        if (p >= NBINS_PO) {
+                                // See HIST_GET_PO
+                                a = (a + NBINS_AZ / 2) % NBINS_AZ;
+                                p = NBINS_PO - 1;
+                        }
 		
-						assert(a >= 0);
-						assert(a < NBINS_AZ);
-						assert(p >= 0);
-						assert(p < NBINS_PO);
+                        assert(a >= 0);
+                        assert(a < NBINS_AZ);
+                        assert(p >= 0);
+                        assert(p < NBINS_PO);
 
-						HIST_GET(hist, a, p) += sbins.mag * weight *
-						((da == 0) ? (1.0f - dsbins.az) : dsbins.az) *
-						((dp == 0) ? (1.0f - dsbins.po) : dsbins.po);
-					}
-				}	
+                        HIST_GET(hist, a, p) += sbins.mag * weight *
+                                ((da == 0) ? (1.0f - dsbins.az) : dsbins.az) *
+                                ((dp == 0) ? (1.0f - dsbins.po) : dsbins.po);
+                }}
 #endif
 	}}}
 
