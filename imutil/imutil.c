@@ -768,6 +768,9 @@ int resize_Mat_rm(Mat_rm *mat) {
     const size_t numel = num_rows * num_cols;
     const data_type type = mat->type;
 
+    // Update numel
+    mat->numel = numel;
+
     // Get the size of the underyling datatype
     switch (type) {
         case DOUBLE:
@@ -801,12 +804,13 @@ int resize_Mat_rm(Mat_rm *mat) {
     }
 
     // Re-allocate the memory
-    *data = (double *) realloc(*data, total_size);
+    if ((*data = (double *) realloc(*data, total_size)) == NULL) {
+        mat->size = 0;
+        return SIFT3D_FAILURE;
+    }
 
-    // Save the data
-    mat->numel = numel;
     mat->size = total_size;
-    return *data == NULL ? SIFT3D_FAILURE : SIFT3D_SUCCESS;
+    return SIFT3D_SUCCESS;
 }
 
 /* Set all elements to zero */
@@ -2335,9 +2339,7 @@ int Affine_set_mat(const Mat_rm * const mat, Affine * const affine)
 		return SIFT3D_FAILURE;
 
 	affine->dim = mat->num_rows;
-	copy_Mat_rm(mat, &affine->A);
-
-	return SIFT3D_SUCCESS;
+	return copy_Mat_rm(mat, &affine->A);
 }
 
 /* Apply an arbitrary transformation to an [x, y, z] triple. */
