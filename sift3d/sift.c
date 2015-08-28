@@ -146,6 +146,11 @@ const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientaiton elements
 #endif
 #define HIST_GET(hist, a, p) ((hist)->bins[HIST_GET_IDX(a, p)])
 
+// Get a column index in the matrix representation of a 
+// SIFT3D_Descriptor_store struct
+#define DESC_MAT_GET_COL(hist_idx, a, p) \
+        (((hist_idx) * HIST_NUMEL) + HIST_GET_IDX(a, p) + IM_NDIMS)
+
 /* Global variables */
 extern CL_data cl_data;
 
@@ -2364,7 +2369,8 @@ int SIFT3D_Descriptor_store_to_Mat_rm(const SIFT3D_Descriptor_store *const store
 		for (j = 0; j < DESC_NUM_TOTAL_HIST; j++) {
 			const Hist *const hist = desc->hists + j;
 			HIST_LOOP_START(a, p)
-				SIFT3D_MAT_RM_GET(mat, i, j + IM_NDIMS, float) = 
+                                const int col = DESC_MAT_GET_COL(j, a, p);
+				SIFT3D_MAT_RM_GET(mat, i, col, float) = 
 					HIST_GET(hist, a, p);
 			HIST_LOOP_END
 		}
@@ -2410,8 +2416,9 @@ int Mat_rm_to_SIFT3D_Descriptor_store(const Mat_rm *const mat,
 		for (j = 0; j < DESC_NUM_TOTAL_HIST; j++) {
 			Hist *const hist = desc->hists + j;
 			HIST_LOOP_START(a, p)
-				HIST_GET(hist, a, p) = SIFT3D_MAT_RM_GET(mat, i, 
-					j + IM_NDIMS, float);
+                                const int col = DESC_MAT_GET_COL(j, a, p);
+				HIST_GET(hist, a, p) = 
+                                        SIFT3D_MAT_RM_GET(mat, i, col, float);
 			HIST_LOOP_END
 		}
 	}
@@ -2840,7 +2847,7 @@ int write_SIFT3D_Descriptor_store(const char *path,
         int i, j;
 
         // Initialize the matrix
-        if (init_Mat_rm(&mat, num_rows, DESC_NUMEL, DOUBLE, SIFT3D_FALSE))
+        if (init_Mat_rm(&mat, 0, 0, FLOAT, SIFT3D_FALSE))
                 return SIFT3D_FAILURE;
      
         // Write the data into the matrix 
