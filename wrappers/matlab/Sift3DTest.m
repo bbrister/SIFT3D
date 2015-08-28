@@ -1,7 +1,7 @@
 classdef Sift3DTest < TestCase
     %Sift3DTest a test suite for SIFT3D.
     %
-    % To run this test suite, you must have installed xUnit. As of August 
+    % To run this test suite, you must have installed xUnit. As of August
     % 25th, 2015, xUnit is available at:
     %   http://www.mathworks.com/matlabcentral/fileexchange/22846-matlab-xunit-test-framework
     %

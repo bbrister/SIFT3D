@@ -3,13 +3,16 @@ function [desc, coords] = extractSift3D(keys, im)
 %  Arguments:
 %    keys - An array of n keypoint structs. See detectSift3D for the
 %      format.
-%    im - (Optional) An [MxNxP] array. If empty or not provided, uses the 
-%      Gaussian scale-space pyramid from the last call to detectSift3D.
+%    im - (Optional) An [MxNxP] array, where voxels are indexed in
+%      (x, y, z) order. If im is empty or not provided, this function uses 
+%      the Gaussian scale-space pyramid from the most recent call to 
+%      detectSift3D.
 %
 %  Return values:
 %    desc - An [n x 768] array of descriptors. The ith row is a descriptor
-%    corresponding to keys(i).
-%    coords - (Optional) An [n x 3] array of descriptor coordinates
+%      corresponding to keys(i).
+%    coords - An [n x 3] array of descriptor coordinates, defined in the
+%      space of the input image (see the description of the "im" argument).
 %
 %  Example:
 %    im = rand(50, 50, 50);

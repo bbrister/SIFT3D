@@ -17,6 +17,7 @@ and the following libraries:
 
 In addition, if Matlab is detected on your system, the following Matlab functions are created:
 - detectSift3D.m - Detect SIFT3D keypoints from a 3-dimensional array.
+- extractSift3D.m - Extract SIFT3D descriptors from a 3-dimensional array.
 
 See /examples for sample programs using the C and Matlab APIs.
 
