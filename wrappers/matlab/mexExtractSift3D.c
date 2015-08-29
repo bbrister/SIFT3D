@@ -8,13 +8,8 @@
  */
 
 #include "mex.h"
-#include "matrix.h"
 #include "imutil.h"
-#include "macros.h"
 #include "mexutil.h"
-
-/* Constants */
-#define DESC_NDIMS 2
 
 /* Entry point. 
  * Output format:
