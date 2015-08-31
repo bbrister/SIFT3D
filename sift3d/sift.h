@@ -14,6 +14,8 @@
 
 void init_Keypoint_store(Keypoint_store *const kp);
 
+int init_Keypoint(Keypoint *const key);
+
 int copy_Keypoint(const Keypoint *const src, Keypoint *const dst);
 
 void cleanup_Keypoint_store(Keypoint_store *const kp);

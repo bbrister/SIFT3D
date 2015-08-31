@@ -19,7 +19,7 @@ classdef Sift3DTest < TestCase
         im2Name
         dataName
         kpCmd
-        tol
+        tolText
     end
     
     methods
@@ -59,14 +59,13 @@ classdef Sift3DTest < TestCase
                 regexprep(getenv(ldPath), '[^:]*MATLAB[^:]*:*', '');
             setenv(ldPath, newLdPath);
             
-            % Error tolerance--must be large because outputs are saved as
-            % text
-            self.tol = 0.01;
+            % Error tolerance for text output
+            self.tolText = 0.01;
             
         end
         
-        % Test keypoint detection
-        function detectTest(self)
+        % Test keypoint detection against the CLI version
+        function detectCliTest(self)
             
             % Output file name
             kpCliName = 'kpCli.csv';
@@ -98,24 +97,24 @@ classdef Sift3DTest < TestCase
                 
                 % Check the coordinates
                 assertElementsAlmostEqual(mKey.coords, cliKey(1:3), ...
-                    'absolute', self.tol);
+                    'absolute', self.tolText);
                 
                 % Check the scale
                 assertElementsAlmostEqual(mKey.scale, cliKey(4), ...
-                    'absolute', self.tol);
+                    'absolute', self.tolText);
                 
                 % Check the orientation
                 assertElementsAlmostEqual(mKey.ori, ...
                     reshape(cliKey(5:end), size(mKey.ori))', ...
-                    'absolute', self.tol);
+                    'absolute', self.tolText);
             end
             
             % Clean up
             delete(kpCliName);
         end
         
-        % Test descriptor extraction
-        function extractTest(self)
+        % Test descriptor extraction against the CLI version
+        function extractCliTest(self)
             
             % Output file name
             descCliName = 'descCli.csv';
@@ -147,15 +146,37 @@ classdef Sift3DTest < TestCase
                 
                 % Check the coordinates
                 assertElementsAlmostEqual(cliDescrip(1 : 3), ...
-                    coords(i, :), 'absolute', self.tol);
+                    coords(i, :), 'absolute', self.tolText);
                 
                 % Check the descriptor
                 assertElementsAlmostEqual(cliDescrip(4 : end), ...
-                    desc(i, :), 'absolute', self.tol);
+                    desc(i, :), 'absolute', self.tolText);
             end
             
             % Clean up
             delete(descCliName);
+        end
+        
+        % Test that "raw" image descriptors are close to those extracted
+        % from a Gaussian scale-space pyramid
+        function rawTest(self)
+            
+            % Load the image data
+            load(self.dataName);
+            
+            % Detect keypoints
+            keys = detectSift3D(im1);
+            
+            % Extract descriptors using the pyramid
+            [descPyr, coordsPyr] = extractSift3D(keys);
+            
+            % Extract raw descriptors
+            [descRaw, coordsRaw] = extractSift3D(keys, im1);
+            
+            % Check the results
+            assertElementsAlmostEqual(coordsPyr, coordsRaw);
+            assertElementsAlmostEqual(descPyr, descRaw, 'absolute', 0.2);
+            
         end
     end
 end

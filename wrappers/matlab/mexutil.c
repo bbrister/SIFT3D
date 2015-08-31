@@ -376,7 +376,8 @@ int mx2kp(const mxArray *const mx, Keypoint_store *const kp) {
                 return SIFT3D_FAILURE;
 
         // Allocate space in the keypoint store
-        SIFT3D_RESIZE_KP_STORE(kp, (size_t) numKp);
+        if (resize_Keypoint_store(kp, (size_t) numKp))
+                return SIFT3D_FAILURE;
 
         // Copy the data
         for (i = 0; i < (int) numKp; i++) {

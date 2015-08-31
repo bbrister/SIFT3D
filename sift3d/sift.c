@@ -378,6 +378,40 @@ void init_Keypoint_store(Keypoint_store *const kp) {
 	kp->buf = (Keypoint *) kp->slab.buf;
 }
 
+/* Initialize a Keypoint struct for use. This sets up the internal pointers,
+ * and nothing else. If called on a valid Keypoint struct, it has no effect. */
+int init_Keypoint(Keypoint *const key) {
+        // Initialize the orientation matrix with static memory
+        return init_Mat_rm_p(&key->R, key->r_data, IM_NDIMS, IM_NDIMS, FLOAT, 
+                SIFT3D_FALSE);
+}
+
+/* Make room for at least num Keypoint structs in kp. 
+ * 
+ * Note: This function must re-initialize some internal data if it was moved. 
+ * This does not affect the end user, but it affects the implementation of 
+ * init_Keypoint. */
+int resize_Keypoint_store(Keypoint_store *const kp, const size_t num) {
+
+        void *const buf_old = kp->slab.buf;
+
+        // Resize the internal memory
+	SIFT3D_RESIZE_SLAB(&kp->slab, num, sizeof(struct _Keypoint));
+	kp->buf = kp->slab.buf; 
+
+        // If the size has changed, re-initialize the keypoints
+        if (buf_old != kp->slab.buf) { 
+                int i; 
+                for (i = 0; i < kp->slab.num; i++) { 
+                        Keypoint *const key = kp->buf + i; 
+                        if (init_Keypoint(key)) 
+                                return SIFT3D_FAILURE; 
+                } 
+        } 
+
+        return SIFT3D_SUCCESS;
+}
+
 /* Copy one Keypoint struct into another. */
 int copy_Keypoint(const Keypoint *const src, Keypoint *const dst) {
 
@@ -1133,8 +1167,11 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 
                                 // Add a keypoint candidate
                                 num++;
-                                SIFT3D_RESIZE_KP_STORE(kp, num);
+                                if (resize_Keypoint_store(kp, num))
+                                        return SIFT3D_FAILURE;
                                 key = kp->buf + num - 1;
+                                if (init_Keypoint(key))
+                                        return SIFT3D_FAILURE;
                                 key->o = o;
                                 key->s = s;
                                 key->xi = x;
@@ -1159,7 +1196,7 @@ SIFT3D_IGNORE_UNUSED
 SIFT3D_IGNORE_UNUSED
 	int x, y, z, c, xnew, ynew, znew, i, j, k, l;
 
-	// Initialize data 
+	// Initialize intermediates
 	init_Mat_rm(&B, 4, 1, DOUBLE, SIFT3D_FALSE);
 	init_Mat_rm(&X, 4, 1, DOUBLE, SIFT3D_FALSE);
 	init_Mat_rm(&Hi, 3, 3, DOUBLE, SIFT3D_FALSE);
@@ -1264,7 +1301,7 @@ SIFT3D_IGNORE_UNUSED
 			goto refine_quit;
 		    default:
 			puts("refine_keypoint: error solving system! \n");
-			return SIFT3D_FAILURE;	
+                        goto refine_error;
 		}
 	
 #else
@@ -1334,7 +1371,21 @@ refine_quit:
 		key->sd_rel = sd * pow(2.0, -o);
 	}
 
+        // Clean up
+        cleanup_Mat_rm(&B);
+        cleanup_Mat_rm(&X);
+        cleanup_Mat_rm(&Hi);
+        cleanup_Mat_rm(&Hs);
+
 	return SIFT3D_SUCCESS;
+
+refine_error:
+        // Clean up and return an error
+        cleanup_Mat_rm(&B);
+        cleanup_Mat_rm(&X);
+        cleanup_Mat_rm(&Hi);
+        cleanup_Mat_rm(&Hs);
+        return SIFT3D_FAILURE;
 }
 
 /* Bin a Cartesian gradient into Spherical gradient bins */
@@ -1537,12 +1588,8 @@ static int assign_orientations(SIFT3D *sift3d,
                 const Cvec vcenter = {key->xd, key->yd, key->zd};
                 const double sigma = ori_sig_fctr * key->sd_rel;
 
-		// Initialize the orientation matrix
-		if (init_Mat_rm_p(R, key->r_data, IM_NDIMS, IM_NDIMS, FLOAT, 
-                        SIFT3D_FALSE))
-			return SIFT3D_FAILURE;
-
 		// Compute dominant orientations
+                assert(R->u.data_float == key->r_data);
 		switch (assign_eig_ori(sift3d, level, &vcenter, sigma, R)) {
 			case SIFT3D_SUCCESS:
 				// Continue processing this keypoint
@@ -1556,15 +1603,14 @@ static int assign_orientations(SIFT3D *sift3d,
 		}
 		
 		// Rebuild the Keypoint buffer in place
-                copy_Keypoint(key, kp_pos);
+                if (copy_Keypoint(key, kp_pos))
+                        return SIFT3D_FAILURE;
                 kp_pos++;
 	}
 
 	// Release unneeded keypoint memory
 	num = kp_pos - kp->buf;
-	SIFT3D_RESIZE_KP_STORE(kp, num);
-
-	return SIFT3D_SUCCESS;
+        return resize_Keypoint_store(kp, num);
 }
 
 /* Detect keypoint locations and orientations. You must initialize
@@ -1901,15 +1947,13 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d, const void *const im,
 	const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc,
         const int use_gpyr) {
 
+        Keypoint key_base;
+
 	const Image *first_level;
 	int i;
 
-	// Parse inputs
-	if (!use_gpyr) {
-		puts("SIFT3D_extract_descriptors: This feature has not yet "
-			 "been implemented! Please call this function with a "
-			 "Pyramid rather than an Image. \n");
-	}
+        // Initialize intermediates
+        init_Keypoint(&key_base);
 
 	// Resize the descriptor store
 	desc->num = kp->slab.num;
@@ -1919,11 +1963,12 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d, const void *const im,
 
 	// Initialize the image info
 	if (use_gpyr) {
-		const Pyramid *const gpyr = (Pyramid *) im;
+		const Pyramid *const gpyr = im;
 		first_level = SIFT3D_PYR_IM_GET(gpyr, gpyr->first_octave, 
                         gpyr->first_level);
-	} else
+	} else {
 		first_level = im;
+        }
 	desc->nx = first_level->nx;	
 	desc->ny = first_level->ny;	
 	desc->nz = first_level->nz;	
@@ -1931,11 +1976,42 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d, const void *const im,
         // Extract the descriptors
 	for (i = 0; i < desc->num; i++) {
 
-		const Keypoint *const key = kp->buf + i;
+                const Keypoint *key_arg;
+
+                const Keypoint *const key = kp->buf + i;
 		SIFT3D_Descriptor *const descrip = desc->buf + i;
-		const Image *const level = 
-                        SIFT3D_PYR_IM_GET((Pyramid *) im, key->o, key->s);
-		extract_descrip(sift3d, level, key, descrip);
+		const Image *const level = use_gpyr ? 
+                        SIFT3D_PYR_IM_GET((Pyramid *) im, key->o, key->s) : 
+                        im;
+
+                // Assign the input keypoint
+                if (use_gpyr || key->o == 0) {
+                        // Use the provided keypoint 
+                        key_arg = key;
+                } else {
+
+                        const double coord_factor = pow(2.0, key->o);
+        
+                        // Convert the keypoint to the base octave
+                        if (copy_Keypoint(key, &key_base)) {
+                                fputs("SIFT3D_extract_descriptors: failed to "
+                                        "convert keypoint to base octave", 
+                                        stderr);
+                                return SIFT3D_FAILURE;
+                        }
+                        key_base.xd *= coord_factor;
+                        key_base.yd *= coord_factor;
+                        key_base.zd *= coord_factor;
+                        key_base.xi = (int) key_base.xd;
+                        key_base.yi = (int) key_base.yd;
+                        key_base.zi = (int) key_base.zd;
+                        key_base.o = 0;
+                        key_base.sd_rel = key_base.sd;
+                        key_arg = &key_base;
+
+                }
+
+		extract_descrip(sift3d, level, key_arg, descrip);
 	}	
 
 	return SIFT3D_SUCCESS;

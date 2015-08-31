@@ -178,11 +178,6 @@
 	(slab)->num = (num_new); \
 }
 
-// As above, but can be used on a Keypoint_store
-#define SIFT3D_RESIZE_KP_STORE(store, num_new) \
-	SIFT3D_RESIZE_SLAB(&(store)->slab, num_new, sizeof(struct _Keypoint)); \
-	(store)->buf = (store)->slab.buf
-
 // Nested loop through all elements of a matrix
 #define SIFT3D_MAT_RM_LOOP_START(mat, row, col) \
 	for ((row) = 0; (row) < (mat)->num_rows; (row)++) { \
