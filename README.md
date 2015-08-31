@@ -69,7 +69,7 @@ For instructions on using the CLI, use the "--help" option, e.g.
 
 ### Linking to SIFT3D libraries with CMake
 
-SIFT3D exports a CMake find module to the install directories. Here is an example of how to link to SIFT3D from a CMake list.
+SIFT3D exports a CMake find module to the install directories. Here is an example of linking to SIFT3D from a CMake list.
 
         find_package (SIFT3D) # Find SIFT3D
         add_executable (helloWorld helloWorld.c) # Declare a target
@@ -78,7 +78,7 @@ SIFT3D exports a CMake find module to the install directories. Here is an exampl
 
 ### Manually linking to SIFT3D libraries
 
-Here is an example of compiling a C program by explicitly stating the libraries and include directories:
+Here is an example of compiling a C program by explicitly specifying the libraries and include directories:
 
 ```
 gcc helloWorld.c -o helloWorld -I/usr/local/include/sift3d -L/usr/local/lib/sift3d -lreg -lsift3d -limutil -llapack -lblas -lz -lniftiio -lm
