@@ -72,9 +72,9 @@ For instructions on using the CLI, use the "--help" option, e.g.
 SIFT3D exports a CMake find module to the install directories. Here is an example of how to link to SIFT3D from a CMake list.
 
         find_package (SIFT3D) # Find SIFT3D
-        add_executable (siftreg siftreg.c) # Declare a target
-        target_link_libraries (siftreg PUBLIC ${SIFT3D_LIBRARIES}) # Link to the SIFT3D libraries
-        target_include_directories (siftreg PUBLIC ${SIFT3D_INCLUDE_DIR}) # Find the SIFT3D headers
+        add_executable (helloWorld helloWorld.c) # Declare a target
+        target_link_libraries (helloWorld PUBLIC ${SIFT3D_LIBRARIES}) # Link to the SIFT3D libraries
+        target_include_directories (helloWorld PUBLIC ${SIFT3D_INCLUDE_DIR}) # Find the SIFT3D headers
 
 ### Manually linking to SIFT3D libraries
 
