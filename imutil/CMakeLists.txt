@@ -7,6 +7,10 @@
 # Find LAPACK
 find_package (LAPACK REQUIRED)
 
+# Optionally disable use of ITK
+set (USE_ITK ON CACHE PATH 
+        "Look for dependencies in the ITK installation, if one is found")
+
 # Compile imutil
 add_library (imutil SHARED imutil.c)
 target_include_directories (imutil PUBLIC 
@@ -17,8 +21,12 @@ target_link_libraries (imutil PUBLIC ${LAPACK_LIBRARIES})
 install (FILES types.h macros.h imutil.h kernels.cl 
         DESTINATION ${INSTALL_INCLUDE_DIR})
 
-# Try to find ITK
-find_package (ITK 4 QUIET)
+# Try to find ITK, unless disabled
+if (${USE_ITK})
+        find_package (ITK 4 QUIET)
+else ()
+        set (ITK_FOUND OFF)
+endif ()
 
 if (${ITK_FOUND})
 	message(STATUS "Linking to ITK")
@@ -28,7 +36,12 @@ if (${ITK_FOUND})
 
 # Otherwise link directly to libniftiio
 else ()
-	message(STATUS "ITK not found. Linking to niftiio directly")
+        if (${USE_ITK})
+                message(STATUS "ITK not found. Linking to niftiio directly")
+        else ()
+                message(STATUS "ITK is disabled. Linking to niftiio directly. If you would like to compile with ITK, run cmake with -DUSE_ITK=ON")
+        endif ()
+
 	find_package (NIFTI REQUIRED)
 
 	target_link_libraries (imutil PUBLIC ${NIFTI_NIFTIIO_LIBRARY})
