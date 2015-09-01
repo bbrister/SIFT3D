@@ -1,6 +1,7 @@
 # - FindNIFTI.cmake
 #
 # Author: Thomas Proeger
+# Modified by Blaine Rister
 #
 # This cmake find module looks for the header files and libraries from the
 # 'libnifti1-dev' package.
@@ -33,6 +34,9 @@ FIND_LIBRARY(NIFTI_ZNZ_LIBRARY
 NAMES znz
 DOC "The library file libznz.so"
 )
+
+set (NIFTI_LIBRARIES ${NIFTI_NIFTICDF_LIBRARY} ${NIFTI_NIFTIIO_LIBRARY} ${NIFTI_ZNZ_LIBRARY})
+
 # handle the QUIETLY and REQUIRED arguments and set PNG_FOUND to TRUE if
 # all listed variables are TRUE
 INCLUDE(FindPackageHandleStandardArgs)

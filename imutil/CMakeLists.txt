@@ -42,7 +42,7 @@ else ()
 
 	find_package (NIFTI REQUIRED)
 
-	target_link_libraries (imutil PUBLIC ${NIFTI_NIFTIIO_LIBRARY})
+	target_link_libraries (imutil PUBLIC ${NIFTI_LIBRARIES})
 	target_include_directories (imutil PUBLIC ${NIFTI_INCLUDE_DIR})
 
 endif ()
@@ -72,7 +72,7 @@ if (${Matlab_FOUND})
                         ${ITK_INCLUDE_DIRS})
         else ()
                 target_link_libraries (meximutil PUBLIC 
-                        ${NIFTI_NIFTIIO_LIBRARY})
+                        ${NIFTI_LIBRARIES})
                 target_include_directories (meximutil PUBLIC 
                         ${NIFTI_INCLUDE_DIR})
         endif ()
