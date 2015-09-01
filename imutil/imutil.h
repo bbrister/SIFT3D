@@ -25,6 +25,10 @@ int init_cl(CL_data *user_cl_data, const char *platform_name,
 			cl_device_type device_type,	cl_mem_flags mem_flags, 
 			cl_image_format image_format);
 
+void init_Mesh(Mesh * const mesh);
+
+void cleanup_Mesh(Mesh * const mesh);
+
 int convert_Mat_rm(const Mat_rm *const in, Mat_rm *const out, 
         const data_type type);
 
@@ -123,6 +127,9 @@ int im_copy_dims(const Image *const src, Image *dst);
 int im_copy_data(const Image *const src, Image *const dst);
 
 void im_free(Image *im);
+
+int im_channel(const Image * const src, Image * const dst,
+	       const unsigned int chan);
 
 int im_downsample_2x(Image *src, Image *dst);
 

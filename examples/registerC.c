@@ -10,6 +10,7 @@
 #include <stdio.h>
 
 /* SIFT3D headers */
+#include "imutil.h"
 #include "sift.h"
 #include "reg.h"
 

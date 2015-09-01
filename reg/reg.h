@@ -36,6 +36,10 @@ void cleanup_Reg_SIFT3D(Reg_SIFT3D *const reg);
 
 int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform);
 
+int set_nn_thresh_Reg_SIFT3D(Reg_SIFT3D *const reg, const double nn_thresh);
+
+void set_SIFT3D_Reg_SIFT3D(Reg_SIFT3D *const reg, const SIFT3D *const sift3d);
+
 int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const src);
 
 int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const ref);

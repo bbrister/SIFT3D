@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <getopt.h>
+#include "imutil.h"
 #include "sift.h"
 
 /* Options */

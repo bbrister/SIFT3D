@@ -9,6 +9,7 @@
 
 #include "mex.h"
 #include "imutil.h"
+#include "sift.h"
 #include "mexutil.h"
 
 /* Entry point. 

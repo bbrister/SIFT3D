@@ -2757,7 +2757,7 @@ int eigen_Mat_rm(Mat_rm * A, Mat_rm * Q, Mat_rm * L)
 		work, &lwork, iwork, &liwork, &info);
 
 	if (info) {
-		printf("eigen_Mat_rm: LAPACK dsyevd error code %d", info);
+		printf("eigen_Mat_rm: LAPACK dsyevd error code %d", (int) info);
 		goto EIGEN_MAT_RM_QUIT;
 	}
 	// Optionally return the eigenvectors

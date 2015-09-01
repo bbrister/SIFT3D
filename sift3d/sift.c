@@ -186,9 +186,9 @@ static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
 static void extract_dense_descrip_rotate(SIFT3D *const sift3d, 
            const Image *const im, const Cvec *const vcenter, 
            const double sigma, const Mat_rm *const R, Hist *const hist);
-static int vox2hist(const Image *const im, const int x, const int y,
+static void vox2hist(const Image *const im, const int x, const int y,
         const int z, Hist *const hist);
-static int hist2vox(Hist *const hist, const Image *const im, const int x, 
+static void hist2vox(Hist *const hist, const Image *const im, const int x, 
         const int y, const int z);
 
 /* Initialize geometry tables. */
@@ -2270,7 +2270,7 @@ dense_extract_quit:
 }
 
 /* Copy a voxel to a Hist. Does no bounds checking. */
-static int vox2hist(const Image *const im, const int x, const int y,
+static void vox2hist(const Image *const im, const int x, const int y,
         const int z, Hist *const hist) {
 
         int c;
@@ -2281,7 +2281,7 @@ static int vox2hist(const Image *const im, const int x, const int y,
 }
 
 /* Copy a Hist to a voxel. Does no bounds checking. */
-static int hist2vox(Hist *const hist, const Image *const im, const int x, 
+static void hist2vox(Hist *const hist, const Image *const im, const int x, 
         const int y, const int z) {
 
         int c;

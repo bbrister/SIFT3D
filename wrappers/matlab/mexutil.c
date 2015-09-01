@@ -365,7 +365,7 @@ int mx2kp(const mxArray *const mx, Keypoint_store *const kp) {
 
         // Verify the coordinate vector dimensions 
         coordsDims = mxGetDimensions(mxCoords);
-        if (coordsDims[0] != 1 && coordsDims[1] != 1 ||
+        if ((coordsDims[0] != 1 && coordsDims[1] != 1) ||
                 coordsDims[0] * coordsDims[1] != IM_NDIMS)
                 return SIFT3D_FAILURE;
 

@@ -9,6 +9,7 @@
 
 #include "mex.h"
 #include "imutil.h"
+#include "sift.h"
 #include "macros.h"
 #include "mexutil.h"
 
