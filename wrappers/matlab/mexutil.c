@@ -7,9 +7,15 @@
  * -----------------------------------------------------------------------------
  */
 
+/* Standard headers */
 #include <stddef.h>
 #include <math.h>
+
+/* Matlab headers */
 #include "mex.h"
+#include "matrix.h"
+
+/* SIFT3D headers */
 #include "types.h"
 #include "macros.h"
 #include "imutil.h"
