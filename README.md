@@ -23,21 +23,27 @@ See /examples for sample programs using the C and Matlab APIs.
 
 ## Dependencies
 
-This code requires the following external libraries:
-- [LAPACK](http://www.netlib.org/lapack/)
-- [nifticlib](http://sourceforge.net/projects/niftilib/files/nifticlib/)
-
-LAPACK ships with Mac and is found in most Linux package managers.
-
-If you are using [ITK](http://www.itk.org), the build system will automatically find nifticlib there. Otherwise, you must install nifticlib yourself. (See the Ubuntu installation command below.)
-
 This code requires the following tools to compile:
 - [CMake](http://www.cmake.org)
 - A suitable C/C++ compiler, such as GCC or Clang/LLVM.
 
-On Ubuntu, as of version 14.04, the following command will install all dependencies and build tools:
+In addition, this code requires the following external libraries:
+- [LAPACK](http://www.netlib.org/lapack/)
+- [nifticlib](http://sourceforge.net/projects/niftilib/files/nifticlib/)
+
+Please follow the instructions below to install the other dependencies for your specific system.
+
+### Ubuntu Linux
+
+As of version 14.04, the following command will install all dependencies and build tools:
 
 	sudo apt-get install build-essential cmake liblapack-dev libnifti-dev
+
+### Mac OSX
+
+As of version 10.10.5, you can install the dependencies with [Homebrew](http://brew.sh/). First install Homebrew, if you haven't already, then run the following command:
+ 
+        brew install cmake niftilib
 
 ## Installation instructions
 
@@ -61,6 +67,8 @@ In principle you can use CMake to compile this code on Windows, but some modific
 If Matlab is detected in your system, a Matlab toolbox is compiled in the /build/wrappers/matlab subdirectory. To install the toolbox, add the following line to your startup.m file:
 
         run /path/to/SIFT3D/build/wrappers/matlab/setupSift3D
+
+If you do not have a startup file, you can simply run this command prior to using any SIFT3D functions.
 
 ## Usage instructions
 

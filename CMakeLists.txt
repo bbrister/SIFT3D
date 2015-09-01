@@ -79,7 +79,9 @@ find_library (Z_LIBRARY z)
 # Look for MATLAB
 find_package (Matlab QUIET)
 if (${Matlab_FOUND})
-        message ("-- Found Matlab. Building the Matlab wrappers")
+        message ("-- Found Matlab. Building the Matlab toolbox.")
+else ()
+        message ("-- Matlab not found. The toolbox will not be built.")
 endif ()
 
 # Generate the package configuration files

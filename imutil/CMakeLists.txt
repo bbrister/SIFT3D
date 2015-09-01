@@ -8,7 +8,7 @@
 find_package (LAPACK REQUIRED)
 
 # Optionally disable use of ITK
-set (USE_ITK ON CACHE PATH 
+set (USE_ITK OFF CACHE PATH 
         "Look for dependencies in the ITK installation, if one is found")
 
 # Compile imutil
@@ -38,8 +38,6 @@ if (${ITK_FOUND})
 else ()
         if (${USE_ITK})
                 message(STATUS "ITK not found. Linking to niftiio directly")
-        else ()
-                message(STATUS "ITK is disabled. Linking to niftiio directly. If you would like to compile with ITK, run cmake with -DUSE_ITK=ON")
         endif ()
 
 	find_package (NIFTI REQUIRED)
