@@ -79,10 +79,12 @@ find_library (Z_LIBRARY z)
 # Look for MATLAB in the default locations
 find_package (Matlab QUIET)
 
-# Look for MATLAB in OS-specific locations
-if (APPLE AND NOT Matlab_ROOT_DIR)
-        set (Matlab_ROOT_DIR "/Applications/Matlab.app")
-        find_package (Matlab QUIET)
+# If not found, look for MATLAB in OS-specific locations
+if (NOT ${Matlab_FOUND})
+        if (APPLE)
+                set (Matlab_ROOT_DIR "/Applications/Matlab.app")
+                find_package (Matlab QUIET)
+        endif ()
 endif ()
 
 if (${Matlab_FOUND})
