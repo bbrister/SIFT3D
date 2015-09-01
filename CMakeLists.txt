@@ -76,8 +76,15 @@ set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${RELEASE_FLAGS}")
 find_library (M_LIBRARY m)
 find_library (Z_LIBRARY z)
 
-# Look for MATLAB
+# Look for MATLAB in the default locations
 find_package (Matlab QUIET)
+
+# Look for MATLAB in OS-specific locations
+if (APPLE AND NOT Matlab_ROOT_DIR)
+        set (Matlab_ROOT_DIR "/Applications/Matlab.app")
+        find_package (Matlab QUIET)
+endif ()
+
 if (${Matlab_FOUND})
         message ("-- Found Matlab. Building the Matlab toolbox.")
 else ()

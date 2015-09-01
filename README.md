@@ -70,6 +70,18 @@ If Matlab is detected in your system, a Matlab toolbox is compiled in the /build
 
 If you do not have a startup file, you can simply run this command prior to using any SIFT3D functions.
 
+#### Known issues
+
+CMake sometimes fails to find Matlab on your system, especially on Mac OSX. If that is the case, you should see "Matlab not found" after running the cmake command. You can fix this by manually specifying the location of Matlab in the variable Matlab_ROOT_DIR. For example,
+
+        cmake .. -DMatlab_ROOT_DIR=/path/to/MATLAB
+
+or on Mac OSX,
+
+        cmake .. -DMatlab_ROOT_DIR=/path/to/Matlab.app
+
+where /path/to/MATLAB is the location of your Matlab installation.
+
 ## Usage instructions
 
 For instructions on using the CLI, use the "--help" option, e.g. 
