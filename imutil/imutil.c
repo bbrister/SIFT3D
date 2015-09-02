@@ -2739,7 +2739,7 @@ int eigen_Mat_rm(Mat_rm * A, Mat_rm * Q, Mat_rm * L)
 	dsyevd_(&jobz, &uplo, &n, A_trans.u.data_double, &lda, L->u.data_double,
 		&lwork_ret, &lwork_query, &liwork, &liwork_query, &info);
 
-	if (info) {
+	if ((int32_t) info) {
 		printf
 		    ("eigen_Mat_rm: LAPACK dsyevd workspace query error code %d",
 		     info);
@@ -2756,7 +2756,7 @@ int eigen_Mat_rm(Mat_rm * A, Mat_rm * Q, Mat_rm * L)
 	dsyevd_(&jobz, &uplo, &n, A_trans.u.data_double, &lda, L->u.data_double,
 		work, &lwork, iwork, &liwork, &info);
 
-	if (info) {
+	if ((int32_t) info) {
 		printf("eigen_Mat_rm: LAPACK dsyevd error code %d", (int) info);
 		goto EIGEN_MAT_RM_QUIT;
 	}
@@ -2840,16 +2840,16 @@ int solve_Mat_rm(Mat_rm * A, Mat_rm * B, double limit, Mat_rm * X)
 
 	// Compute the LU decomposition of A in place
 	dgetrf_(&m, &n, A_trans.u.data_double, &lda, ipiv, &info);
-	if (info < 0) {
+	if ((int32_t) info < 0) {
 		printf("solve_Mat_rm: LAPACK dgetrf error code %d \n", info);
 		goto SOLVE_MAT_RM_QUIT;
-	} else if (info > 0) {
+	} else if ((int32_t) info > 0) {
 		goto SOLVE_MAT_RM_SINGULAR;
 	}
 	// Compute the reciprocal condition number of A
 	dgecon_(&norm_type, &n, A_trans.u.data_double, &lda, &anorm, &rcond,
 		work, iwork, &info);
-	if (info) {
+	if ((int32_t) info) {
 		printf("solve_Mat_rm: LAPACK dgecon error code %d \n", info);
 		goto SOLVE_MAT_RM_QUIT;
 	}
@@ -2862,7 +2862,7 @@ int solve_Mat_rm(Mat_rm * A, Mat_rm * B, double limit, Mat_rm * X)
 		B_trans.u.data_double, &ldb, &info);
 
 	// Check for errors
-	if (info) {
+	if ((int32_t) info) {
 		printf("solve_Mat_rm: LAPACK dgetrs error code %d \n", info);
 		goto SOLVE_MAT_RM_QUIT;
 	}
@@ -2956,7 +2956,7 @@ int solve_Mat_rm_ls(Mat_rm * A, Mat_rm * B, Mat_rm * X)
 	dgelss_(&m, &n, &nrhs, A_trans.u.data_double, &lda,
 		B_trans.u.data_double, &ldb, s, &rcond, &rank, &lwork_ret,
 		&lwork_query, &info);
-	if (info) {
+	if ((int32_t) info) {
 		printf
 		    ("solve_mat_rm: LAPACK dgelss work query error code %d \n",
 		     info);
@@ -2971,7 +2971,7 @@ int solve_Mat_rm_ls(Mat_rm * A, Mat_rm * B, Mat_rm * X)
 	dgelss_(&m, &n, &nrhs, A_trans.u.data_double, &lda,
 		B_trans.u.data_double, &ldb, s, &rcond, &rank, work, &lwork,
 		&info);
-	if (info) {
+	if ((int32_t) info) {
 		printf("solve_mat_rm: LAPACK dgelss error code %d \n", info);
 		goto SOLVE_MAT_RM_LS_QUIT;
 	}
