@@ -23,10 +23,14 @@
 #define SIFT3D_TRUE 1
 #define SIFT3D_FALSE 0
 
+// Platform types
 #if _Win16 == 1 || _WIN32 == 1 || _WIN64 == 1 || \
 	defined __WIN32__ || defined __TOS_WIN__ || \
 	defined __WINDOWS__ && !defined _WINDOWS
 #define _WINDOWS
+#endif
+#if (defined(__MINGW32__) || defined(__MINGW64__)) && defined(_WINDOWS)
+#define _MINGW_WINDOWS
 #endif
 
 /* OpenCL type definitions. */

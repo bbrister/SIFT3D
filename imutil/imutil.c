@@ -145,6 +145,7 @@ extern void dsyevd_(const char *, const char *, const fortran_int *, double *,
 /* Internal helper routines */
 static char *read_file(const char *path);
 static int do_mkdir(const char *path, mode_t mode);
+static int cross_mkdir(const char *path, mode_t mode);
 static double resample_linear(const Image * const in, const double x,
 			      const double y, const double z, const int c);
 static double resample_lanczos2(const Image * const in, const double x,
@@ -3768,7 +3769,7 @@ static int do_mkdir(const char *path, mode_t mode)
 
 	if (stat(path, &st) != 0) {
 		/* Directory does not exist. EEXIST for race condition */
-		if (mkdir(path, mode) != 0 && errno != EEXIST)
+		if (cross_mkdir(path, mode) != 0 && errno != EEXIST)
 			status = -1;
 	} else if (!S_ISDIR(st.st_mode)) {
 		errno = ENOTDIR;
@@ -3776,6 +3777,17 @@ static int do_mkdir(const char *path, mode_t mode)
 	}
 
 	return (status);
+}
+
+/* Cross-platform mkdir */
+static int cross_mkdir(const char *path, mode_t mode) {
+#ifdef _WINDOWS
+        return _mkdir(path);
+#elif _MINGW_WINDOWS
+        return mkdir(path);
+#else
+        return mkdir(path, mode);
+#endif
 }
 
 /* Initialize a Tps struct. This initializes
