@@ -16,6 +16,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <float.h>
 #include <zlib.h>
 #include <sys/stat.h>
