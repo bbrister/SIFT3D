@@ -3783,7 +3783,7 @@ static int do_mkdir(const char *path, mode_t mode)
 static int cross_mkdir(const char *path, mode_t mode) {
 #ifdef _WINDOWS
         return _mkdir(path);
-#elif _MINGW_WINDOWS
+#elif defined(_MINGW_WINDOWS)
         return mkdir(path);
 #else
         return mkdir(path, mode);
