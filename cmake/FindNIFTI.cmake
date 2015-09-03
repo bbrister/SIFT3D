@@ -15,26 +15,41 @@
 # NIFTI_FOUND - TRUE if and only if ALL other variables have
 # correct values.
 #
+
 # INCLUDE directory
 FIND_PATH(NIFTI_INCLUDE_DIR
 NAMES nifti1.h
-PATH_SUFFIXES nifti
+PATHS ${NIFTI_DIR}
+PATH_SUFFIXES include nifti
 DOC "The include directory containing nifti1.h"
 )
+
 # LIBRARY files
 FIND_LIBRARY(NIFTI_NIFTICDF_LIBRARY
 NAMES nifticdf
+PATHS ${NIFTI_DIR}
+PATH_SUFFIXES lib
 DOC "The library file libnifticdf.so"
 )
 FIND_LIBRARY(NIFTI_NIFTIIO_LIBRARY
 NAMES niftiio
+PATHS ${NIFTI_DIR}
+PATH_SUFFIXES lib
 DOC "The library file libniftiiof.so"
 )
 FIND_LIBRARY(NIFTI_ZNZ_LIBRARY
 NAMES znz
+PATHS ${NIFTI_DIR}
+PATH_SUFFIXES lib
 DOC "The library file libznz.so"
 )
 
+# Allow the user to specify the path to the NIFTI installation
+get_filename_component (_NIFTI_DIR ${NIFTI_NIFTIIO_LIBRARY} DIRECTORY)
+set (NIFTI_DIR ${_NIFTI_DIR} 
+        CACHE PATH "The directory containing the NIFTI installation")
+
+# The combined NIFTI libraries
 set (NIFTI_LIBRARIES ${NIFTI_NIFTICDF_LIBRARY} ${NIFTI_NIFTIIO_LIBRARY} ${NIFTI_ZNZ_LIBRARY})
 
 # handle the QUIETLY and REQUIRED arguments and set PNG_FOUND to TRUE if
