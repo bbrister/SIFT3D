@@ -11,16 +11,16 @@
 #include <stddef.h>
 #include <math.h>
 
-/* Matlab headers */
-#include "mex.h"
-#include "matrix.h"
-
 /* SIFT3D headers */
 #include "types.h"
 #include "macros.h"
 #include "imutil.h"
 #include "sift.h"
 #include "mexutil.h"
+
+/* Matlab headers */
+#include "mex.h"
+#include "matrix.h"
 
 /* Execute the macro MACRO, with the first argument set to the type of mat. If
  * there is an error, goto err_label. */

@@ -36,9 +36,9 @@
 
 /* Missing types for MEX */
 #ifdef SIFT3D_MEX
-#ifdef MINGW_WINDOWS
+#ifdef _MINGW_WINDOWS
 // char16_t is not defined in MinGW with default settings
-typedef int16_t char16_t;
+typedef wchar_t char16_t;
 #endif
 #endif
 
