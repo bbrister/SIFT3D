@@ -37,7 +37,7 @@ In addition, this code requires the following external libraries:
 - [LAPACK](http://www.netlib.org/lapack/)
 - [nifticlib](http://sourceforge.net/projects/niftilib/files/nifticlib/)
 
-Please follow the instructions below to install the other dependencies for your specific system.
+Please follow the instructions below to install the dependencies for your specific system.
 
 #### Ubuntu Linux
 
