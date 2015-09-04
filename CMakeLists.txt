@@ -8,6 +8,7 @@ include (ExternalProject)
 
 # Options
 set (BUILD_EXAMPLES "ON" CACHE BOOL "If ON, builds the example programs.")
+set (USE_Matlab "ON" CACHE BOOL "If ON, builds the Matlab toolbox")
 
 # Minimum CMake version
 cmake_minimum_required (VERSION 2.8)
@@ -81,17 +82,25 @@ else ()
 endif ()
 find_package (ZLIB REQUIRED)
 
-# Look for MATLAB in the default locations
-find_package (Matlab QUIET)
+# Optionally find Matlab
+if (USE_Matlab)
+	# Look for MATLAB in the default locations
+	find_package (Matlab QUIET)
 
-# If not found, look for MATLAB in OS-specific locations
-if (NOT ${Matlab_FOUND})
-        if (APPLE)
-                set (Matlab_ROOT_DIR "/Applications/Matlab.app")
-                find_package (Matlab QUIET)
-        endif ()
+	# If not found, look for MATLAB in OS-specific locations
+	if (NOT ${Matlab_FOUND})
+		if (APPLE)
+			set (Matlab_ROOT_DIR 
+				"/Applications/Matlab.app")
+			find_package (Matlab QUIET)
+		endif ()
+	endif ()
+else ()
+	# Disable Matlab
+	set (Matlab_FOUND FALSE)
 endif ()
 
+# Set up Matlab library paths
 if (${Matlab_FOUND})
         message ("-- Found Matlab. Building the Matlab toolbox.")
 
@@ -99,9 +108,17 @@ if (${Matlab_FOUND})
         get_filename_component (Matlab_LIBRARIES_PATH ${Matlab_MEX_LIBRARY} 
                 DIRECTORY)
 
+	# Check for the MX library, which CMake cannot find on Windows
+	if (NOT Matlab_MX_LIBRARY_FOUND)
+
+		# Find Matlab's MX library
+		find_library (Matlab_MX_LIBRARY mx libmx PATHS ${Matlab_LIBRARIES_PATH})
+
+	endif ()
+
         # Find the Matlab LAPACK and BLAS libraries
-        find_library (MWLAPACK_LIBRARY mwlapack PATHS ${Matlab_LIBRARIES_PATH})
-        find_library (MWBLAS_LIBRARY mwblas PATHS ${Matlab_LIBRARIES_PATH})
+        find_library (MWLAPACK_LIBRARY mwlapack libmwlapack PATHS ${Matlab_LIBRARIES_PATH})
+        find_library (MWBLAS_LIBRARY mwblas libmwblas PATHS ${Matlab_LIBRARIES_PATH})
 
 else ()
         message ("-- Matlab not found. The toolbox will not be built.")
