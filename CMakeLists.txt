@@ -73,8 +73,13 @@ set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${RELEASE_FLAGS}")
 set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${RELEASE_FLAGS}")
 
 # Find the system libraries
-find_library (M_LIBRARY m)
-find_library (Z_LIBRARY z)
+if (WIN32)
+        # m is not a separate library in Windows
+        set (M_LIBRARY "")
+else () 
+        find_library (M_LIBRARY m)
+endif ()
+find_package (ZLIB REQUIRED)
 
 # Look for MATLAB in the default locations
 find_package (Matlab QUIET)
