@@ -48,7 +48,8 @@ else ()
 endif ()
 
 # Link to system libraries
-target_link_libraries(imutil PUBLIC ${Z_LIBRARY} ${M_LIBRARY})
+target_link_libraries(imutil PUBLIC ${ZLIB_LIBRARIES} ${M_LIBRARY})
+target_include_directories(imutil PUBLIC ${ZLIB_INCLUDE_DIRS})
 
 # If Matlab was found, compile a copy for use with Matlab libraries
 if (${Matlab_FOUND})
@@ -63,7 +64,7 @@ if (${Matlab_FOUND})
         )
         target_include_directories (meximutil PUBLIC 
                 ${Matlab_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR})
-        target_link_libraries (meximutil PUBLIC ${Z_LIBRARY} ${M_LIBRARY})
+        target_link_libraries (meximutil PUBLIC ${Z_LIBRARIES} ${M_LIBRARY})
 
         if (${ITK_FOUND})
                 target_link_libraries(meximutil PUBLIC 
