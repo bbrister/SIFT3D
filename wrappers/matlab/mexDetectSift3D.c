@@ -7,11 +7,11 @@
  * -----------------------------------------------------------------------------
  */
 
-#include "mex.h"
 #include "imutil.h"
 #include "sift.h"
 #include "macros.h"
 #include "mexutil.h"
+#include "mex.h"
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 

@@ -7,10 +7,10 @@
  * -----------------------------------------------------------------------------
  */
 
-#include "mex.h"
 #include "imutil.h"
 #include "sift.h"
 #include "mexutil.h"
+#include "mex.h"
 
 /* Entry point. 
  * Output format:
