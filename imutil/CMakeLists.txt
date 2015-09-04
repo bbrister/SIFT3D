@@ -62,9 +62,6 @@ if (${Matlab_FOUND})
                 LIBRARY_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
                 RUNTIME_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
         )
-        target_include_directories (meximutil PUBLIC 
-                ${Matlab_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR})
-        target_link_libraries (meximutil PUBLIC ${Z_LIBRARIES} ${M_LIBRARY})
 
         if (${ITK_FOUND})
                 target_link_libraries(meximutil PUBLIC 
@@ -77,6 +74,12 @@ if (${Matlab_FOUND})
                 target_include_directories (meximutil PUBLIC 
                         ${NIFTI_INCLUDE_DIR})
         endif ()
+
+        target_include_directories (meximutil PUBLIC 
+                ${Matlab_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS} 
+                ${CMAKE_CURRENT_SOURCE_DIR})
+        target_link_libraries (meximutil PUBLIC ${Z_LIBRARIES} ${M_LIBRARY})
+
 endif ()
 
 # Configure the installation

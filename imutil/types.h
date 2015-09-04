@@ -29,7 +29,8 @@
 	defined __WINDOWS__ && !defined _WINDOWS
 #define _WINDOWS
 #endif
-#if (defined(__MINGW32__) || defined(__MINGW64__)) && defined(_WINDOWS)
+#if (defined(__MINGW32__) || defined(__MINGW64__)) && defined(_WINDOWS) && \
+         !defined _MINGW_WINDOWS 
 #define _MINGW_WINDOWS
 #endif
 

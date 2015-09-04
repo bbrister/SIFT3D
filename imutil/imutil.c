@@ -3782,10 +3782,10 @@ static int do_mkdir(const char *path, mode_t mode)
 
 /* Cross-platform mkdir */
 static int cross_mkdir(const char *path, mode_t mode) {
-#ifdef _WINDOWS
-        return _mkdir(path);
-#elif defined(_MINGW_WINDOWS)
+#ifdef _MINGW_WINDOWS
         return mkdir(path);
+#elif defined( _WINDOWS )
+        return _mkdir(path);
 #else
         return mkdir(path, mode);
 #endif
