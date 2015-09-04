@@ -114,15 +114,21 @@ typedef struct _List {
 
 /* LAPACK declarations */
 #ifdef SIFT3D_MEX
+// Set the integer width to Matlab's defined width
 #include "mex.h"
 typedef mwSignedIndex fortran_int;
 #ifdef _WINDOWS
+// Remove underscores from FORTRAN functions
 #define dlange_ dlange
 #define dgecon_ dgecon
 #define dgelss_ dgelss
 #define dgetrf_ dgetrf
 #define dgetrs_ dgetrs
 #define dsyevd_ dsyevd
+#endif
+#ifdef _MINGW_WINDOWS
+// char16_t is not defined in MinGW with default settings
+typedef int16_t char16_t;
 #endif
 #else
 typedef int32_t fortran_int;
