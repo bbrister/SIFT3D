@@ -20,7 +20,7 @@
 FIND_PATH(NIFTI_INCLUDE_DIR
 NAMES nifti1.h
 PATHS ${NIFTI_DIR}
-PATH_SUFFIXES include nifti
+PATH_SUFFIXES include nifti include/nifti
 DOC "The include directory containing nifti1.h"
 )
 
