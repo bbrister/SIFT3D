@@ -116,6 +116,14 @@ typedef struct _List {
 #ifdef SIFT3D_MEX
 #include "mex.h"
 typedef mwSignedIndex fortran_int;
+#ifdef _WINDOWS
+#define dlange_ dlange
+#define dgecon_ dgecon
+#define dgelss_ dgelss
+#define dgetrf_ dgetrf
+#define dgetrs_ dgetrs
+#define dsyevd_ dsyevd
+#endif
 #else
 typedef int32_t fortran_int;
 #endif
