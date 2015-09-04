@@ -43,7 +43,7 @@ else ()
 	find_package (NIFTI REQUIRED)
 
 	target_link_libraries (imutil PUBLIC ${NIFTI_LIBRARIES})
-	target_include_directories (imutil PUBLIC ${NIFTI_INCLUDE_DIR})
+	target_include_directories (imutil PUBLIC ${NIFTI_INCLUDE_DIRS})
 
 endif ()
 
@@ -72,13 +72,14 @@ if (${Matlab_FOUND})
                 target_link_libraries (meximutil PUBLIC 
                         ${NIFTI_LIBRARIES})
                 target_include_directories (meximutil PUBLIC 
-                        ${NIFTI_INCLUDE_DIR})
+                        ${NIFTI_INCLUDE_DIRS})
         endif ()
 
         target_include_directories (meximutil PUBLIC 
                 ${Matlab_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS} 
                 ${CMAKE_CURRENT_SOURCE_DIR})
-        target_link_libraries (meximutil PUBLIC ${Z_LIBRARIES} ${M_LIBRARY})
+        target_link_libraries (meximutil PUBLIC ${MATLAB_LIBRARIES} 
+                ${ZLIB_LIBRARIES} ${M_LIBRARY})
 
 endif ()
 
