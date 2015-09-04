@@ -126,10 +126,6 @@ typedef mwSignedIndex fortran_int;
 #define dgetrs_ dgetrs
 #define dsyevd_ dsyevd
 #endif
-#ifdef _MINGW_WINDOWS
-// char16_t is not defined in MinGW with default settings
-typedef int16_t char16_t;
-#endif
 #else
 typedef int32_t fortran_int;
 #endif
