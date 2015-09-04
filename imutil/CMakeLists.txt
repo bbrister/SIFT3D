@@ -78,8 +78,9 @@ if (${Matlab_FOUND})
         target_include_directories (meximutil PUBLIC 
                 ${Matlab_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS} 
                 ${CMAKE_CURRENT_SOURCE_DIR})
-        target_link_libraries (meximutil PUBLIC ${Matlab_LIBRARIES} 
-                ${ZLIB_LIBRARIES} ${M_LIBRARY})
+        target_link_libraries (meximutil PUBLIC ${MWLAPACK_LIBRARY} 
+                ${MWBLAS_LIBRARY} ${Matlab_LIBRARIES} ${ZLIB_LIBRARIES} 
+                ${M_LIBRARY})
 
 endif ()
 

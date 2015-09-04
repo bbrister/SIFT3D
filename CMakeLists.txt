@@ -94,6 +94,15 @@ endif ()
 
 if (${Matlab_FOUND})
         message ("-- Found Matlab. Building the Matlab toolbox.")
+
+        # Get the path of the Matlab libraries
+        get_filename_component (Matlab_LIBRARIES_PATH ${Matlab_MEX_LIBRARY} 
+                DIRECTORY)
+
+        # Find the Matlab LAPACK and BLAS libraries
+        find_library (MWLAPACK_LIBRARY mwlapack PATHS ${Matlab_LIBRARIES_PATH})
+        find_library (MWBLAS_LIBRARY mwblas PATHS ${Matlab_LIBRARIES_PATH})
+
 else ()
         message ("-- Matlab not found. The toolbox will not be built.")
 endif ()
