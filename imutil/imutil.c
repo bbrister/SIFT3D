@@ -21,7 +21,7 @@
 #include <zlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <nifti1_io.h>
+#include <nifti/nifti1_io.h>
 #include "macros.h"
 #include "imutil.h"
 #include "types.h"
