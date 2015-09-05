@@ -25,7 +25,7 @@ This program has been successfully compiled and executed on the following platfo
 - Ubuntu Linux 14.04, using GCC 4.8.4 and CMake 2.8.12.2.
 - Mac OSX 10.10.5, using Clang 6.1.0, LLVM 3.6.0 and CMake 3.3.1
 
-Windows is not currently supported, because this code depends on a few POSIX utilities.
+Windows support is currently in the experimental stage. We plan to release binaries and installation instructions in the near future.
 
 ### Installing the dependencies
 
