@@ -21,6 +21,9 @@ function keys = detectSift3D(im)
 %      im = rand(50, 50, 50);
 %      keys = detectSift3D(im);
 %
+%  See also:
+%    extractSift3D, setupSift3D
+%
 % Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
 
 % Verify inputs

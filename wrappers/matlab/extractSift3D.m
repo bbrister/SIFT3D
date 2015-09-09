@@ -19,6 +19,9 @@ function [desc, coords] = extractSift3D(keys, im)
 %    keys = detectSift3D(im);
 %    [desc, coords] = extractSift3D(keys);
 %
+%  See also:
+%    detectSift3D, setupSift3D
+%
 % Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
 
 % Required field dimensions
