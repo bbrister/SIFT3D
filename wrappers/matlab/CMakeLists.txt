@@ -10,20 +10,27 @@ target_include_directories (mexutil PUBLIC
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
 )
-target_link_libraries (mexutil PUBLIC mexsift3D meximutil)
+target_include_directories(mexutil PUBLIC ${Matlab_INCLUDE_DIR})
+target_link_libraries (mexutil PUBLIC mexsift3D meximutil ${MWLAPACK_LIBRARY}
+        ${MWBLAS_LIBRARY} ${Matlab_LIBRARIES})
 
 # Build the mex files
 matlab_add_mex (NAME mexDetectSift3D 
         SRC mexDetectSift3D.c 
-        LINK_TO mexutil meximutil -lmwlapack -lmwblas
+        LINK_TO mexutil ${Matlab_LIBRARIES}
+)
+
+matlab_add_mex (NAME mexExtractSift3D
+        SRC mexExtractSift3D.c
+        LINK_TO mexutil ${Matlab_LIBRARIES}
 )
 
 # Copy the Matlab files
-file (COPY setupSift3D.m detectSift3D.m 
+file (COPY setupSift3D.m detectSift3D.m extractSift3D.m Sift3DTest.m
         DESTINATION ${TOOLBOX_PATH})
 
 # Send all files to the toolbox subdirectory 
-set_target_properties (mexDetectSift3D
+set_target_properties (mexutil mexDetectSift3D mexExtractSift3D
         PROPERTIES
         ARCHIVE_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
         LIBRARY_OUTPUT_DIRECTORY ${TOOLBOX_PATH}

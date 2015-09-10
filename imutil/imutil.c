@@ -16,6 +16,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <float.h>
 #include <zlib.h>
 #include <sys/stat.h>
@@ -124,8 +125,18 @@ typedef struct _List {
 
 /* LAPACK declarations */
 #ifdef SIFT3D_MEX
+// Set the integer width to Matlab's defined width
 #include "mex.h"
 typedef mwSignedIndex fortran_int;
+#ifdef _WINDOWS
+// Remove underscores from FORTRAN functions
+#define dlange_ dlange
+#define dgecon_ dgecon
+#define dgelss_ dgelss
+#define dgetrf_ dgetrf
+#define dgetrs_ dgetrs
+#define dsyevd_ dsyevd
+#endif
 #else
 typedef int32_t fortran_int;
 #endif
@@ -156,6 +167,7 @@ extern void dsyevd_(const char *, const char *, const fortran_int *, double *,
 /* Internal helper routines */
 static char *read_file(const char *path);
 static int do_mkdir(const char *path, mode_t mode);
+static int cross_mkdir(const char *path, mode_t mode);
 static double resample_linear(const Image * const in, const double x,
 			      const double y, const double z, const int c);
 static double resample_lanczos2(const Image * const in, const double x,
@@ -557,59 +569,52 @@ int convert_Mat_rm(const Mat_rm * const in, Mat_rm * const out,
 }
 
 /* Shortcut function to initalize a matrix. data_type is the type
- * of matrix elements. If set_zero == TURE, sets all elements to 
- * zero. */
-int init_Mat_rm(Mat_rm * mat, int num_rows, int num_cols,
-		data_type type, int set_zero)
-{
+ * of matrix elements. If set_zero == TRUE, sets all elements to 
+ * zero. */ 
+int init_Mat_rm(Mat_rm *const mat, const int num_rows, const int num_cols,
+                const data_type type, const int set_zero) {
 
-	switch (type) {
-	case DOUBLE:
-		mat->type = DOUBLE;
-		break;
-	case FLOAT:
-		mat->type = FLOAT;
-		break;
-	case INT:
-		mat->type = INT;
-		break;
-	default:
-		return SIFT3D_FAILURE;
-	}
+        mat->type = type;
+        mat->num_rows = num_rows;
+        mat->num_cols = num_cols;
+        mat->u.data_double = NULL;
+        mat->size = 0;
+        mat->static_mem = SIFT3D_FALSE;
 
-	mat->num_rows = num_rows;
-	mat->num_cols = num_cols;
-	mat->u.data_double = NULL;
-
-	if (resize_Mat_rm(mat))
-		return SIFT3D_FAILURE;
-
-	if (set_zero && zero_Mat_rm(mat))
-		return SIFT3D_FAILURE;
-
-	return SIFT3D_SUCCESS;
+        if (resize_Mat_rm(mat))
+                return SIFT3D_FAILURE;
+        
+        if (set_zero && zero_Mat_rm(mat))
+                return SIFT3D_FAILURE;
+    
+        return SIFT3D_SUCCESS;
 }
 
-/* As above, but aliases data memory with pointer p. */
-int init_Mat_rm_p(Mat_rm * mat, const void *p, int num_rows,
-		  int num_cols, data_type type, int set_zero)
-{
+/* As above, but aliases data memory with pointer p. The flag mat->static_mem
+ * is set, and the matrix does not need to be freed with cleanup_Mat_rm. But, 
+ * an error will be thrown if the user attempts to resize the memory. That is,
+ * resize_Mat_rm will only return success if the size of the matrix does not
+ * change. */ 
+int init_Mat_rm_p(Mat_rm *const mat, const void *const p, const int num_rows, 
+                  const int num_cols, const data_type type, 
+                  const int set_zero) {
 
-	// Perform normal initialization
-	if (init_Mat_rm(mat, num_rows, num_cols, type, set_zero))
-		return SIFT3D_FAILURE;
+        // Perform normal initialization
+        if (init_Mat_rm(mat, num_rows, num_cols, type, set_zero))
+                return SIFT3D_FAILURE;
 
-	// Clean up memory
-	cleanup_Mat_rm(mat);
+        // Clean up any existing memory
+        cleanup_Mat_rm(mat);
 
-	// Alias with provided memory
-	mat->u.data_double = (double *)p;
+        // Alias with provided memory and set the static flag
+        mat->u.data_double = (double *) p;
+        mat->static_mem = SIFT3D_TRUE;
 
-	// Re-zero
-	if (set_zero && zero_Mat_rm(mat))
-		return SIFT3D_FAILURE;
+        // Optionally set to zero 
+        if (set_zero && zero_Mat_rm(mat))
+                return SIFT3D_FAILURE;
 
-	return SIFT3D_SUCCESS;
+        return SIFT3D_SUCCESS;
 }
 
 /* Prints the type of mat into the string str. */
@@ -778,49 +783,59 @@ int print_Mat_rm(const Mat_rm * const mat)
  * -size
  * -u.data_* (Change is not guaranteed)
  */
-int resize_Mat_rm(Mat_rm * mat)
-{
+int resize_Mat_rm(Mat_rm *mat) {
 
-	size_t type_size, total_size;
+    size_t type_size, total_size;
 
-	double **const data = &mat->u.data_double;
-	const size_t numel = mat->num_rows * mat->num_cols;
+    const int num_rows = mat->num_rows;
+    const int num_cols = mat->num_cols;
+    double **const data = &mat->u.data_double;
+    const size_t numel = num_rows * num_cols;
+    const data_type type = mat->type;
 
-	// Check for the trivial case
-	if (numel == 0) {
+    // Update numel
+    mat->numel = numel;
 
-		if (*data != NULL)
-			free(*data);
-
-		*data = NULL;
-		mat->numel = 0;
-		mat->size = 0;
-		return SIFT3D_SUCCESS;
-	}
-
-	switch (mat->type) {
-	case DOUBLE:
-		type_size = sizeof(double);
-		break;
-	case FLOAT:
-		type_size = sizeof(float);
-		break;
-	case INT:
-		type_size = sizeof(int);
-		break;
-	default:
+    // Get the size of the underyling datatype
+    switch (type) {
+        case DOUBLE:
+            type_size = sizeof(double);
+            break;
+        case FLOAT:
+            type_size = sizeof(float);
+            break;
+        case INT:
+            type_size = sizeof(int);
+            break;
+        default:
 #ifndef NDEBUG
-		puts("resize_Mat_rm: unknown type! \n");
+            fputs("resize_Mat_rm: unknown type! \n", stderr);
 #endif
 		return SIFT3D_FAILURE;
 	}
 
-	total_size = type_size * numel;
-	*data = (double *)realloc(*data, numel * type_size);
+    // Calculate the new size
+    total_size = type_size * numel;
 
-	mat->numel = numel;
-	mat->size = total_size;
-	return *data == NULL ? SIFT3D_FAILURE : SIFT3D_SUCCESS;
+    // Do nothing if the size has not changed
+    if (total_size == mat->size)
+        return SIFT3D_SUCCESS;
+
+    // Check for static reallocation
+    if (mat->static_mem) {
+        fputs("resize_Mat_rm: illegal re-allocation of static matrix \n", 
+                stderr);
+        return SIFT3D_FAILURE;
+    }
+
+    // Re-allocate the memory
+    if ((*data = (double *) realloc(*data, total_size)) == NULL) {
+        mat->size = 0;
+        return SIFT3D_FAILURE;
+    }
+
+    mat->size = total_size;
+    return SIFT3D_SUCCESS;
 }
 
 /* Set all elements to zero */
@@ -850,13 +865,15 @@ int zero_Mat_rm(Mat_rm * mat)
 	return SIFT3D_SUCCESS;
 }
 
-/* De-allocate the memory for a Mat_rm struct. */
-void cleanup_Mat_rm(Mat_rm * mat)
-{
-	if (mat->u.data_double == NULL)
-		return;
+/* De-allocate the memory for a Mat_rm struct, unless it was initialized in
+ * static mode. */
+void cleanup_Mat_rm(Mat_rm *mat) {
 
-	free(mat->u.data_double);
+    if (mat->u.data_double == NULL)
+        return;
+
+    if (!mat->static_mem)
+        free(mat->u.data_double);
 }
 
 /* Make a grid with the specified spacing between lines and line width. 
@@ -1530,9 +1547,10 @@ int im_resize(Image * im)
 			im->nc);
 		return SIFT3D_FAILURE;
 	}
-	// Check for the trivial case
-	if (im->size == size)
-		return SIFT3D_SUCCESS;
+
+        // Do nothing if the size has not changed
+        if (im->size == size)
+                return SIFT3D_SUCCESS;
 
 	im->size = size;
 	im->data = realloc(im->data, im->size * sizeof(float));
@@ -2456,9 +2474,7 @@ int Affine_set_mat(const Mat_rm * const mat, Affine * const affine)
 		return SIFT3D_FAILURE;
 
 	affine->dim = mat->num_rows;
-	copy_Mat_rm(mat, &affine->A);
-
-	return SIFT3D_SUCCESS;
+	return copy_Mat_rm(mat, &affine->A);
 }
 
 /* Apply an arbitrary transformation to an [x, y, z] triple. */
@@ -2858,7 +2874,7 @@ int eigen_Mat_rm(Mat_rm * A, Mat_rm * Q, Mat_rm * L)
 	dsyevd_(&jobz, &uplo, &n, A_trans.u.data_double, &lda, L->u.data_double,
 		&lwork_ret, &lwork_query, &liwork, &liwork_query, &info);
 
-	if (info) {
+	if ((int32_t) info) {
 		printf
 		    ("eigen_Mat_rm: LAPACK dsyevd workspace query error code %d",
 		     info);
@@ -2875,8 +2891,8 @@ int eigen_Mat_rm(Mat_rm * A, Mat_rm * Q, Mat_rm * L)
 	dsyevd_(&jobz, &uplo, &n, A_trans.u.data_double, &lda, L->u.data_double,
 		work, &lwork, iwork, &liwork, &info);
 
-	if (info) {
-		printf("eigen_Mat_rm: LAPACK dsyevd error code %d", info);
+	if ((int32_t) info) {
+		printf("eigen_Mat_rm: LAPACK dsyevd error code %d", (int) info);
 		goto EIGEN_MAT_RM_QUIT;
 	}
 	// Optionally return the eigenvectors
@@ -2959,16 +2975,16 @@ int solve_Mat_rm(Mat_rm * A, Mat_rm * B, double limit, Mat_rm * X)
 
 	// Compute the LU decomposition of A in place
 	dgetrf_(&m, &n, A_trans.u.data_double, &lda, ipiv, &info);
-	if (info < 0) {
+	if ((int32_t) info < 0) {
 		printf("solve_Mat_rm: LAPACK dgetrf error code %d \n", info);
 		goto SOLVE_MAT_RM_QUIT;
-	} else if (info > 0) {
+	} else if ((int32_t) info > 0) {
 		goto SOLVE_MAT_RM_SINGULAR;
 	}
 	// Compute the reciprocal condition number of A
 	dgecon_(&norm_type, &n, A_trans.u.data_double, &lda, &anorm, &rcond,
 		work, iwork, &info);
-	if (info) {
+	if ((int32_t) info) {
 		printf("solve_Mat_rm: LAPACK dgecon error code %d \n", info);
 		goto SOLVE_MAT_RM_QUIT;
 	}
@@ -2981,7 +2997,7 @@ int solve_Mat_rm(Mat_rm * A, Mat_rm * B, double limit, Mat_rm * X)
 		B_trans.u.data_double, &ldb, &info);
 
 	// Check for errors
-	if (info) {
+	if ((int32_t) info) {
 		printf("solve_Mat_rm: LAPACK dgetrs error code %d \n", info);
 		goto SOLVE_MAT_RM_QUIT;
 	}
@@ -3075,7 +3091,7 @@ int solve_Mat_rm_ls(Mat_rm * A, Mat_rm * B, Mat_rm * X)
 	dgelss_(&m, &n, &nrhs, A_trans.u.data_double, &lda,
 		B_trans.u.data_double, &ldb, s, &rcond, &rank, &lwork_ret,
 		&lwork_query, &info);
-	if (info) {
+	if ((int32_t) info) {
 		printf
 		    ("solve_mat_rm: LAPACK dgelss work query error code %d \n",
 		     info);
@@ -3090,7 +3106,7 @@ int solve_Mat_rm_ls(Mat_rm * A, Mat_rm * B, Mat_rm * X)
 	dgelss_(&m, &n, &nrhs, A_trans.u.data_double, &lda,
 		B_trans.u.data_double, &ldb, s, &rcond, &rank, work, &lwork,
 		&info);
-	if (info) {
+	if ((int32_t) info) {
 		printf("solve_mat_rm: LAPACK dgelss error code %d \n", info);
 		goto SOLVE_MAT_RM_LS_QUIT;
 	}
@@ -3773,10 +3789,9 @@ void cleanup_Pyramid(Pyramid * const pyr)
 SIFT3D_PYR_LOOP_END}
 
 /* Initialize a Slab for first use */
-void init_Slab(Slab * const slab)
-{
-	slab->buf_length = slab->num = 0;
-	slab->buf = NULL;
+void init_Slab(Slab *const slab) {
+    slab->buf_size = slab->num = 0;
+    slab->buf = NULL;
 }
 
 /* Free all memory associated with a slab. Slab cannot be re-used after 
@@ -3888,7 +3903,7 @@ static int do_mkdir(const char *path, mode_t mode)
 
 	if (stat(path, &st) != 0) {
 		/* Directory does not exist. EEXIST for race condition */
-		if (mkdir(path, mode) != 0 && errno != EEXIST)
+		if (cross_mkdir(path, mode) != 0 && errno != EEXIST)
 			status = -1;
 	} else if (!S_ISDIR(st.st_mode)) {
 		errno = ENOTDIR;
@@ -3896,6 +3911,17 @@ static int do_mkdir(const char *path, mode_t mode)
 	}
 
 	return (status);
+}
+
+/* Cross-platform mkdir */
+static int cross_mkdir(const char *path, mode_t mode) {
+#ifdef _MINGW_WINDOWS
+        return mkdir(path);
+#elif defined( _WINDOWS )
+        return _mkdir(path);
+#else
+        return mkdir(path, mode);
+#endif
 }
 
 /* Initialize a Tps struct. This initializes

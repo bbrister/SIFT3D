@@ -18,6 +18,12 @@ extern "C" {
 
 void init_Keypoint_store(Keypoint_store *const kp);
 
+int init_Keypoint(Keypoint *const key);
+
+int resize_Keypoint_store(Keypoint_store *const kp, const size_t num);
+
+int copy_Keypoint(const Keypoint *const src, Keypoint *const dst);
+
 void cleanup_Keypoint_store(Keypoint_store *const kp);
 
 void init_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *const desc);

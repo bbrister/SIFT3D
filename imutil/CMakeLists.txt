@@ -10,6 +10,10 @@ find_package (LAPACK REQUIRED)
 # Find DCMTK
 find_package (DCMTK REQUIRED)
 
+# Optionally disable use of ITK
+set (USE_ITK OFF CACHE PATH 
+        "Look for dependencies in the ITK installation, if one is found")
+
 # Compile imutil
 add_library (imutil SHARED imutil.c dicom.cpp)
 target_include_directories (imutil PUBLIC 
@@ -17,11 +21,16 @@ target_include_directories (imutil PUBLIC
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
 )
 target_link_libraries (imutil PUBLIC ${LAPACK_LIBRARIES} ${DCMTK_LIBRARIES})
+target_include_directories(imutil PUBLIC ${DCMTK_INCLUDE_DIRS})
 install (FILES types.h macros.h imutil.h kernels.cl dicom.h
         DESTINATION ${INSTALL_INCLUDE_DIR})
 
-# Try to find ITK
-find_package (ITK 4 QUIET)
+# Try to find ITK, unless disabled
+if (${USE_ITK})
+        find_package (ITK 4 QUIET)
+else ()
+        set (ITK_FOUND OFF)
+endif ()
 
 if (${ITK_FOUND})
 	message(STATUS "Linking to ITK")
@@ -31,16 +40,20 @@ if (${ITK_FOUND})
 
 # Otherwise link directly to libniftiio
 else ()
-	message(STATUS "ITK not found. Linking to niftiio directly")
+        if (${USE_ITK})
+                message(STATUS "ITK not found. Linking to niftiio directly")
+        endif ()
+
 	find_package (NIFTI REQUIRED)
 
-	target_link_libraries (imutil PUBLIC ${NIFTI_NIFTIIO_LIBRARY})
-	target_include_directories (imutil PUBLIC ${NIFTI_INCLUDE_DIR})
+	target_link_libraries (imutil PUBLIC ${NIFTI_LIBRARIES})
+	target_include_directories (imutil PUBLIC ${NIFTI_INCLUDE_DIRS})
 
 endif ()
 
 # Link to system libraries
-target_link_libraries(imutil PUBLIC ${Z_LIBRARY} ${M_LIBRARY})
+target_link_libraries(imutil PUBLIC ${ZLIB_LIBRARIES} ${M_LIBRARY})
+target_include_directories(imutil PUBLIC ${ZLIB_INCLUDE_DIRS})
 
 # If Matlab was found, compile a copy for use with Matlab libraries
 if (${Matlab_FOUND})
@@ -53,10 +66,6 @@ if (${Matlab_FOUND})
                 LIBRARY_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
                 RUNTIME_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
         )
-        target_include_directories (meximutil PUBLIC 
-                ${Matlab_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR})
-        target_link_libraries (meximutil PUBLIC ${Z_LIBRARY} ${M_LIBRARY} 
-                ${DCMTK_LIBRARIES})
 
         if (${ITK_FOUND})
                 target_link_libraries(meximutil PUBLIC 
@@ -65,10 +74,18 @@ if (${Matlab_FOUND})
                         ${ITK_INCLUDE_DIRS})
         else ()
                 target_link_libraries (meximutil PUBLIC 
-                        ${NIFTI_NIFTIIO_LIBRARY})
+                        ${DCMTK_LIBRARIES} ${NIFTI_LIBRARIES})
                 target_include_directories (meximutil PUBLIC 
-                        ${NIFTI_INCLUDE_DIR})
+                        ${NIFTI_INCLUDE_DIRS})
         endif ()
+
+        target_include_directories (meximutil PUBLIC 
+                ${DCMTK_INCLUDE_DIRS} ${Matlab_INCLUDE_DIRS} 
+                ${ZLIB_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR})
+        target_link_libraries (meximutil PUBLIC ${MWLAPACK_LIBRARY} 
+                ${MWBLAS_LIBRARY} ${Matlab_LIBRARIES} ${ZLIB_LIBRARIES} 
+                ${M_LIBRARY})
+
 endif ()
 
 # Configure the installation

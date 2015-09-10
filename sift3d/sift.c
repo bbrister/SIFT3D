@@ -146,6 +146,11 @@ const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientaiton elements
 #endif
 #define HIST_GET(hist, a, p) ((hist)->bins[HIST_GET_IDX(a, p)])
 
+// Get a column index in the matrix representation of a 
+// SIFT3D_Descriptor_store struct
+#define DESC_MAT_GET_COL(hist_idx, a, p) \
+        (((hist_idx) * HIST_NUMEL) + HIST_GET_IDX(a, p) + IM_NDIMS)
+
 /* Global variables */
 extern CL_data cl_data;
 
@@ -181,9 +186,9 @@ static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
 static void extract_dense_descrip_rotate(SIFT3D *const sift3d, 
            const Image *const im, const Cvec *const vcenter, 
            const double sigma, const Mat_rm *const R, Hist *const hist);
-static int vox2hist(const Image *const im, const int x, const int y,
+static void vox2hist(const Image *const im, const int x, const int y,
         const int z, Hist *const hist);
-static int hist2vox(Hist *const hist, const Image *const im, const int x, 
+static void hist2vox(Hist *const hist, const Image *const im, const int x, 
         const int y, const int z);
 
 /* Initialize geometry tables. */
@@ -371,6 +376,59 @@ static int cart2bary(const Cvec * const cart, const Tri * const tri,
 void init_Keypoint_store(Keypoint_store *const kp) {
 	init_Slab(&kp->slab);
 	kp->buf = (Keypoint *) kp->slab.buf;
+}
+
+/* Initialize a Keypoint struct for use. This sets up the internal pointers,
+ * and nothing else. If called on a valid Keypoint struct, it has no effect. */
+int init_Keypoint(Keypoint *const key) {
+        // Initialize the orientation matrix with static memory
+        return init_Mat_rm_p(&key->R, key->r_data, IM_NDIMS, IM_NDIMS, FLOAT, 
+                SIFT3D_FALSE);
+}
+
+/* Make room for at least num Keypoint structs in kp. 
+ * 
+ * Note: This function must re-initialize some internal data if it was moved. 
+ * This does not affect the end user, but it affects the implementation of 
+ * init_Keypoint. */
+int resize_Keypoint_store(Keypoint_store *const kp, const size_t num) {
+
+        void *const buf_old = kp->slab.buf;
+
+        // Resize the internal memory
+	SIFT3D_RESIZE_SLAB(&kp->slab, num, sizeof(struct _Keypoint));
+	kp->buf = kp->slab.buf; 
+
+        // If the size has changed, re-initialize the keypoints
+        if (buf_old != kp->slab.buf) { 
+                int i; 
+                for (i = 0; i < kp->slab.num; i++) { 
+                        Keypoint *const key = kp->buf + i; 
+                        if (init_Keypoint(key)) 
+                                return SIFT3D_FAILURE; 
+                } 
+        } 
+
+        return SIFT3D_SUCCESS;
+}
+
+/* Copy one Keypoint struct into another. */
+int copy_Keypoint(const Keypoint *const src, Keypoint *const dst) {
+
+        // Copy the shallow data 
+        dst->xd = src->xd;
+        dst->yd = src->yd;
+        dst->zd = src->zd;
+        dst->sd = src->sd;
+        dst->sd_rel = src->sd_rel;
+        dst->xi = src->xi;
+        dst->yi = src->yi;
+        dst->zi = src->zi;
+        dst->o = src->o;
+        dst->s = src->s;
+
+        // Copy the orienation matrix
+        return copy_Mat_rm(&src->R, &dst->R);
 }
 
 /* Free all memory associated with a Keypoint_store. kp cannot be
@@ -1106,18 +1164,21 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 				CMP_CUR(cur, x, y, z, <, pcur) &&
 				CMP_NEXT(next, x, y, z, <, pcur))))
 				{
-					// Add a keypoint candidate
-					num++;
-					SIFT3D_RESIZE_KP_STORE(kp, num, 
-                                                sizeof(Keypoint));
-					key = kp->buf + num - 1;
-					key->o = o;
-					key->s = s;
-					key->xi = x;
-					key->yi = y;
-					key->zi = z;
 
-				}
+                                // Add a keypoint candidate
+                                num++;
+                                if (resize_Keypoint_store(kp, num))
+                                        return SIFT3D_FAILURE;
+                                key = kp->buf + num - 1;
+                                if (init_Keypoint(key))
+                                        return SIFT3D_FAILURE;
+                                key->o = o;
+                                key->s = s;
+                                key->xi = x;
+                                key->yi = y;
+                                key->zi = z;
+
+                        }
 		SIFT3D_IM_LOOP_END
 	SIFT3D_PYR_LOOP_END
 #undef CMP_NEIGHBORS
@@ -1135,7 +1196,7 @@ SIFT3D_IGNORE_UNUSED
 SIFT3D_IGNORE_UNUSED
 	int x, y, z, c, xnew, ynew, znew, i, j, k, l;
 
-	// Initialize data 
+	// Initialize intermediates
 	init_Mat_rm(&B, 4, 1, DOUBLE, SIFT3D_FALSE);
 	init_Mat_rm(&X, 4, 1, DOUBLE, SIFT3D_FALSE);
 	init_Mat_rm(&Hi, 3, 3, DOUBLE, SIFT3D_FALSE);
@@ -1240,7 +1301,7 @@ SIFT3D_IGNORE_UNUSED
 			goto refine_quit;
 		    default:
 			puts("refine_keypoint: error solving system! \n");
-			return SIFT3D_FAILURE;	
+                        goto refine_error;
 		}
 	
 #else
@@ -1310,7 +1371,21 @@ refine_quit:
 		key->sd_rel = sd * pow(2.0, -o);
 	}
 
+        // Clean up
+        cleanup_Mat_rm(&B);
+        cleanup_Mat_rm(&X);
+        cleanup_Mat_rm(&Hi);
+        cleanup_Mat_rm(&Hs);
+
 	return SIFT3D_SUCCESS;
+
+refine_error:
+        // Clean up and return an error
+        cleanup_Mat_rm(&B);
+        cleanup_Mat_rm(&X);
+        cleanup_Mat_rm(&Hi);
+        cleanup_Mat_rm(&Hs);
+        return SIFT3D_FAILURE;
 }
 
 /* Bin a Cartesian gradient into Spherical gradient bins */
@@ -1513,11 +1588,8 @@ static int assign_orientations(SIFT3D *sift3d,
                 const Cvec vcenter = {key->xd, key->yd, key->zd};
                 const double sigma = ori_sig_fctr * key->sd_rel;
 
-		// Initialize the orientation matrix
-		if (init_Mat_rm_p(R, key->r_data, 3, 3, FLOAT, SIFT3D_FALSE))
-			return SIFT3D_FAILURE;
-
 		// Compute dominant orientations
+                assert(R->u.data_float == key->r_data);
 		switch (assign_eig_ori(sift3d, level, &vcenter, sigma, R)) {
 			case SIFT3D_SUCCESS:
 				// Continue processing this keypoint
@@ -1531,14 +1603,14 @@ static int assign_orientations(SIFT3D *sift3d,
 		}
 		
 		// Rebuild the Keypoint buffer in place
-		*kp_pos++ = *key; 
+                if (copy_Keypoint(key, kp_pos))
+                        return SIFT3D_FAILURE;
+                kp_pos++;
 	}
 
 	// Release unneeded keypoint memory
 	num = kp_pos - kp->buf;
-	SIFT3D_RESIZE_KP_STORE(kp, num, sizeof(Keypoint));
-
-	return SIFT3D_SUCCESS;
+        return resize_Keypoint_store(kp, num);
 }
 
 /* Detect keypoint locations and orientations. You must initialize
@@ -1672,65 +1744,61 @@ void SIFT3D_desc_acc_interp(const SIFT3D * const sift3d,
 #endif
 	
 	for (dx = 0; dx < 2; dx++) {
-		for (dy = 0; dy < 2; dy++) {
-			for (dz = 0; dz < 2; dz++) {
+	for (dy = 0; dy < 2; dy++) {
+        for (dz = 0; dz < 2; dz++) {
 
-				x = (int) vbins->x + dx;
-				y = (int) vbins->y + dy;
-				z = (int) vbins->z + dz;
+                x = (int) vbins->x + dx;
+                y = (int) vbins->y + dy;
+                z = (int) vbins->z + dz;
 
-				// Check boundaries
-				if (x < 0 || x >= NHIST_PER_DIM ||
-					y < 0 || y >= NHIST_PER_DIM ||
-					z < 0 || z >= NHIST_PER_DIM)
-					continue;
+                // Check boundaries
+                if (x < 0 || x >= NHIST_PER_DIM ||
+                        y < 0 || y >= NHIST_PER_DIM ||
+                        z < 0 || z >= NHIST_PER_DIM)
+                        continue;
 
-				// Get the histogram
-				hist = desc->hists + x + y * y_stride + 
-					   z * z_stride;	
+                // Get the histogram
+                hist = desc->hists + x + y * y_stride + 
+                           z * z_stride;	
 
-				assert(x + y * y_stride + z * z_stride < DESC_NUM_TOTAL_HIST);
+                assert(x + y * y_stride + z * z_stride < DESC_NUM_TOTAL_HIST);
 
-				// Get the spatial interpolation weight
-				weight = ((dx == 0) ? (1.0f - dvbins.x) : 
-					 	dvbins.x) *
-					 ((dy == 0) ? (1.0f - dvbins.y) : 
-						dvbins.y) *
-					 ((dz == 0) ? (1.0f - dvbins.z) : 
-						dvbins.z);
+                // Get the spatial interpolation weight
+                weight = ((dx == 0) ? (1.0f - dvbins.x) : dvbins.x) *
+                        ((dy == 0) ? (1.0f - dvbins.y) : dvbins.y) *
+                        ((dz == 0) ? (1.0f - dvbins.z) : dvbins.z);
 
 				/* Add the value into the histogram */
 #ifdef ICOS_HIST
-				assert(HIST_NUMEL == ICOS_NVERT);
-				assert(bin >= 0 && bin < ICOS_NFACES);
+                assert(HIST_NUMEL == ICOS_NVERT);
+                assert(bin >= 0 && bin < ICOS_NFACES);
 
-				// Interpolate over three vertices
-				MESH_HIST_GET(mesh, hist, bin, 0) += mag * weight * bary.x;
-				MESH_HIST_GET(mesh, hist, bin, 1) += mag * weight * bary.y;
-				MESH_HIST_GET(mesh, hist, bin, 2) += mag * weight * bary.z; 
+                // Interpolate over three vertices
+                MESH_HIST_GET(mesh, hist, bin, 0) += mag * weight * bary.x;
+                MESH_HIST_GET(mesh, hist, bin, 1) += mag * weight * bary.y;
+                MESH_HIST_GET(mesh, hist, bin, 2) += mag * weight * bary.z; 
 #else
-				// Iterate over all angles
-				for (dp = 0; dp < 2; dp ++) {
-					for (da = 0; da < 2; da ++) {
+                // Iterate over all angles
+                for (dp = 0; dp < 2; dp ++) {
+                for (da = 0; da < 2; da ++) {
 
-						a = ((int) sbins.az + da) % NBINS_AZ;
-						p = (int) sbins.po + dp;
-						if (p >= NBINS_PO) {
-							// See HIST_GET_PO
-							a = (a + NBINS_AZ / 2) % NBINS_AZ;
-							p = NBINS_PO - 1;
-						}
+                        a = ((int) sbins.az + da) % NBINS_AZ;
+                        p = (int) sbins.po + dp;
+                        if (p >= NBINS_PO) {
+                                // See HIST_GET_PO
+                                a = (a + NBINS_AZ / 2) % NBINS_AZ;
+                                p = NBINS_PO - 1;
+                        }
 		
-						assert(a >= 0);
-						assert(a < NBINS_AZ);
-						assert(p >= 0);
-						assert(p < NBINS_PO);
+                        assert(a >= 0);
+                        assert(a < NBINS_AZ);
+                        assert(p >= 0);
+                        assert(p < NBINS_PO);
 
-						HIST_GET(hist, a, p) += sbins.mag * weight *
-						((da == 0) ? (1.0f - dsbins.az) : dsbins.az) *
-						((dp == 0) ? (1.0f - dsbins.po) : dsbins.po);
-					}
-				}	
+                        HIST_GET(hist, a, p) += sbins.mag * weight *
+                                ((da == 0) ? (1.0f - dsbins.az) : dsbins.az) *
+                                ((dp == 0) ? (1.0f - dsbins.po) : dsbins.po);
+                }}
 #endif
 	}}}
 
@@ -1879,15 +1947,13 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d, const void *const im,
 	const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc,
         const int use_gpyr) {
 
+        Keypoint key_base;
+
 	const Image *first_level;
 	int i;
 
-	// Parse inputs
-	if (!use_gpyr) {
-		puts("SIFT3D_extract_descriptors: This feature has not yet "
-			 "been implemented! Please call this function with a "
-			 "Pyramid rather than an Image. \n");
-	}
+        // Initialize intermediates
+        init_Keypoint(&key_base);
 
 	// Resize the descriptor store
 	desc->num = kp->slab.num;
@@ -1897,11 +1963,12 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d, const void *const im,
 
 	// Initialize the image info
 	if (use_gpyr) {
-		const Pyramid *const gpyr = (Pyramid *) im;
+		const Pyramid *const gpyr = im;
 		first_level = SIFT3D_PYR_IM_GET(gpyr, gpyr->first_octave, 
                         gpyr->first_level);
-	} else
+	} else {
 		first_level = im;
+        }
 	desc->nx = first_level->nx;	
 	desc->ny = first_level->ny;	
 	desc->nz = first_level->nz;	
@@ -1909,11 +1976,42 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d, const void *const im,
         // Extract the descriptors
 	for (i = 0; i < desc->num; i++) {
 
-		const Keypoint *const key = kp->buf + i;
+                const Keypoint *key_arg;
+
+                const Keypoint *const key = kp->buf + i;
 		SIFT3D_Descriptor *const descrip = desc->buf + i;
-		const Image *const level = 
-                        SIFT3D_PYR_IM_GET((Pyramid *) im, key->o, key->s);
-		extract_descrip(sift3d, level, key, descrip);
+		const Image *const level = use_gpyr ? 
+                        SIFT3D_PYR_IM_GET((Pyramid *) im, key->o, key->s) : 
+                        im;
+
+                // Assign the input keypoint
+                if (use_gpyr || key->o == 0) {
+                        // Use the provided keypoint 
+                        key_arg = key;
+                } else {
+
+                        const double coord_factor = pow(2.0, key->o);
+        
+                        // Convert the keypoint to the base octave
+                        if (copy_Keypoint(key, &key_base)) {
+                                fputs("SIFT3D_extract_descriptors: failed to "
+                                        "convert keypoint to base octave", 
+                                        stderr);
+                                return SIFT3D_FAILURE;
+                        }
+                        key_base.xd *= coord_factor;
+                        key_base.yd *= coord_factor;
+                        key_base.zd *= coord_factor;
+                        key_base.xi = (int) key_base.xd;
+                        key_base.yi = (int) key_base.yd;
+                        key_base.zi = (int) key_base.zd;
+                        key_base.o = 0;
+                        key_base.sd_rel = key_base.sd;
+                        key_arg = &key_base;
+
+                }
+
+		extract_descrip(sift3d, level, key_arg, descrip);
 	}	
 
 	return SIFT3D_SUCCESS;
@@ -2172,7 +2270,7 @@ dense_extract_quit:
 }
 
 /* Copy a voxel to a Hist. Does no bounds checking. */
-static int vox2hist(const Image *const im, const int x, const int y,
+static void vox2hist(const Image *const im, const int x, const int y,
         const int z, Hist *const hist) {
 
         int c;
@@ -2183,7 +2281,7 @@ static int vox2hist(const Image *const im, const int x, const int y,
 }
 
 /* Copy a Hist to a voxel. Does no bounds checking. */
-static int hist2vox(Hist *const hist, const Image *const im, const int x, 
+static void hist2vox(Hist *const hist, const Image *const im, const int x, 
         const int y, const int z) {
 
         int c;
@@ -2344,7 +2442,8 @@ int SIFT3D_Descriptor_store_to_Mat_rm(const SIFT3D_Descriptor_store *const store
 		for (j = 0; j < DESC_NUM_TOTAL_HIST; j++) {
 			const Hist *const hist = desc->hists + j;
 			HIST_LOOP_START(a, p)
-				SIFT3D_MAT_RM_GET(mat, i, j + IM_NDIMS, float) = 
+                                const int col = DESC_MAT_GET_COL(j, a, p);
+				SIFT3D_MAT_RM_GET(mat, i, col, float) = 
 					HIST_GET(hist, a, p);
 			HIST_LOOP_END
 		}
@@ -2390,8 +2489,9 @@ int Mat_rm_to_SIFT3D_Descriptor_store(const Mat_rm *const mat,
 		for (j = 0; j < DESC_NUM_TOTAL_HIST; j++) {
 			Hist *const hist = desc->hists + j;
 			HIST_LOOP_START(a, p)
-				HIST_GET(hist, a, p) = SIFT3D_MAT_RM_GET(mat, i, 
-					j + IM_NDIMS, float);
+                                const int col = DESC_MAT_GET_COL(j, a, p);
+				HIST_GET(hist, a, p) = 
+                                        SIFT3D_MAT_RM_GET(mat, i, col, float);
 			HIST_LOOP_END
 		}
 	}
@@ -2809,8 +2909,8 @@ write_kp_quit:
         return SIFT3D_FAILURE;
 }
 
-/* Write SIFT3D descriptors to a file. The descriptors are represented by a
- * matrix (.csv, .csv.gz) where each row is a descriptor. */
+/* Write SIFT3D descriptors to a text file.
+ * See SIFT3D_Descriptor_store_to_Mat_rm for the file format. */
 int write_SIFT3D_Descriptor_store(const char *path, 
         const SIFT3D_Descriptor_store *const desc) {
 
@@ -2820,29 +2920,12 @@ int write_SIFT3D_Descriptor_store(const char *path,
         int i, j;
 
         // Initialize the matrix
-        if (init_Mat_rm(&mat, num_rows, DESC_NUMEL, DOUBLE, SIFT3D_FALSE))
+        if (init_Mat_rm(&mat, 0, 0, FLOAT, SIFT3D_FALSE))
                 return SIFT3D_FAILURE;
      
         // Write the data into the matrix 
-        for (i = 0; i < num_rows; i++) { 
-
-                int col;
-
-                const SIFT3D_Descriptor *const d = desc->buf + i;
-
-                for (j = 0; j < DESC_NUM_TOTAL_HIST; j++) {
-
-                        int a, p;
-
-                        const Hist *const hist = d->hists + j;
-
-                        HIST_LOOP_START(a, p)
-                                const int col = HIST_GET_IDX(a, p) + j * HIST_NUMEL;
-                                SIFT3D_MAT_RM_GET(&mat, i, col, double) =   
-                                        HIST_GET(hist, a, p);
-                        HIST_LOOP_END
-                }
-        }
+        if (SIFT3D_Descriptor_store_to_Mat_rm(desc, &mat))
+                goto write_desc_quit;
 
         // Write the matrix to the file
         if (write_Mat_rm(path, &mat))

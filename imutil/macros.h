@@ -163,22 +163,24 @@ extern "C" {
 * use a default of 500. This macro is meant to be
 * used whether or not the slab buffer actually needs
 * resizing -- it checks for that. */
-#ifndef SIFT3D_SLAB_SIZE
-#define SIFT3D_SLAB_SIZE 500
+#ifndef SIFT3D_SLAB_LEN
+#define SIFT3D_SLAB_LEN 500
 #endif
-#define SIFT3D_RESIZE_SLAB(slab, num, size) \
-	if ((num) > (slab)->buf_length) { \
-		if (((slab)->buf = realloc((slab)->buf, ((slab)->buf_length + \
-			SIFT3D_SLAB_SIZE) * (size))) == NULL) \
+#define SIFT3D_RESIZE_SLAB(slab, num_new, size) \
+{ \
+        const size_t slabs_new = ( (size_t) (num_new) + SIFT3D_SLAB_LEN - 1) / \
+                        SIFT3D_SLAB_LEN; \
+        const size_t size_new = slabs_new * SIFT3D_SLAB_LEN * (size); \
+\
+	if (size_new != (slab)->buf_size) { \
+\
+		if (((slab)->buf = realloc((slab)->buf, size_new)) == \
+                        NULL) \
 			return SIFT3D_FAILURE; \
-		(slab)->buf_length += SIFT3D_SLAB_SIZE; \
+		(slab)->buf_size = size_new; \
 	} \
-	(slab)->num = (num)
-
-// As above, but can be used on a Keypoint_store
-#define SIFT3D_RESIZE_KP_STORE(store, num, size) \
-	SIFT3D_RESIZE_SLAB(&(store)->slab, num, size); \
-	(store)->buf = (store)->slab.buf
+	(slab)->num = (num_new); \
+}
 
 // Nested loop through all elements of a matrix
 #define SIFT3D_MAT_RM_LOOP_START(mat, row, col) \

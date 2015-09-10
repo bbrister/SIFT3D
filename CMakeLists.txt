@@ -8,6 +8,7 @@ include (ExternalProject)
 
 # Options
 set (BUILD_EXAMPLES "ON" CACHE BOOL "If ON, builds the example programs.")
+set (USE_Matlab "ON" CACHE BOOL "If ON, builds the Matlab toolbox")
 
 # Minimum CMake version
 cmake_minimum_required (VERSION 2.8)
@@ -73,13 +74,54 @@ set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${RELEASE_FLAGS}")
 set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${RELEASE_FLAGS}")
 
 # Find the system libraries
-find_library (M_LIBRARY m)
-find_library (Z_LIBRARY z)
+if (WIN32)
+        # m is not a separate library in Windows
+        set (M_LIBRARY "")
+else () 
+        find_library (M_LIBRARY m)
+endif ()
+find_package (ZLIB REQUIRED)
 
-# Look for MATLAB
-find_package (Matlab QUIET)
+# Optionally find Matlab
+if (USE_Matlab)
+	# Look for MATLAB in the default locations
+	find_package (Matlab QUIET)
+
+	# If not found, look for MATLAB in OS-specific locations
+	if (NOT ${Matlab_FOUND})
+		if (APPLE)
+			set (Matlab_ROOT_DIR 
+				"/Applications/Matlab.app")
+			find_package (Matlab QUIET)
+		endif ()
+	endif ()
+else ()
+	# Disable Matlab
+	set (Matlab_FOUND FALSE)
+endif ()
+
+# Set up Matlab library paths
 if (${Matlab_FOUND})
-        message ("-- Found Matlab. Building the Matlab wrappers")
+        message ("-- Found Matlab. Building the Matlab toolbox.")
+
+        # Get the path of the Matlab libraries
+        get_filename_component (Matlab_LIBRARIES_PATH ${Matlab_MEX_LIBRARY} 
+                DIRECTORY)
+
+	# Check for the MX library, which CMake cannot find on Windows
+	if (NOT Matlab_MX_LIBRARY_FOUND)
+
+		# Find Matlab's MX library
+		find_library (Matlab_MX_LIBRARY mx libmx PATHS ${Matlab_LIBRARIES_PATH})
+
+	endif ()
+
+        # Find the Matlab LAPACK and BLAS libraries
+        find_library (MWLAPACK_LIBRARY mwlapack libmwlapack PATHS ${Matlab_LIBRARIES_PATH})
+        find_library (MWBLAS_LIBRARY mwblas libmwblas PATHS ${Matlab_LIBRARIES_PATH})
+
+else ()
+        message ("-- Matlab not found. The toolbox will not be built.")
 endif ()
 
 # Generate the package configuration files

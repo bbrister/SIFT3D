@@ -15,30 +15,43 @@ and the following libraries:
 - libsift3d.so - Extract and match SIFT3D features
 - libimutil.so - Utility library for image processing, regression and linear algebra.
 
-In addition, if Matlab is detected on your system, the following Matlab functions are created:
-- detectSift3D.m - Detect SIFT3D keypoints from a 3-dimensional array.
+In addition, if Matlab is detected on your system, a Matlab toolbox is automatically generated. See the README in /wrappers/matlab for more information.
 
-See /examples for sample programs using the C and Matlab APIs.
+## Installation instructions
 
-## Dependencies
+### Supported platforms
 
-This code requires the following external libraries:
-- [LAPACK](http://www.netlib.org/lapack/)
-- [nifticlib](http://sourceforge.net/projects/niftilib/files/nifticlib/)
+This program has been successfully compiled and executed on the following platforms:
+- Ubuntu Linux 14.04, using GCC 4.8.4 and CMake 2.8.12.2.
+- Mac OSX 10.10.5, using Clang 6.1.0, LLVM 3.6.0 and CMake 3.3.1
 
-LAPACK ships with Mac and is found in most Linux package managers.
+Windows support is currently in the experimental stage. We plan to release binaries and installation instructions in the near future.
 
-If you are using [ITK](http://www.itk.org), the build system will automatically find nifticlib there. Otherwise, you must install nifticlib yourself. (See the Ubuntu installation command below.)
+### Installing the dependencies
 
 This code requires the following tools to compile:
 - [CMake](http://www.cmake.org)
 - A suitable C/C++ compiler, such as GCC or Clang/LLVM.
 
-On Ubuntu, as of version 14.04, the following command will install all dependencies and build tools:
+In addition, this code requires the following external libraries:
+- [LAPACK](http://www.netlib.org/lapack/)
+- [nifticlib](http://sourceforge.net/projects/niftilib/files/nifticlib/)
+
+Please follow the instructions below to install the dependencies for your specific system.
+
+#### Ubuntu Linux
+
+As of version 14.04, the following command will install all dependencies and build tools:
 
 	sudo apt-get install build-essential cmake liblapack-dev libnifti-dev
 
-## Installation instructions
+#### Mac OSX
+
+As of version 10.10.5, you can install the dependencies with [Homebrew](http://brew.sh/). First install Homebrew, if you haven't already, then run the following command:
+ 
+        brew install cmake niftilib
+
+### Instaling SIFT3D 
 
 On Unix-like systems, the following commands will generate Makefiles and use them to compile the binaries in a subdirectory called "build":
 
@@ -47,29 +60,59 @@ On Unix-like systems, the following commands will generate Makefiles and use the
 	cmake ..
 	make
 
-If for some reason CMake cannot find the dependencies, you can specify the paths manually with the Cmake GUI. 
+If for some reason CMake cannot find the dependencies, you can specify the paths manually with the CMake GUI. 
 
 Use the following command to install the files:
 
 	sudo make install
 
-In principle you can use CMake to compile this code on Windows, but some modifications may be required to resolve the external dependencies.
+### Advanced installation
 
-### Matlab toolbox 
+The following tutorials suggest advanced ways to install the software. They may be useful to some users, but are not required.
 
-If Matlab is detected in your system, a Matlab toolbox is compiled in the /build/wrappers/matlab subdirectory. To install the toolbox, add the following line to your startup.m file:
+#### Out-of-source build
 
-        run /path/to/SIFT3D/build/wrappers/matlab/setupSift3D
+You do not need to compile SIFT3D in a subdirectory of the source tree. Instead, you can compile it in an arbitrary directory with the following commands:
+
+        cmake /path/to/SIFT3D
+        make
+
+where /path/to/SIFT3D is the path to the SIFT3D source code.
+
+#### Installation without root access
+
+On some systems, you may not have access to install programs to protected locations. In this case, you can install SIFT3D to a different location by setting the CMAKE_INSTALL_PREFIX variable. For example,
+
+        cmake /path/to/SIFT3D -DCMAKE_INSTALL_PREFIX=/path/to/install
+        make
+        make install
+
+where /path/to/install is the path to the desired install directory. Note that other programs will not automatically find SIFT3D in this location.
 
 ## Usage instructions
 
 For instructions on using the CLI, use the "--help" option, e.g. 
         kpSift3D --help
 
-Here is an example of compiling a C program with the libraries:
+See /examples for sample programs using the C and Matlab APIs.
+
+The following sections describe how to link a program to the SIFT3D libraries.
+
+### Linking to SIFT3D libraries with CMake
+
+SIFT3D exports a CMake package to the install directories. Here is an example of compiling a C program with SIFT3D from a CMake list.
+
+        find_package (SIFT3D) # Find SIFT3D
+        add_executable (helloWorld helloWorld.c) # Declare a target
+        target_link_libraries (helloWorld PUBLIC ${SIFT3D_LIBRARIES}) # Link to the SIFT3D libraries
+        target_include_directories (helloWorld PUBLIC ${SIFT3D_INCLUDE_DIR}) # Find the SIFT3D headers
+
+### Manually linking to SIFT3D libraries
+
+Here is an example of compiling a C program by explicitly specifying the libraries and include directories:
 
 ```
-gcc helloWorld.c -o helloWorld -I/usr/local/include/sift3d -L/usr/local/lib/sift3d -lreg -lsift3d -limutil -llapack -lblas -lz -lniftiio -lm
+gcc helloWorld.c -o helloWorld -I/usr/local/include/sift3d -L/usr/local/lib/sift3d -lreg -lsift3d -limutil -llapack -lblas -lz -lnifticdf -lniftiio -lznz -lm
 ```
 
 Linkage dependencies are as follows:
