@@ -20,11 +20,11 @@ project (SIFT3D)
 set (SIFT3D_VERSION 1.0.0)
 
 # Configurable paths        
-set (INSTALL_LIB_DIR lib/sift3d CACHE PATH 
+set (INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib/sift3d" CACHE PATH 
         "Installation directory for libraries")
-set (INSTALL_BIN_DIR bin/sift3d CACHE PATH 
+set (INSTALL_BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin/sift3d" CACHE PATH 
         "Installation directory for executables")
-set (INSTALL_INCLUDE_DIR include CACHE PATH 
+set (INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include" CACHE PATH 
         "Installation directory for header files")
 if (WIN32 AND NOT CYGWIN)
         set (DEFAULT_INSTALL_CMAKE_DIR cmake)
@@ -33,6 +33,14 @@ else ()
 endif ()
 set (INSTALL_CMAKE_DIR ${DEFAULT_INSTALL_CMAKE_DIR} CACHE PATH
         "Installation directory for CMake files")
+
+# Configure RPATH options
+set (CMAKE_SKIP_BUILD_RPATH OFF)
+set (CMAKE_BUILD_WITH_INSTALL_RPATH OFF)
+set (CMAKE_INSTALL_RPATH ${INSTALL_LIB_DIR})
+set (CMAKE_INSTALL_PATH_USE_LINK_PATH ON)
+LIST (FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES ${INSTALL_LIB_DIR} 
+        IS_SYSTEM_DIR)
 
 # Internal paths 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
