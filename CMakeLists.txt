@@ -19,6 +19,13 @@ project (SIFT3D)
 # Project version
 set (SIFT3D_VERSION 1.0.0)
 
+# Platform path separation character
+if (WIN32 AND NOT CYGWIN)
+        set (PATH_SEP ";")
+else ()
+        set (PATH_SEP ":")
+endif()
+
 # Configurable paths        
 set (INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib/sift3d" CACHE PATH 
         "Installation directory for libraries")
@@ -39,14 +46,11 @@ set (CMAKE_SKIP_BUILD_RPATH OFF)
 set (CMAKE_BUILD_WITH_INSTALL_RPATH OFF)
 set (CMAKE_INSTALL_RPATH ${INSTALL_LIB_DIR})
 set (CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
-LIST (FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES ${INSTALL_LIB_DIR} 
-        IS_SYSTEM_DIR)
 
 # Internal paths 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 set (LICENSE_FILE ${CMAKE_CURRENT_LIST_DIR}/LICENSE)
 set (README_FILE ${CMAKE_CURRENT_LIST_DIR}/README.md)
-set (CMAKE_INSTALL_RPATH ${INSTALL_LIB_DIR})
 
 # Output directories
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -117,6 +121,8 @@ if (${Matlab_FOUND})
         set (BUILD_TOOLBOX_DIR "${BUILD_WRAPPERS_DIR}/${TOOLBOX_NAME}")
         set (INSTALL_TOOLBOX_DIR "${INSTALL_WRAPPERS_DIR}/${TOOLBOX_NAME}"
                 CACHE PATH "Installation directory for the Matlab toolbox")
+        set (CMAKE_INSTALL_RPATH 
+                "${CMAKE_INSTALL_RPATH}${PATH_SEP}${INSTALL_TOOLBOX_DIR}")
 
         # Get the path of the Matlab libraries
         get_filename_component (Matlab_LIBRARIES_PATH ${Matlab_MEX_LIBRARY} 
