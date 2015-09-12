@@ -36,19 +36,19 @@ set (INSTALL_CMAKE_DIR ${DEFAULT_INSTALL_CMAKE_DIR} CACHE PATH
 
 # Internal paths 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
-
-# The name and location of the wrappers directory 
-set (WRAPPERS_DIR "wrappers")
-set (WRAPPERS_PATH "${CMAKE_BINARY_DIR}/${WRAPPERS_DIR}")
-
-# The name and location of the Matlab toolbox
-set (TOOLBOX_NAME "matlab")
-set (TOOLBOX_PATH "${WRAPPERS_PATH}/${TOOLBOX_NAME}")
+set (LICENSE_FILE ${CMAKE_CURRENT_LIST_DIR}/LICENSE)
+set (README_FILE ${CMAKE_CURRENT_LIST_DIR}/README.md)
+set (CMAKE_INSTALL_RPATH ${INSTALL_LIB_DIR})
 
 # Output directories
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set (CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+# The name and location of the wrappers build and install directories
+set (WRAPPERS_DIR "wrappers")
+set (BUILD_WRAPPERS_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${WRAPPERS_DIR}")
+set (INSTALL_WRAPPERS_DIR "${INSTALL_LIB_DIR}/${WRAPPERS_DIR}")
 
 # Build flags
 set (DEBUG_FLAGS "-g -DVERBOSE")
@@ -100,9 +100,15 @@ else ()
 	set (Matlab_FOUND FALSE)
 endif ()
 
-# Set up Matlab library paths
+# Set up Matlab paths
 if (${Matlab_FOUND})
         message ("-- Found Matlab. Building the Matlab toolbox.")
+
+        # Set the name and location of the Matlab toolbox
+        set (TOOLBOX_NAME "matlab")
+        set (BUILD_TOOLBOX_DIR "${BUILD_WRAPPERS_DIR}/${TOOLBOX_NAME}")
+        set (INSTALL_TOOLBOX_DIR "${INSTALL_WRAPPERS_DIR}/${TOOLBOX_NAME}"
+                CACHE PATH "Installation directory for the Matlab toolbox")
 
         # Get the path of the Matlab libraries
         get_filename_component (Matlab_LIBRARIES_PATH ${Matlab_MEX_LIBRARY} 
@@ -112,14 +118,18 @@ if (${Matlab_FOUND})
 	if (NOT Matlab_MX_LIBRARY_FOUND)
 
 		# Find Matlab's MX library
-		find_library (Matlab_MX_LIBRARY mx libmx PATHS ${Matlab_LIBRARIES_PATH})
-
+		find_library (Matlab_MX_LIBRARY mx libmx 
+                        PATHS ${Matlab_LIBRARIES_PATH}
+                )
 	endif ()
 
         # Find the Matlab LAPACK and BLAS libraries
-        find_library (MWLAPACK_LIBRARY mwlapack libmwlapack PATHS ${Matlab_LIBRARIES_PATH})
-        find_library (MWBLAS_LIBRARY mwblas libmwblas PATHS ${Matlab_LIBRARIES_PATH})
-
+        find_library (MWLAPACK_LIBRARY mwlapack libmwlapack 
+                PATHS ${Matlab_LIBRARIES_PATH}
+        )
+        find_library (MWBLAS_LIBRARY mwblas libmwblas 
+                PATHS ${Matlab_LIBRARIES_PATH}
+        )
 else ()
         message ("-- Matlab not found. The toolbox will not be built.")
 endif ()
@@ -149,3 +159,9 @@ add_subdirectory (wrappers)
 if (${BUILD_EXAMPLES})
         add_subdirectory (examples)
 endif ()
+
+# CPack variables
+set (CPACK_RESOURCE_FILE_LICENSE ${LICENSE_FILE})
+set (CPACK_RESOURCE_FILE_README ${README_FILE})
+set (CPACK_PACKAGE_VERSION ${SIFT3D_VERSION})
+include (CPack)

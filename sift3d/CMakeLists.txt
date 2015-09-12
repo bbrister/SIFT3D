@@ -16,13 +16,19 @@ install (FILES sift.h DESTINATION ${INSTALL_INCLUDE_DIR})
 if (${Matlab_FOUND})
 
         add_library (mexsift3D SHARED sift.c)
+        target_include_directories (mexsift3D PUBLIC 
+                ${CMAKE_CURRENT_SOURCE_DIR})
         target_link_libraries (mexsift3D PUBLIC meximutil ${M_LIBRARY})
-        target_include_directories (mexsift3D PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
         set_target_properties (mexsift3D
                 PROPERTIES 
-                ARCHIVE_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
-                LIBRARY_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
-                RUNTIME_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
+                ARCHIVE_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
+                LIBRARY_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
+                RUNTIME_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
+        )
+        install (TARGETS mexsift3D
+                RUNTIME DESTINATION ${INSTALL_TOOLBOX_DIR}
+                LIBRARY DESTINATION ${INSTALL_TOOLBOX_DIR}
+                ARCHIVE DESTINATION ${INSTALL_TOOLBOX_DIR}
         )
 endif ()
 

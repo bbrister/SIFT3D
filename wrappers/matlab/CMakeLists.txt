@@ -6,11 +6,8 @@
 
 # Build the mex utility library
 add_library (mexutil SHARED mexutil.c)
-target_include_directories (mexutil PUBLIC
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-                $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
-)
-target_include_directories(mexutil PUBLIC ${Matlab_INCLUDE_DIR})
+target_include_directories(mexutil PUBLIC ${Matlab_INCLUDE_DIR} 
+        ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries (mexutil PUBLIC mexsift3D meximutil ${MWLAPACK_LIBRARY}
         ${MWBLAS_LIBRARY} ${Matlab_LIBRARIES})
 
@@ -25,14 +22,27 @@ matlab_add_mex (NAME mexExtractSift3D
         LINK_TO mexutil ${Matlab_LIBRARIES}
 )
 
-# Copy the Matlab files
-file (COPY setupSift3D.m detectSift3D.m extractSift3D.m Sift3DTest.m
-        DESTINATION ${TOOLBOX_PATH})
-
-# Send all files to the toolbox subdirectory 
+# Configure the build destination
 set_target_properties (mexutil mexDetectSift3D mexExtractSift3D
-        PROPERTIES
-        ARCHIVE_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
-        LIBRARY_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
-        RUNTIME_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
+        PROPERTIES 
+        ARCHIVE_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
+        LIBRARY_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
+        RUNTIME_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
+)
+
+# Copy the scripts and test suite to the build tree
+file (COPY setupSift3D.m detectSift3D.m extractSift3D.m Sift3DTest.m 
+        DESTINATION ${BUILD_TOOLBOX_DIR}
+)
+
+# Install the matlab scripts
+install (FILES setupSift3D.m detectSift3D.m extractSift3D.m
+        DESTINATION ${INSTALL_TOOLBOX_DIR}
+)
+
+# Install the libraries and mex files
+install (TARGETS mexutil mexDetectSift3D mexExtractSift3D
+        RUNTIME DESTINATION ${INSTALL_TOOLBOX_DIR}
+        LIBRARY DESTINATION ${INSTALL_TOOLBOX_DIR}
+        ARCHIVE DESTINATION ${INSTALL_TOOLBOX_DIR}
 )
