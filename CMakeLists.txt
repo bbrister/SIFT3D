@@ -31,7 +31,7 @@ set (INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib/sift3d" CACHE PATH
         "Installation directory for libraries")
 set (INSTALL_BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin/sift3d" CACHE PATH 
         "Installation directory for executables")
-set (INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include" CACHE PATH 
+set (INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include/sift3d" CACHE PATH 
         "Installation directory for header files")
 if (WIN32 AND NOT CYGWIN)
         set (DEFAULT_INSTALL_CMAKE_DIR cmake)
