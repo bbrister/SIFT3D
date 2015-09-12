@@ -27,30 +27,31 @@ else ()
 endif()
 
 # Configurable paths        
-set (INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib/sift3d" CACHE PATH 
+set (INSTALL_LIB_DIR "lib/sift3d" CACHE PATH 
         "Installation directory for libraries")
-set (INSTALL_BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin/sift3d" CACHE PATH 
+set (INSTALL_BIN_DIR "bin/sift3d" CACHE PATH 
         "Installation directory for executables")
-set (INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include/sift3d" CACHE PATH 
+set (INSTALL_INCLUDE_DIR "include/sift3d" CACHE PATH 
         "Installation directory for header files")
 if (WIN32 AND NOT CYGWIN)
-        set (DEFAULT_INSTALL_CMAKE_DIR cmake)
+        set (DEFAULT_INSTALL_CMAKE_DIR "cmake")
 else ()
-        set (DEFAULT_INSTALL_CMAKE_DIR lib/cmake/sift3d)
+        set (DEFAULT_INSTALL_CMAKE_DIR "lib/cmake/sift3d")
 endif ()
 set (INSTALL_CMAKE_DIR ${DEFAULT_INSTALL_CMAKE_DIR} CACHE PATH
         "Installation directory for CMake files")
-
-# Configure RPATH options
-set (CMAKE_SKIP_BUILD_RPATH OFF)
-set (CMAKE_BUILD_WITH_INSTALL_RPATH OFF)
-set (CMAKE_INSTALL_RPATH ${INSTALL_LIB_DIR})
-set (CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 
 # Internal paths 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 set (LICENSE_FILE ${CMAKE_CURRENT_LIST_DIR}/LICENSE)
 set (README_FILE ${CMAKE_CURRENT_LIST_DIR}/README.md)
+
+# Configure RPATH options
+set (INSTALL_LIB_PATH "${CMAKE_INSTALL_PREFIX}/${INSTALL_LIB_DIR}")
+set (CMAKE_SKIP_BUILD_RPATH OFF)
+set (CMAKE_BUILD_WITH_INSTALL_RPATH OFF)
+set (CMAKE_INSTALL_RPATH ${INSTALL_LIB_PATH})
+set (CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 
 # Output directories
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -121,8 +122,9 @@ if (${Matlab_FOUND})
         set (BUILD_TOOLBOX_DIR "${BUILD_WRAPPERS_DIR}/${TOOLBOX_NAME}")
         set (INSTALL_TOOLBOX_DIR "${INSTALL_WRAPPERS_DIR}/${TOOLBOX_NAME}"
                 CACHE PATH "Installation directory for the Matlab toolbox")
+        set (INSTALL_TOOLBOX_PATH "${CMAKE_INSTALL_PREFIX}/${INSTALL_TOOLBOX_DIR}")
         set (CMAKE_INSTALL_RPATH 
-                "${CMAKE_INSTALL_RPATH}${PATH_SEP}${INSTALL_TOOLBOX_DIR}")
+                "${CMAKE_INSTALL_RPATH}${PATH_SEP}${INSTALL_TOOLBOX_PATH}")
 
         # Get the path of the Matlab libraries
         get_filename_component (Matlab_LIBRARIES_PATH ${Matlab_MEX_LIBRARY} 
