@@ -8,6 +8,8 @@ classdef Sift3DTest < TestCase
     % Run the tests with the following command:
     %   runtests
     %
+    % This test suite can only be run from the build tree.
+    %
     % Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
     
     properties (SetAccess = private)
@@ -34,7 +36,7 @@ classdef Sift3DTest < TestCase
             self.cd = fileparts(mfilename('fullpath'));
             
             % Build directory
-            self.buildDir = fullfile(self.cd, '..', '..');
+            self.buildDir = fullfile(self.cd, '..', '..', '..');
             
             % Binary directory
             self.binDir = fullfile(self.buildDir, 'bin');

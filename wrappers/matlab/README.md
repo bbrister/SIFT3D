@@ -12,17 +12,17 @@ This toobox does not include all of SIFT3D's functionality, but we are adding mo
 
 ## Installation instructions
 
-If Matlab is detected in your system, a Matlab toolbox is compiled in the build/wrappers/matlab subdirectory during the normal CMake build process.
+If you installed SIFT3D from binaries, a Matlab toolbox is included in the lib/wrappers/matlab subdirectory of your installation. If you compiled SIFT3D from souce, the same will happen if Matlab was detected in your system.
 
 To use the toolbox, simply add it to your Matlab path. This can be accomplished by adding the following line to your startup.m file:
 
-        run('/path/to/build/wrappers/matlab/setupSift3D')
+        run('/path/to/sift3d/lib/wrappers/matlab/setupSift3D')
 
-where /path/to/build is the path to your SIFT3D build directoy. If you do not have a startup.m file, you can simply run this command prior to calling any SIFT3D functions.
+where /path/to/sift3d is the path to your SIFT3D installation. If you do not have a startup.m file, you can simply run this command prior to calling any SIFT3D functions.
 
 ### Relocating the toolbox
 
-We do not recommend moving the toolbox libraries (.a, .so, .dylib). If you do, the operating system may not be able to find them when it tries to load the mex files. A better solution is to compile SIFT3D in the place you want the toolbox to reside. See the "Out-of-source build" section of the main README for more information.
+We do not recommend moving the toolbox libraries (.a, .so, .dylib). If you do, the operating system may not be able to find them when it tries to load the mex files. A better solution is to install SIFT3D in the place you want the toolbox to reside.
 
 ### Known issues
 
@@ -46,6 +46,6 @@ See /examples for sample programs.
 
 ## Advanced features
 
-This toolbox also includes a test suite, Sift3DTest.m. It requires [xUnit](http://www.mathworks.com/matlabcentral/fileexchange/22846-matlab-xunit-test-framework) to run. You can run the test suite with the following command:
+This toolbox also includes a test suite, Sift3DTest.m. The test suite is only found in the source distribution, not the binary distributions, and must be run from the build tree. It requires [xUnit](http://www.mathworks.com/matlabcentral/fileexchange/22846-matlab-xunit-test-framework) to run. You can run the test suite with the following command:
 
         runtests

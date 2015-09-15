@@ -7,8 +7,9 @@
 include (ExternalProject)
 
 # Options
-set (BUILD_EXAMPLES "ON" CACHE BOOL "If ON, builds the example programs.")
+set (BUILD_EXAMPLES "ON" CACHE BOOL "If ON, builds the example programs")
 set (USE_Matlab "ON" CACHE BOOL "If ON, builds the Matlab toolbox")
+set (BUILD_PACKAGE "OFF" CACHE BOOL "If ON, builds the package generator")
 
 # Minimum CMake version
 cmake_minimum_required (VERSION 2.8)
@@ -19,44 +20,49 @@ project (SIFT3D)
 # Project version
 set (SIFT3D_VERSION 1.0.0)
 
+# Platform path separation character
+if (WIN32 AND NOT CYGWIN)
+        set (PATH_SEP ";")
+else ()
+        set (PATH_SEP ":")
+endif()
+
 # Configurable paths        
-set (INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib/sift3d" CACHE PATH 
+set (INSTALL_LIB_DIR "lib/sift3d" CACHE PATH 
         "Installation directory for libraries")
-set (INSTALL_BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin/sift3d" CACHE PATH 
+set (INSTALL_BIN_DIR "bin/sift3d" CACHE PATH 
         "Installation directory for executables")
-set (INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include/sift3d" CACHE PATH 
+set (INSTALL_INCLUDE_DIR "include/sift3d" CACHE PATH 
         "Installation directory for header files")
 if (WIN32 AND NOT CYGWIN)
-        set (DEFAULT_INSTALL_CMAKE_DIR cmake)
+        set (DEFAULT_INSTALL_CMAKE_DIR "cmake")
 else ()
-        set (DEFAULT_INSTALL_CMAKE_DIR lib/cmake/sift3d)
+        set (DEFAULT_INSTALL_CMAKE_DIR "lib/cmake/sift3d")
 endif ()
 set (INSTALL_CMAKE_DIR ${DEFAULT_INSTALL_CMAKE_DIR} CACHE PATH
         "Installation directory for CMake files")
 
-# Configure RPATH options
-set (CMAKE_SKIP_BUILD_RPATH OFF)
-set (CMAKE_BUILD_WITH_INSTALL_RPATH OFF)
-set (CMAKE_INSTALL_RPATH ${INSTALL_LIB_DIR})
-set (CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
-LIST (FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES ${INSTALL_LIB_DIR} 
-        IS_SYSTEM_DIR)
-
 # Internal paths 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
+set (LICENSE_FILE ${CMAKE_CURRENT_LIST_DIR}/LICENSE)
+set (README_FILE ${CMAKE_CURRENT_LIST_DIR}/README.md)
 
-# The name and location of the wrappers directory 
-set (WRAPPERS_DIR "wrappers")
-set (WRAPPERS_PATH "${CMAKE_BINARY_DIR}/${WRAPPERS_DIR}")
-
-# The name and location of the Matlab toolbox
-set (TOOLBOX_NAME "matlab")
-set (TOOLBOX_PATH "${WRAPPERS_PATH}/${TOOLBOX_NAME}")
+# Configure RPATH options
+set (INSTALL_LIB_PATH "${CMAKE_INSTALL_PREFIX}/${INSTALL_LIB_DIR}")
+set (CMAKE_SKIP_BUILD_RPATH OFF)
+set (CMAKE_BUILD_WITH_INSTALL_RPATH OFF)
+set (CMAKE_INSTALL_RPATH ${INSTALL_LIB_PATH})
+set (CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 
 # Output directories
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set (CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+# The name and location of the wrappers build and install directories
+set (WRAPPERS_DIR "wrappers")
+set (BUILD_WRAPPERS_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${WRAPPERS_DIR}")
+set (INSTALL_WRAPPERS_DIR "${INSTALL_LIB_DIR}/${WRAPPERS_DIR}")
 
 # Build flags
 set (DEBUG_FLAGS "-g -DVERBOSE")
@@ -108,9 +114,18 @@ else ()
 	set (Matlab_FOUND FALSE)
 endif ()
 
-# Set up Matlab library paths
+# Set up Matlab paths
 if (${Matlab_FOUND})
         message ("-- Found Matlab. Building the Matlab toolbox.")
+
+        # Set the name and location of the Matlab toolbox
+        set (TOOLBOX_NAME "matlab")
+        set (BUILD_TOOLBOX_DIR "${BUILD_WRAPPERS_DIR}/${TOOLBOX_NAME}")
+        set (INSTALL_TOOLBOX_DIR "${INSTALL_WRAPPERS_DIR}/${TOOLBOX_NAME}"
+                CACHE PATH "Installation directory for the Matlab toolbox")
+        set (INSTALL_TOOLBOX_PATH "${CMAKE_INSTALL_PREFIX}/${INSTALL_TOOLBOX_DIR}")
+        set (CMAKE_INSTALL_RPATH 
+                "${CMAKE_INSTALL_RPATH}${PATH_SEP}${INSTALL_TOOLBOX_PATH}")
 
         # Get the path of the Matlab libraries
         get_filename_component (Matlab_LIBRARIES_PATH ${Matlab_MEX_LIBRARY} 
@@ -120,14 +135,18 @@ if (${Matlab_FOUND})
 	if (NOT Matlab_MX_LIBRARY_FOUND)
 
 		# Find Matlab's MX library
-		find_library (Matlab_MX_LIBRARY mx libmx PATHS ${Matlab_LIBRARIES_PATH})
-
+		find_library (Matlab_MX_LIBRARY mx libmx 
+                        PATHS ${Matlab_LIBRARIES_PATH}
+                )
 	endif ()
 
         # Find the Matlab LAPACK and BLAS libraries
-        find_library (MWLAPACK_LIBRARY mwlapack libmwlapack PATHS ${Matlab_LIBRARIES_PATH})
-        find_library (MWBLAS_LIBRARY mwblas libmwblas PATHS ${Matlab_LIBRARIES_PATH})
-
+        find_library (MWLAPACK_LIBRARY mwlapack libmwlapack 
+                PATHS ${Matlab_LIBRARIES_PATH}
+        )
+        find_library (MWBLAS_LIBRARY mwblas libmwblas 
+                PATHS ${Matlab_LIBRARIES_PATH}
+        )
 else ()
         message ("-- Matlab not found. The toolbox will not be built.")
 endif ()
@@ -156,4 +175,9 @@ add_subdirectory (cli)
 add_subdirectory (wrappers)
 if (${BUILD_EXAMPLES})
         add_subdirectory (examples)
+endif ()
+
+# Packager file
+if (${BUILD_PACKAGE})
+        include (SIFT3DPackage)
 endif ()

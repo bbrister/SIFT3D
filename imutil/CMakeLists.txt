@@ -33,6 +33,8 @@ if (${ITK_FOUND})
 
 	target_link_libraries(imutil PUBLIC ${ITK_LIBRARIES})
 	target_include_directories(imutil PUBLIC ${ITK_INCLUDE_DIRS})
+        set (NIFTI_LIBRARIES ${ITK_LIBRARIES})
+        set (NIFTI_INCLUDE_DIRS ${ITK_INCLUDE_DIRS})
 
 # Otherwise link directly to libniftiio
 else ()
@@ -41,39 +43,43 @@ else ()
         endif ()
 
 	find_package (NIFTI REQUIRED)
-
-	target_link_libraries (imutil PUBLIC ${NIFTI_LIBRARIES})
-	target_include_directories (imutil PUBLIC ${NIFTI_INCLUDE_DIRS})
-
 endif ()
+target_link_libraries (imutil PUBLIC ${NIFTI_LIBRARIES})
+target_include_directories (imutil PUBLIC ${NIFTI_INCLUDE_DIRS})
+
 
 # Link to system libraries
 target_link_libraries(imutil PUBLIC ${ZLIB_LIBRARIES} ${M_LIBRARY})
 target_include_directories(imutil PUBLIC ${ZLIB_INCLUDE_DIRS})
+
+# Configure the installation
+install (TARGETS imutil 
+        EXPORT SIFT3D-targets 
+        RUNTIME DESTINATION ${INSTALL_BIN_DIR} 
+	LIBRARY DESTINATION ${INSTALL_LIB_DIR} 
+	ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
+)
+
+# OS-specific installation
+if (WIN32)
+        # Add the dependencies Zlib, LAPACK, BLAS, and NIFTI to the Windows 
+        # installer
+        install (FILES ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${NIFTI_LIBRARIES}
+                ${ZLIB_LIBRARIES}
+                DESTINATION ${INSTALL_BIN_DIR})
+
+endif ()
 
 # If Matlab was found, compile a copy for use with Matlab libraries
 if (${Matlab_FOUND})
 
         add_library (meximutil SHARED imutil.c)
         target_compile_definitions (meximutil PUBLIC "-DSIFT3D_MEX")
-        set_target_properties (meximutil 
-                PROPERTIES 
-                ARCHIVE_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
-                LIBRARY_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
-                RUNTIME_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
-        )
 
-        if (${ITK_FOUND})
-                target_link_libraries(meximutil PUBLIC 
-                        ${ITK_LIBRARIES})
-                target_include_directories(meximutil PUBLIC 
-                        ${ITK_INCLUDE_DIRS})
-        else ()
-                target_link_libraries (meximutil PUBLIC 
-                        ${NIFTI_LIBRARIES})
-                target_include_directories (meximutil PUBLIC 
-                        ${NIFTI_INCLUDE_DIRS})
-        endif ()
+        target_link_libraries (meximutil PUBLIC 
+                ${NIFTI_LIBRARIES})
+        target_include_directories (meximutil PUBLIC 
+                ${NIFTI_INCLUDE_DIRS})
 
         target_include_directories (meximutil PUBLIC 
                 ${Matlab_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS} 
@@ -82,13 +88,24 @@ if (${Matlab_FOUND})
                 ${MWBLAS_LIBRARY} ${Matlab_LIBRARIES} ${ZLIB_LIBRARIES} 
                 ${M_LIBRARY})
 
-endif ()
+        set_target_properties (meximutil 
+                PROPERTIES 
+                ARCHIVE_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
+                LIBRARY_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
+                RUNTIME_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
+        )
 
-# Configure the installation
-install (TARGETS imutil EXPORT SIFT3D-targets 
-	 RUNTIME DESTINATION ${INSTALL_BIN_DIR} 
-	 LIBRARY DESTINATION ${INSTALL_LIB_DIR} 
-	 ARCHIVE DESTINATION ${INSTALL_LIB_DIR})
+        install (TARGETS meximutil 
+                RUNTIME DESTINATION ${INSTALL_TOOLBOX_DIR}
+                LIBRARY DESTINATION ${INSTALL_TOOLBOX_DIR}
+                ARCHIVE DESTINATION ${INSTALL_TOOLBOX_DIR}
+        )
+
+        if (WIN32)
+                install (FILES ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES}
+                        DESTINATION ${INSTALL_TOOLBOX_DIR})
+        endif ()
+endif ()
 
 # Add the code snippets
 add_subdirectory (templates)
