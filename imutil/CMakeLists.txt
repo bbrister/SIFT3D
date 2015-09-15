@@ -52,6 +52,24 @@ target_include_directories (imutil PUBLIC ${NIFTI_INCLUDE_DIRS})
 target_link_libraries(imutil PUBLIC ${ZLIB_LIBRARIES} ${M_LIBRARY})
 target_include_directories(imutil PUBLIC ${ZLIB_INCLUDE_DIRS})
 
+# Configure the installation
+install (TARGETS imutil 
+        EXPORT SIFT3D-targets 
+        RUNTIME DESTINATION ${INSTALL_BIN_DIR} 
+	LIBRARY DESTINATION ${INSTALL_LIB_DIR} 
+	ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
+)
+
+# OS-specific installation
+if (WIN32)
+        # Add the dependencies Zlib, LAPACK, BLAS, and NIFTI to the Windows 
+        # installer
+        install (FILES ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${NIFTI_LIBRARIES}
+                ${ZLIB_LIBRARIES}
+                DESTINATION ${INSTALL_BIN_DIR})
+
+endif ()
+
 # If Matlab was found, compile a copy for use with Matlab libraries
 if (${Matlab_FOUND})
 
@@ -82,15 +100,12 @@ if (${Matlab_FOUND})
                 LIBRARY DESTINATION ${INSTALL_TOOLBOX_DIR}
                 ARCHIVE DESTINATION ${INSTALL_TOOLBOX_DIR}
         )
-endif ()
 
-# Configure the installation
-install (TARGETS imutil 
-        EXPORT SIFT3D-targets 
-        RUNTIME DESTINATION ${INSTALL_BIN_DIR} 
-	LIBRARY DESTINATION ${INSTALL_LIB_DIR} 
-	ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
-)
+        if (WIN32)
+                install (FILES ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES}
+                        DESTINATION ${INSTALL_TOOLBOX_DIR})
+        endif ()
+endif ()
 
 # Add the code snippets
 add_subdirectory (templates)

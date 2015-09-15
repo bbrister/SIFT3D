@@ -7,8 +7,9 @@
 include (ExternalProject)
 
 # Options
-set (BUILD_EXAMPLES "ON" CACHE BOOL "If ON, builds the example programs.")
+set (BUILD_EXAMPLES "ON" CACHE BOOL "If ON, builds the example programs")
 set (USE_Matlab "ON" CACHE BOOL "If ON, builds the Matlab toolbox")
+set (BUILD_PACKAGE "OFF" CACHE BOOL "If ON, builds the package generator")
 
 # Minimum CMake version
 cmake_minimum_required (VERSION 2.8)
@@ -176,32 +177,7 @@ if (${BUILD_EXAMPLES})
         add_subdirectory (examples)
 endif ()
 
-# Global CPack variables
-set (CPACK_PACKAGE_NAME "SIFT3D")
-set (CPACK_PACKAGE_CONTACT "Blaine Rister blaine@stanford.edu")
-set (CPACK_RESOURCE_FILE_LICENSE ${LICENSE_FILE})
-set (CPACK_RESOURCE_FILE_README ${README_FILE})
-set (CPACK_PACKAGE_VERSION ${SIFT3D_VERSION})
-set (CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
-set (CPACK_PACKAGE_DESCRIPTION "Extracts keypoints and descriptors from 3D images. Also contians libraries for image processing and registration. Includes wrappers for Matlab.")
-
-# Generator-specific CPack variables
-if (${CPACK_GENERATOR} STREQUAL "DEB")
-
-        # Set the target platform in Debian terms.
-        if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
-                set (CPACK_DEBIAN_PACKAGE_ARCHITECTURE amd64)
-        elseif (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "i686")
-                set (CPACK_DEBIAN_PACKAGE_ARCHITECTURE i386)
-        else ()
-                set (CPACK_DEBIAN_PACKAGE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
-        endif () 
-        message ("-- Configured Debian package for architecture "
-                "${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}")
-
-        # Set the Debian package dependencies
-        set (CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libgcc1, libgfortran3, libnifti-dev, liblapack3")
+# Packager file
+if (${BUILD_PACKAGE})
+        include (SIFT3DPackage)
 endif ()
-
-# Finally include the CPack module
-include (CPack)
