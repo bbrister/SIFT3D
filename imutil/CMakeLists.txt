@@ -22,7 +22,7 @@ target_include_directories (imutil PUBLIC
 )
 target_link_libraries (imutil PUBLIC ${LAPACK_LIBRARIES} ${DCMTK_LIBRARIES})
 target_include_directories(imutil PUBLIC ${DCMTK_INCLUDE_DIRS})
-install (FILES types.h macros.h imutil.h kernels.cl dicom.h
+install (FILES types.h macros.h imutil.h kernels.cl
         DESTINATION ${INSTALL_INCLUDE_DIR})
 
 # Try to find ITK, unless disabled
