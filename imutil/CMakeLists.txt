@@ -62,11 +62,61 @@ install (TARGETS imutil
 
 # OS-specific installation
 if (WIN32)
-        # Add the dependencies Zlib, LAPACK, BLAS, and NIFTI to the Windows 
-        # installer
-        install (FILES ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${NIFTI_LIBRARIES}
-                ${ZLIB_LIBRARIES}
-                DESTINATION ${INSTALL_BIN_DIR})
+
+	# Make a list of all external dependencies
+	set (DEPS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${NIFTI_LIBRARIES} 
+		${ZLIB_LIBRARIES})
+
+	function (get_runtime_deps ARG_DEPS ARG_RUNTIME_DEPS)
+
+		# Process each dependency, adding a runtime dependency if 
+		# necessary
+		set (${ARG_RUNTIME_DEPS} "")
+		foreach (DEP IN LISTS ${ARG_DEPS})
+
+			# Get the file extension	
+			get_filename_component (DEP_EXT ${DEP} EXT)		
+
+			# Process shared libraries
+			if (DEP_EXT STREQUAL ".dll")
+				list (APPEND ${ARG_RUNTIME_DEPS} ${DEP})
+			# Process MinGW import libraries
+			elseif (DEP_EXT STREQUAL ".dll.a")
+
+				# Extract the filename, parent and grandparent directories
+				get_filename_component (DEP_NAME ${DEP} NAME)
+				get_filename_component (DEP_DIR ${DEP} DIRECTORY)
+				get_filename_component (DEP_DIR_DIR ${DEP_DIR} DIRECTORY)
+
+				# Get the name of the .dll version
+				string (REGEX REPLACE ".dll.a$" ".dll" DEP_DLL_NAME ${DEP_NAME})
+
+				# Find the corresponding .dll
+				find_file (DEP_DLL ${DEP_DLL_NAME} 
+					PATHS ${DEP_DIR} ${DEP_DIR_DIR}
+					PATH_SUFFIXES "bin" "lib")
+				if (DEP_DLL STREQUAL "${DEP_DLL_NAME}-NOTFOUND")
+					message (FATAL_ERROR 
+						"Failed to find runtime dependency ${DEP_DLL_NAME}")
+				endif ()
+				unset (DEP_DLL CACHE)
+
+				# The .dll, not the .dll.a, becomes a runtime dependency
+				list (APPEND ${ARG_RUNTIME_DEPS} ${DEP_DLL})
+			endif ()
+
+		endforeach ()
+
+		# Set the return value
+		set (${ARG_RUNTIME_DEPS} ${${ARG_RUNTIME_DEPS}} PARENT_SCOPE)
+
+	endfunction ()
+
+	# Convert dependencies to runtime dependencies
+	get_runtime_deps (DEPS RUNTIME_DEPS)
+
+        # Add the runtime dependencies to the Windows installer
+	install (FILES ${RUNTIME_DEPS} DESTINATION ${INSTALL_BIN_DIR})
 
 endif ()
 
@@ -102,8 +152,11 @@ if (${Matlab_FOUND})
         )
 
         if (WIN32)
-                install (FILES ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES}
-                        DESTINATION ${INSTALL_TOOLBOX_DIR})
+
+		set (TOOLBOX_DEPS ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES})
+		get_runtime_deps (TOOLBOX_DEPS TOOLBOX_RUNTIME_DEPS)
+                install (FILES ${TOOLBOX_RUNTIME_DEPS} 
+			DESTINATION ${INSTALL_TOOLBOX_DIR})
         endif ()
 endif ()
 
