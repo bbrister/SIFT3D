@@ -52,13 +52,6 @@ classdef Sift3DTest < TestCase
             % Keypoints command name
             self.kpCmd = fullfile(self.binDir, 'kpSift3D');
             
-            % Strip the LD_LIBRARY_PATH environment variable of Matlab
-            % libraries
-            ldPath = 'LD_LIBRARY_PATH';
-            newLdPath = ...
-                regexprep(getenv(ldPath), '[^:]*MATLAB[^:]*:*', '');
-            setenv(ldPath, newLdPath);
-            
             % Error tolerance for text output
             self.tolText = 0.01;
             
@@ -71,7 +64,7 @@ classdef Sift3DTest < TestCase
             kpCliName = 'kpCli.csv';
             
             % Detect keypoints using the command line interface
-            status = system([self.kpCmd ' --keys ' kpCliName ' ' ...
+            status = runCmd([self.kpCmd ' --keys ' kpCliName ' ' ...
                 self.im1Name]);
             assertEqual(status, 0);
             
@@ -120,7 +113,7 @@ classdef Sift3DTest < TestCase
             descCliName = 'descCli.csv';
             
             % Extract descriptors using the command line interface
-            status = system([self.kpCmd ' --desc ' descCliName ' ' ...
+            status = runCmd([self.kpCmd ' --desc ' descCliName ' ' ...
                 self.im1Name]);
             assertEqual(status, 0);
             
@@ -179,4 +172,23 @@ classdef Sift3DTest < TestCase
             
         end
     end
+end
+
+function status = runCmd(cmd)
+%runCmd helper function to run a command in the default system environment,
+% without Matlab's changes to the environment variables
+
+% Strip the LD_LIBRARY_PATH environment variable of Matlab
+% libraries
+ldPath = 'LD_LIBRARY_PATH';
+oldLdPath = getenv(ldPath);
+newLdPath = regexprep(oldLdPath, '[^:]*MATLAB[^:]*:*', '');
+setenv(ldPath, newLdPath);
+
+% Run the command
+status = system(cmd);
+
+% Return the environment to its previous state
+setenv(ldPath, oldLdPath);
+
 end
