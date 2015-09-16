@@ -45,8 +45,13 @@ set (CPACK_PACKAGE_CONTACT "Blaine Rister blaine@stanford.edu")
 set (CPACK_RESOURCE_FILE_LICENSE ${LICENSE_FILE})
 set (CPACK_RESOURCE_FILE_README ${README_FILE})
 set (CPACK_PACKAGE_VERSION ${SIFT3D_VERSION})
-set (CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
 set (CPACK_PACKAGE_DESCRIPTION "Extracts keypoints and descriptors from 3D images. Also contians libraries for image processing and registration. Includes wrappers for Matlab.")
+
+# Use the CMake install path, unless this is Windows, in which case this would
+# break CPack
+if (NOT WIN32)
+        set (CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
+endif ()
 
 # Generator-specific CPack variables
 if (CPACK_GENERATOR STREQUAL "NSIS")

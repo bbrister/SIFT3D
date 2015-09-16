@@ -76,9 +76,15 @@ if (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR
 endif ()
 
 # OS-specific build flags
-if (APPLE)
+if (WIN32)
+        # Convert GNU archives to .lib files in Windows
+        set (CMAKE_GNUtoMS ON)
+elseif (APPLE)
+        # Enable undefined symbols
         set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -undefined dynamic_lookup")
         set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -undefined dynamic_lookup")
+
+        # Use rpath
         set (CMAKE_MACOSX_RPATH ON)
 endif ()
 
