@@ -245,9 +245,6 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
                 return;
         }
 
-        //XXX
-        std::cout << "nx: " << nx << " ny: " << ny << " nz: " << nz << std::endl;
-
         // Read the pixel spacing
         Float64 pixelSpacing;
         status = data->findAndGetFloat64(DCM_PixelSpacing,
@@ -283,9 +280,6 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
                         std::endl;
                 return;
         }
-
-        //XXX
-        std::cout << "ux: " << ux << " uy: " << uy << " uz: " << uz << std::endl;
 
         // Convert to double 
         uz = sliceThickness;
