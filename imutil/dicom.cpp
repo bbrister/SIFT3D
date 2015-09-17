@@ -408,7 +408,7 @@ static int read_dcm_cpp(const char *path, Image *const im) {
                         static_cast<const uint32_t *const >(
                                 image.getOutputData(32, i));
                 if (frameData == NULL) {
-                        std::cerr << "read_dcm_dir_cpp: could not get data "
+                        std::cerr << "read_dcm_cpp: could not get data "
                                 << "from image " << path << " frame " << i <<
                                 " (" << 
                                 DicomImage::getString(image.getStatus()) << 
@@ -646,8 +646,19 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         }
 
         // Set the photometric interpretation
+        const char *photoInterp;
+        if (im->nc == 1) {
+                photoInterp = "MONOCHROME2";
+        } else if (im->nc == 3) {
+                photoInterp = "RGB";
+        } else {
+                std::cerr << "write_dcm_cpp: Failed to determine the " <<
+                        "photometric representation for " << im->nc << 
+                        "channels" << std::endl;
+                return SIFT3D_FAILURE;
+        }
         dataset->putAndInsertString(DCM_PhotometricInterpretation,
-                "MONOCHROME2");
+                photoInterp);
         if (status.bad()) {
                 std::cerr << "write_dcm_cpp: Failed to set the " <<
                         "photometric interpretation" << std::endl;
@@ -672,11 +683,11 @@ static int write_dcm_cpp(const char *path, const Image *const im,
 
         // Set the bits allocated and stored, in big endian format 
         const char dcm_high_bit = dcm_bit_width - 1;
+        snprintf(buf, BUF_LEN, "%u", dcm_bit_width);
         dataset->putAndInsertString(DCM_BitsAllocated, buf);
         dataset->putAndInsertString(DCM_BitsStored, buf);
-        snprintf(buf, BUF_LEN, "%u", dcm_bit_width);
-        dataset->putAndInsertString(DCM_HighBit, "7");
         snprintf(buf, BUF_LEN, "%u", dcm_high_bit);
+        dataset->putAndInsertString(DCM_HighBit, buf);
         if (status.bad()) {
                 std::cerr << "write_dcm_cpp: Failed to set the " <<
                         "bit widths" << std::endl;
@@ -799,20 +810,20 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         }
 
         // Count the number of pixels in the image
-        unsigned long numPixels = 1;
-        for (int i = 0; i < IM_NDIMS; i++) {
+        unsigned long numPixels = im->dims[0];
+        for (int i = 1; i < IM_NDIMS; i++) {
                 numPixels *= im->dims[i];
         }
 
         // Render the data to an 8-bit unsigned integer array
         assert(dcm_bit_width == 8);
         uint8_t *pixelData = new uint8_t[numPixels];
-        int x, y, z;
-        SIFT3D_IM_LOOP_START(im, x, y, z)
-                pixelData[x + y * im->nx + z * im->nx * im->ny] =
+        int x, y, z, c;
+        SIFT3D_IM_LOOP_START_C(im, x, y, z, c)
+                pixelData[c + x + y * im->nx + z * im->nx * im->ny] =
                         static_cast<uint8_t>(
-                        SIFT3D_IM_GET_VOX(im, x, y, z, 0) * 255.0f);
-        SIFT3D_IM_LOOP_END
+                        SIFT3D_IM_GET_VOX(im, x, y, z, c) * 255.0f);
+        SIFT3D_IM_LOOP_END_C
 
         // Write the data
         status = dataset->putAndInsertUint8Array(DCM_PixelData, pixelData, 
