@@ -66,3 +66,9 @@ Please follow the instructions below to compile and install SIFT3D from source.
 		1. cd to the build directory
 		2. "mingw32-make"
 		3. "mingw32-make install" (may require administrator priveleges)
+
+## Caveats
+
+This program was originally developed for Unix-like platforms, so some features have been disabled in the Windows version. By default, the command line interface is not compiled on Windows systems. If you wish to compile it, you can set the CMake variable BUILD_CLI to ON, this is not officially supported, and the resulting executables may not function correctly.
+
+The good news is that you can still access SIFT3D through the libraries and wrappers for other languages.
