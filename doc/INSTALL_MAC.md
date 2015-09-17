@@ -16,7 +16,7 @@ As of version 10.10.5, you can install the dependencies with [Homebrew](http://b
 
 ## Installing from binaries
 
-You can install SIFT3D in one of two ways, from binaries or from source. The easiest way is to install from binaries. Simply visit our [binary distributions](x) *TODO* repository, download the appropriate installer for your system, and run it. 
+We do not currently have binaries for SIFT3D on Mac. You must install from source.
 
 ## Installing from source
 

@@ -16,7 +16,7 @@ On Ubuntu 14.04, the following command will install all dependencies and build t
 
 ## Installing from binaries
 
-You can install SIFT3D in one of two ways, from binaries or from source. The easiest way is to install from binaries. Simply visit our [binary distributions](x) *TODO* repository, download the appropriate installer for your system, and run it. 
+You can install SIFT3D in one of two ways, from binaries or from source. The easiest way is to install from binaries. Simply visit our [binary distributions](https://github.com/bbrister/SIFT3D-installers) repository, download the appropriate installer for your system, and run it. 
 
 ## Installing from source
 
