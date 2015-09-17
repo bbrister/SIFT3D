@@ -6,11 +6,6 @@
 
 include (ExternalProject)
 
-# Options
-set (BUILD_EXAMPLES "ON" CACHE BOOL "If ON, builds the example programs")
-set (USE_Matlab "ON" CACHE BOOL "If ON, builds the Matlab toolbox")
-set (BUILD_PACKAGE "OFF" CACHE BOOL "If ON, builds the package generator")
-
 # Minimum CMake version
 cmake_minimum_required (VERSION 2.8)
 
@@ -26,6 +21,20 @@ if (WIN32 AND NOT CYGWIN)
 else ()
         set (PATH_SEP ":")
 endif()
+
+# Default settings for optional components
+if (WIN32)
+        set (_BUILD_CLI OFF)
+else ()
+        set (_BUILD_CLI ON)
+endif()
+
+# Optional component vairables
+set (BUILD_CLI ${_BUILD_CLI} CACHE BOOL 
+        "If ON, builds the command line interface")
+set (BUILD_EXAMPLES "ON" CACHE BOOL "If ON, builds the example programs")
+set (USE_Matlab "ON" CACHE BOOL "If ON, builds the Matlab toolbox")
+set (BUILD_PACKAGE "OFF" CACHE BOOL "If ON, builds the package generator")
 
 # Configurable paths        
 set (INSTALL_LIB_DIR "lib/sift3d" CACHE PATH 
@@ -173,17 +182,23 @@ install (FILES ${CMAKE_CONFIG_FILE} ${CMAKE_VERSION_FILE}
 # Install the targets file
 install (EXPORT SIFT3D-targets DESTINATION ${INSTALL_CMAKE_DIR})
 
-# Source subdirectories
+# Mandatory source subdirectories
 add_subdirectory (imutil)
 add_subdirectory (sift3d)
 add_subdirectory (reg)
-add_subdirectory (cli)
 add_subdirectory (wrappers)
-if (${BUILD_EXAMPLES})
+
+# Command line interface
+if (BUILD_CLI)
+        add_subdirectory (cli)
+endif ()
+
+# Examples
+if (BUILD_EXAMPLES)
         add_subdirectory (examples)
 endif ()
 
 # Packager file
-if (${BUILD_PACKAGE})
+if (BUILD_PACKAGE)
         include (SIFT3DPackage)
 endif ()
