@@ -245,6 +245,9 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
                 return;
         }
 
+        //XXX
+        std::cout << "nx: " << nx << " ny: " << ny << " nz: " << nz << std::endl;
+
         // Read the pixel spacing
         Float64 pixelSpacing;
         status = data->findAndGetFloat64(DCM_PixelSpacing,
@@ -280,6 +283,9 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
                         std::endl;
                 return;
         }
+
+        //XXX
+        std::cout << "ux: " << ux << " uy: " << uy << " uz: " << uz << std::endl;
 
         // Convert to double 
         uz = sliceThickness;
@@ -666,7 +672,7 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         }
 
         // Set the pixel representation to unsigned
-        dataset->putAndInsertString(DCM_PixelRepresentation, "0");
+        dataset->putAndInsertUint16(DCM_PixelRepresentation, 0);
         if (status.bad()) {
                 std::cerr << "write_dcm_cpp: Failed to set the " <<
                         "pixel representation" << std::endl;
@@ -682,12 +688,10 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         dataset->putAndInsertString(DCM_PlanarConfiguration, "0");
 
         // Set the bits allocated and stored, in big endian format 
-        const char dcm_high_bit = dcm_bit_width - 1;
-        snprintf(buf, BUF_LEN, "%u", dcm_bit_width);
-        dataset->putAndInsertString(DCM_BitsAllocated, buf);
-        dataset->putAndInsertString(DCM_BitsStored, buf);
-        snprintf(buf, BUF_LEN, "%u", dcm_high_bit);
-        dataset->putAndInsertString(DCM_HighBit, buf);
+        const unsigned int dcm_high_bit = dcm_bit_width - 1;
+        dataset->putAndInsertUint16(DCM_BitsAllocated, dcm_bit_width);
+        dataset->putAndInsertUint16(DCM_BitsStored, dcm_bit_width);
+        dataset->putAndInsertUint16(DCM_HighBit, dcm_high_bit);
         if (status.bad()) {
                 std::cerr << "write_dcm_cpp: Failed to set the " <<
                         "bit widths" << std::endl;
@@ -749,10 +753,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         }
 
         // Set the dimensions
-        snprintf(buf, BUF_LEN, "%d", im->nx);
-        OFCondition xstatus = dataset->putAndInsertString(DCM_Rows, buf); 
-        snprintf(buf, BUF_LEN, "%d", im->ny);
-        OFCondition ystatus = dataset->putAndInsertString(DCM_Columns, buf);
+        OFCondition xstatus = dataset->putAndInsertUint16(DCM_Rows, im->ny); 
+        OFCondition ystatus = dataset->putAndInsertUint16(DCM_Columns, im->nx);
         snprintf(buf, BUF_LEN, "%d", im->nz);
         OFCondition zstatus = dataset->putAndInsertString(DCM_NumberOfFrames,
                 buf);
