@@ -734,7 +734,7 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         }
 
         // Set the pixel spacing
-        snprintf(buf, BUF_LEN, "%f", im->ux);
+        snprintf(buf, BUF_LEN, "[2] %f, %f", im->ux, im->uy);
         status = dataset->putAndInsertString(DCM_PixelSpacing, buf);
         if (status.bad()) {
                 std::cerr << "write_dcm_cpp: Failed to set the pixel " <<
@@ -743,8 +743,7 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         }
 
         // Set the aspect ratio
-        const double ratio = im->uy / im->ux;
-        snprintf(buf, BUF_LEN, "%f", ratio);
+        snprintf(buf, BUF_LEN, "[2] %f, %f", im->ux, im->uy);
         status = dataset->putAndInsertString(DCM_PixelAspectRatio, buf);
         if (status.bad()) {
                 std::cerr << "write_dcm_cpp: Failed to set the pixel " <<
