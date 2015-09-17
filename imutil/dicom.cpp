@@ -632,12 +632,16 @@ static int write_dcm_cpp(const char *path, const Image *const im,
 
         // Set the class UID
         dataset->putAndInsertString(DCM_SOPClassUID, 
-                UID_SecondaryCaptureImageStorage);
+                UID_CTImageStorage);
         if (status.bad()) {
                 std::cerr << "write_dcm_cpp: Failed to set the SOPClassUID" <<
                         std::endl;
                 return SIFT3D_FAILURE;
         }
+
+        // Set the photometric interpretation
+        dataset->putAndInsertString(DCM_PhotometricInterpretation,
+                "MONOCHROME2");
 
         // Set the patient name
         status = dataset->putAndInsertString(DCM_PatientName, 
@@ -769,7 +773,7 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         SIFT3D_IM_LOOP_START(im, x, y, z)
                 pixelData[x + y * im->nx + z * im->nx * im->ny] =
                         static_cast<uint8_t>(
-                        SIFT3D_IM_GET_VOX(im, x, y, z, 0));
+                        SIFT3D_IM_GET_VOX(im, x, y, z, 0) * 255.0f);
         SIFT3D_IM_LOOP_END
 
         // Write the data
