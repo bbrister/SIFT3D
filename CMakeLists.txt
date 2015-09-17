@@ -39,7 +39,7 @@ set (BUILD_PACKAGE "OFF" CACHE BOOL "If ON, builds the package generator")
 # Configurable paths        
 set (INSTALL_LIB_DIR "lib/sift3d" CACHE PATH 
         "Installation directory for libraries")
-set (INSTALL_BIN_DIR "bin/sift3d" CACHE PATH 
+set (INSTALL_BIN_DIR "bin" CACHE PATH 
         "Installation directory for executables")
 set (INSTALL_INCLUDE_DIR "include/sift3d" CACHE PATH 
         "Installation directory for header files")
