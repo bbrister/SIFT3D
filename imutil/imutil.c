@@ -1266,7 +1266,7 @@ int im_write(const char *path, const Image *const im) {
         case NIFTI:
                 return write_nii(path, im);
         case DICOM:
-                return write_dcm(path, im, 1);
+                return write_dcm(path, im, NULL);
         case DIRECTORY:
 
                 // Create the directory
@@ -1276,7 +1276,7 @@ int im_write(const char *path, const Image *const im) {
                         return SIFT3D_FAILURE;
                 }
 
-                return write_dcm_dir(path, im);
+                return write_dcm_dir(path, im, NULL);
         case UNKNOWN:
         default:
                 // Otherwise, the file extension was not found
