@@ -92,17 +92,17 @@ if (WIN32)
 				string (REGEX REPLACE ".dll.a$" ".dll" DEP_DLL_NAME ${DEP_NAME})
 
 				# Find the corresponding .dll
-				find_file (DEP_DLL ${DEP_DLL_NAME} 
+				string (REGEX REPLACE ".dll" "_DLL" DEP_DLL_VAR ${DEP_DLL_NAME})
+				find_file (${DEP_DLL_VAR} ${DEP_DLL_NAME} 
 					PATHS ${DEP_DIR} ${DEP_DIR_DIR}
 					PATH_SUFFIXES "bin" "lib")
-				if (DEP_DLL STREQUAL "${DEP_DLL_NAME}-NOTFOUND")
+				if (${DEP_DLL_VAR} STREQUAL "${DEP_DLL_NAME}-NOTFOUND")
 					message (FATAL_ERROR 
 						"Failed to find runtime dependency ${DEP_DLL_NAME}")
 				endif ()
-				unset (DEP_DLL CACHE)
 
 				# The .dll, not the .dll.a, becomes a runtime dependency
-				list (APPEND ${ARG_RUNTIME_DEPS} ${DEP_DLL})
+				list (APPEND ${ARG_RUNTIME_DEPS} ${${DEP_DLL_VAR}})
 			endif ()
 
 		endforeach ()
