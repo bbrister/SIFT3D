@@ -18,16 +18,16 @@ Please follow the instructions below to compile and install SIFT3D from source.
 1. Install [CMake](http://www.cmake.org).
 
 2. Install MinGW via [TDM-GCC](http://tdm-gcc.tdragon.net/)
-	a. Download the installer
-	b. Run the installer and remember to select C, C++, and Fortran
+	1. Download the installer
+	2. Run the installer and remember to select C, C++, and Fortran
 
 3. Use [gnumex](http://gnumex.sourceforge.net/documentation.html#L131) to hack Matlab to compile MEX files with MinGW. *This needed only for the Matlab toolbox. Non-Matlab users can skip this step.*
-	a. Download and extract gnumex
-	b. Run Matlab as an administrator
-	c. Run the "gnumex" program from within Matlab
-	d. Make sure the required paths are detected
-	e. Generate the files
-	f. Run "mex -setup" from within Matlab. If all goes well, GCC will show up as an option. Follow the prompt to set up MEX with GCC.
+	1. Download and extract gnumex
+	2. Run Matlab as an administrator
+	3. Run the "gnumex" program from within Matlab
+	4. Make sure the required paths are detected
+	5. Generate the files
+	6. Run "mex -setup" from within Matlab. If all goes well, GCC will show up as an option. Follow the prompt to set up MEX with GCC.
 
 4. Install [LAPACK for Windows](http://icl.cs.utk.edu/lapack-for-windows/lapack/index.html#libraries).
 	1. Download the binaries for MinGW and your verison of Windows (lapack.dll, blas.dll)

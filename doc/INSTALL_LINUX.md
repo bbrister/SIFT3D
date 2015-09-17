@@ -10,7 +10,7 @@ This program requires the following external libraries:
 
 On Ubuntu 14.04, the following command will install all dependencies and build tools:
 
-	sudo apt-get install build-essential cmake liblapack-dev libnifti-dev
+	sudo apt-get install liblapack-dev libnifti-dev
 
 # Installing SIFT3D
 
