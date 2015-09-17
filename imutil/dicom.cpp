@@ -78,9 +78,9 @@
 
 /* File separator */
 #ifdef _WINDOWS
-const char sep = '\\';
+const char *sep = "\\";
 #else
-const char sep = '/';
+const char *sep = "/";
 #endif
 
 /* DICOM metadata defaults */
@@ -470,7 +470,7 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
                         continue;
 
                 // Form the whole file path
-                std::string fullfile(std::string(path) + std::string(&sep) +
+                std::string fullfile(std::string(path) + std::string(sep) +
                         filename);
 
                 // Read the file
@@ -854,7 +854,7 @@ static int write_dcm_dir_cpp(const char *path, const Image *const im,
                 snprintf(buf, BUF_LEN, format, i);
 
                 // Form the full file path
-                std::string fullfile(path + std::string(&sep) + buf);
+                std::string fullfile(path + std::string(sep) + buf);
 
                 // Copy the data to the slice
                 int x, y, z, c;
