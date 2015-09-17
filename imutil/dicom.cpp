@@ -642,6 +642,31 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         // Set the photometric interpretation
         dataset->putAndInsertString(DCM_PhotometricInterpretation,
                 "MONOCHROME2");
+        if (status.bad()) {
+                std::cerr << "write_dcm_cpp: Failed to set the " <<
+                        "photometric interpretation" << std::endl;
+                return SIFT3D_FAILURE;
+        }
+
+        // Set the pixel representation to unsigned
+        dataset->putAndInsertString(DCM_PixelRepresentation, "0");
+        if (status.bad()) {
+                std::cerr << "write_dcm_cpp: Failed to set the " <<
+                        "pixel representation" << std::endl;
+                return SIFT3D_FAILURE;
+        }
+
+        // Set the bits allocated and stored to 8, with the high bit in
+        // position 7
+        const char *bitsStr = "8";
+        dataset->putAndInsertString(DCM_BitsAllocated, bitsStr);
+        dataset->putAndInsertString(DCM_BitsStored, bitsStr);
+        dataset->putAndInsertString(DCM_HighBit, "7");
+        if (status.bad()) {
+                std::cerr << "write_dcm_cpp: Failed to set the " <<
+                        "bit widths" << std::endl;
+                return SIFT3D_FAILURE;
+        }
 
         // Set the patient name
         status = dataset->putAndInsertString(DCM_PatientName, 
