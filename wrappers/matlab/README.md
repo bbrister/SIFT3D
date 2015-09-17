@@ -12,7 +12,7 @@ This toobox does not include all of SIFT3D's functionality, but we are adding mo
 
 ## Installation instructions
 
-If you installed SIFT3D from binaries, a Matlab toolbox is included in the lib/wrappers/matlab subdirectory of your installation. If you compiled SIFT3D from souce, the same will happen if Matlab was detected in your system.
+If you installed SIFT3D from binaries, a Matlab toolbox is included in the lib/wrappers/matlab subdirectory of your installation. If you compiled SIFT3D from source, the toolbox will be built if Matlab was detected in your system.
 
 To use the toolbox, simply add it to your Matlab path. This can be accomplished by adding the following line to your startup.m file:
 
@@ -22,11 +22,11 @@ where /path/to/sift3d is the path to your SIFT3D installation. If you do not hav
 
 ### Relocating the toolbox
 
-We do not recommend moving the toolbox libraries (.a, .so, .dylib). If you do, the operating system may not be able to find them when it tries to load the mex files. A better solution is to install SIFT3D in the place you want the toolbox to reside.
+We do not recommend moving the toolbox shared libraries (.so, .dylib, .dll). If you do, the operating system may not be able to find them when it tries to load the mex files. A better solution is to install SIFT3D in the place you want the toolbox to reside.
 
 ### Known issues
 
-CMake might fail to find Matlab on your system, especially on Mac OSX. In that case, you should see "Matlab not found" after running the cmake command. You can fix this by manually specifying the location of Matlab in the variable Matlab_ROOT_DIR. For example,
+When compiling from source, CMake might fail to find Matlab on your system, especially on Mac OSX. In that case, you should see "Matlab not found" after running the cmake command. You can fix this by manually specifying the location of Matlab in the variable Matlab_ROOT_DIR. For example,
 
         cmake .. -DMatlab_ROOT_DIR=/path/to/MATLAB
 
