@@ -15,11 +15,11 @@ and the following libraries:
 - libsift3d.so - Extract and match SIFT3D features
 - libimutil.so - Utility library for image processing, regression and linear algebra.
 
-In addition, if Matlab is detected on your system, a Matlab toolbox is automatically generated. See the README in /wrappers/matlab for more information.
+It also contains a Matlab toolbox for calling the library functions from Matlab scripts. See the README in /wrappers/matlab for more information.
 
 ## Installation instructions
 
-See doc/INSTALL_<PLATFORM>.md for instructions on installing SIFT3D for your specific platform.
+See doc/INSTALL_\<PLATFORM\>.md for instructions on installing SIFT3D for your specific platform.
 
 ## Usage instructions
 
