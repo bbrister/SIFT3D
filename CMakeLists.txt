@@ -150,9 +150,6 @@ if (${Matlab_FOUND})
         set (BUILD_TOOLBOX_DIR "${BUILD_WRAPPERS_DIR}/${TOOLBOX_NAME}")
         set (INSTALL_TOOLBOX_DIR "${INSTALL_WRAPPERS_DIR}/${TOOLBOX_NAME}"
                 CACHE PATH "Installation directory for the Matlab toolbox")
-        set (INSTALL_TOOLBOX_PATH "${CMAKE_INSTALL_PREFIX}/${INSTALL_TOOLBOX_DIR}")
-        set (CMAKE_INSTALL_RPATH 
-                "${CMAKE_INSTALL_RPATH}${PATH_SEP}${INSTALL_TOOLBOX_PATH}")
 
         # Get the path of the Matlab libraries
         get_filename_component (Matlab_LIBRARIES_PATH ${Matlab_MEX_LIBRARY} 
