@@ -11,8 +11,8 @@ if (WIN32)
         # NSIS for Windows
         set (_CPACK_GENERATOR "NSIS")
 elseif (APPLE)
-        # Bundle for Mac
-        set (_CPACK_GENERATOR "BUNDLE")
+        # .pkg for Mac
+        set (_CPACK_GENERATOR "PackageMaker")
 elseif (UNIX)
         # Default to .tar.gz on Unix-like platforms
         set (_CPACK_GENERATOR "TGZ")
@@ -59,9 +59,18 @@ if (CPACK_GENERATOR STREQUAL "NSIS")
         # Add the option to append SIFT3D to the path
         set (CPACK_NSIS_MODIFY_PATH ON)
 
-elseif (CPACK_GENERATOR STREQUAL "BUNDLE")
-        message(FATAL_ERROR "Bundle support not yet implemented")
-        # TODO Do we need a bundle info file?
+elseif (CPACK_GENERATOR STREQUAL "PackageMaker")
+
+	# PackageMaker needs .txt files, generate them from the regular LICENSE and README files
+	get_filename_component (LICENSE_FILE_NAME ${LICENSE_FILE} NAME)
+	get_filename_component (README_FILE_NAME ${README_FILE} NAME)
+	set (LICENSE_FILE_TXT "${CMAKE_BINARY_DIR}/${LICENSE_FILE_NAME}.txt")
+	set (README_FILE_TXT "${CMAKE_BINARY_DIR}/${README_FILE_NAME}.txt")
+	configure_file (${LICENSE_FILE} ${LICENSE_FILE_TXT})
+	configure_file (${README_FILE} ${README_FILE_TXT})
+	set (CPACK_RESOURCE_FILE_LICENSE ${LICENSE_FILE_TXT})
+	set (CPACK_RESOURCE_FILE_README ${README_FILE_TXT})
+
 elseif (CPACK_GENERATOR STREQUAL "DEB")
 
         # Set the target platform in Debian terms
