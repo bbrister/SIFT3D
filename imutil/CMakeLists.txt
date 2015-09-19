@@ -67,57 +67,102 @@ if (WIN32)
 	set (DEPS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${NIFTI_LIBRARIES} 
 		${ZLIB_LIBRARIES})
 
-	function (get_runtime_deps ARG_DEPS ARG_RUNTIME_DEPS)
+        # Set the shared library file extensions
+        set (SHARED_LIB_EXT ".dll")
 
-		# Process each dependency, adding a runtime dependency if 
-		# necessary
-		set (${ARG_RUNTIME_DEPS} "")
-		foreach (DEP IN LISTS ${ARG_DEPS})
+        # Set the runtime dependency location
+        set (INSTALL_DEPS_DIR ${INSTALL_BIN_DIR})
 
-			# Get the file extension	
-			get_filename_component (DEP_EXT ${DEP} EXT)		
+        # Process each dependency, adding a runtime dependency if 
+        # necessary
+        function (get_runtime_deps ARG_DEPS ARG_RUNTIME_DEPS)
 
-			# Process shared libraries
-			if (DEP_EXT STREQUAL ".dll")
-				list (APPEND ${ARG_RUNTIME_DEPS} ${DEP})
-			# Process MinGW import libraries
-			elseif (DEP_EXT STREQUAL ".dll.a")
+                set (${ARG_RUNTIME_DEPS} "")
+                foreach (DEP IN LISTS ${ARG_DEPS})
 
-				# Extract the filename, parent and grandparent directories
-				get_filename_component (DEP_NAME ${DEP} NAME)
-				get_filename_component (DEP_DIR ${DEP} DIRECTORY)
-				get_filename_component (DEP_DIR_DIR ${DEP_DIR} DIRECTORY)
+                        # Get the file extension	
+                        get_filename_component (DEP_EXT ${DEP} EXT)		
 
-				# Get the name of the .dll version
-				string (REGEX REPLACE ".dll.a$" ".dll" DEP_DLL_NAME ${DEP_NAME})
+                        # Process shared libraries
+                        if (DEP_EXT STREQUAL ".dll")
+                                list (APPEND ${ARG_RUNTIME_DEPS} ${DEP})
+                        # Process MinGW import libraries
+                        elseif (DEP_EXT STREQUAL ".dll.a")
 
-				# Find the corresponding .dll
-				string (REGEX REPLACE ".dll" "_DLL" DEP_DLL_VAR ${DEP_DLL_NAME})
-				find_file (${DEP_DLL_VAR} ${DEP_DLL_NAME} 
-					PATHS ${DEP_DIR} ${DEP_DIR_DIR}
-					PATH_SUFFIXES "bin" "lib")
-				if (${DEP_DLL_VAR} STREQUAL "${DEP_DLL_NAME}-NOTFOUND")
-					message (FATAL_ERROR 
-						"Failed to find runtime dependency ${DEP_DLL_NAME}")
-				endif ()
+                                # Extract the filename, parent and grandparent directories
+                                get_filename_component (DEP_NAME ${DEP} NAME)
+                                get_filename_component (DEP_DIR ${DEP} DIRECTORY)
+                                get_filename_component (DEP_DIR_DIR ${DEP_DIR} DIRECTORY)
 
-				# The .dll, not the .dll.a, becomes a runtime dependency
-				list (APPEND ${ARG_RUNTIME_DEPS} ${${DEP_DLL_VAR}})
-			endif ()
+                                # Get the name of the .dll version
+                                string (REGEX REPLACE ".dll.a$" ".dll" DEP_DLL_NAME ${DEP_NAME})
 
-		endforeach ()
+                                # Find the corresponding .dll
+                                string (REGEX REPLACE ".dll" "_DLL" DEP_DLL_VAR ${DEP_DLL_NAME})
+                                find_file (${DEP_DLL_VAR} ${DEP_DLL_NAME}
+                                        PATHS ${DEP_DIR} ${DEP_DIR_DIR}
+                                        PATH_SUFFIXES "bin" "lib")
+                                if (${DEP_DLL_VAR} STREQUAL "${DEP_DLL_NAME}-NOTFOUND")
+                                        message (FATAL_ERROR 
+                                                "Failed to find runtime dependency ${DEP_DLL_NAME}")
+                                endif ()
 
-		# Set the return value
-		set (${ARG_RUNTIME_DEPS} ${${ARG_RUNTIME_DEPS}} PARENT_SCOPE)
+                                # The .dll, not the .dll.a, becomes a runtime dependency
+                                list (APPEND ${ARG_RUNTIME_DEPS} ${${DEP_DLL_VAR}})
+                        endif ()
 
-	endfunction ()
+                endforeach ()
 
-	# Convert dependencies to runtime dependencies
-	get_runtime_deps (DEPS RUNTIME_DEPS)
+                # Set the return value
+                set (${ARG_RUNTIME_DEPS} ${${ARG_RUNTIME_DEPS}} PARENT_SCOPE)
 
-        # Add the runtime dependencies to the Windows installer
-	install (FILES ${RUNTIME_DEPS} DESTINATION ${INSTALL_BIN_DIR})
+        endfunction ()
 
+elseif (APPLE)
+
+	# As above, but for Mac shared libraries and frameworks 
+	set (DEPS ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES})
+        set (SHARED_LIB_EXT ".dylib;.framework")
+        set (INSTALL_DEPS_DIR ${INSTALL_LIB_DIR})
+
+        function (get_runtime_deps ARG_DEPS ARG_RUNTIME_DEPS)
+                set (${ARG_RUNTIME_DEPS} "")
+                foreach (DEP IN LISTS ${ARG_DEPS})
+                        get_filename_component (DEP_EXT ${DEP} EXT)		
+                        if (DEP_EXT STREQUAL ".dylib" OR
+                                DEP_EXT STREQUAL ".framework")
+                                list (APPEND ${ARG_RUNTIME_DEPS} ${DEP})
+                        endif ()
+                endforeach ()
+                set (${ARG_RUNTIME_DEPS} ${${ARG_RUNTIME_DEPS}} PARENT_SCOPE)
+        endfunction ()
+
+else ()
+
+        # Default to listing all dependencies
+	set (DEPS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${NIFTI_LIBRARIES} 
+		${ZLIB_LIBRARIES})
+        set (SHARED_LIB_EXT ".so")   
+        set (INSTALL_DEPS_DIR ${INSTALL_LIB_DIR})
+
+        function (get_runtime_deps ARG_DEPS ARG_RUNTIME_DEPS)
+                set (${ARG_RUNTIME_DEPS} "")
+                foreach (DEP IN LISTS ${ARG_DEPS})
+                        get_filename_component (DEP_EXT ${DEP} EXT)		
+                        if (DEP_EXT STREQUAL ".so")
+                                list (APPEND ${ARG_RUNTIME_DEPS} ${DEP})
+                        endif ()
+                endforeach ()
+                set (${ARG_RUNTIME_DEPS} ${${ARG_RUNTIME_DEPS}} PARENT_SCOPE)
+        endfunction ()
+endif ()
+
+# Convert dependencies to runtime dependencies
+get_runtime_deps (DEPS RUNTIME_DEPS)
+
+# Install the runtime dependencies
+if (INSTALL_RUNTIME_LIBS)
+        install (FILES ${RUNTIME_DEPS} DESTINATION ${INSTALL_DEPS_DIR})
 endif ()
 
 # If Matlab was found, compile a copy for use with Matlab libraries
@@ -151,12 +196,11 @@ if (${Matlab_FOUND})
                 ARCHIVE DESTINATION ${INSTALL_TOOLBOX_DIR}
         )
 
-        if (WIN32)
-
-		set (TOOLBOX_DEPS ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES})
-		get_runtime_deps (TOOLBOX_DEPS TOOLBOX_RUNTIME_DEPS)
+        set (TOOLBOX_DEPS ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES})
+        get_runtime_deps (TOOLBOX_DEPS TOOLBOX_RUNTIME_DEPS)
+        if (INSTALL_RUNTIME_LIBS)
                 install (FILES ${TOOLBOX_RUNTIME_DEPS} 
-			DESTINATION ${INSTALL_TOOLBOX_DIR})
+                        DESTINATION ${INSTALL_TOOLBOX_DIR})
         endif ()
 endif ()
 

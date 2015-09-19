@@ -97,6 +97,18 @@ elseif (APPLE)
         set (CMAKE_MACOSX_RPATH ON)
 endif ()
 
+# OS-specific installation settings
+if (WIN32)
+        # Always install runtime libs
+        set (INSTALL_RUNTIME_LIBS ON)
+elseif (APPLE)
+        # Install runtime libs only in package mode
+        set (INSTALL_RUNTIME_LIBS ${BUILD_PACKAGE})
+else ()
+        # Never install runtime libs--use the package managers
+        set (INSTALL_RUNTIME_LIBS OFF)
+endif ()
+
 set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${DEBUG_FLAGS}")
 set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${DEBUG_FLAGS}")
 set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${RELEASE_FLAGS}")
