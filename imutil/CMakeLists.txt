@@ -121,7 +121,7 @@ if (WIN32)
 elseif (APPLE)
 
 	# As above, but for Mac shared libraries and frameworks 
-	set (DEPS ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES})
+	set (DEPS ${NIFTI_LIBRARIES})
         set (SHARED_LIB_EXT ".dylib;.framework")
         set (INSTALL_DEPS_DIR ${INSTALL_LIB_DIR})
 
@@ -185,22 +185,26 @@ if (${Matlab_FOUND})
 
         set_target_properties (meximutil 
                 PROPERTIES 
-                ARCHIVE_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
-                LIBRARY_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
                 RUNTIME_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
+                ARCHIVE_OUTPUT_DIRECTORY ${BUILD_LIB_DIR}
+                LIBRARY_OUTPUT_DIRECTORY ${BUILD_LIB_DIR}
         )
 
         install (TARGETS meximutil 
                 RUNTIME DESTINATION ${INSTALL_TOOLBOX_DIR}
-                LIBRARY DESTINATION ${INSTALL_TOOLBOX_DIR}
-                ARCHIVE DESTINATION ${INSTALL_TOOLBOX_DIR}
+                ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
+                LIBRARY DESTINATION ${INSTALL_LIB_DIR}
         )
 
-        set (TOOLBOX_DEPS ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES})
-        get_runtime_deps (TOOLBOX_DEPS TOOLBOX_RUNTIME_DEPS)
-        if (INSTALL_RUNTIME_LIBS)
-                install (FILES ${TOOLBOX_RUNTIME_DEPS} 
-                        DESTINATION ${INSTALL_TOOLBOX_DIR})
+        # Needs to be duplicated in the toolbox directory on Windows, which 
+        # does not have rpath
+        if (WIN32)
+                set (TOOLBOX_DEPS ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES})
+                get_runtime_deps (TOOLBOX_DEPS TOOLBOX_RUNTIME_DEPS)
+                if (INSTALL_RUNTIME_LIBS)
+                        install (FILES ${TOOLBOX_RUNTIME_DEPS} 
+                                DESTINATION ${INSTALL_TOOLBOX_DIR})
+                endif ()
         endif ()
 endif ()
 

@@ -21,7 +21,8 @@ We do not currently have binaries for SIFT3D on Mac. You must install from sourc
 ## Installing from source
 
 This program has been successfully compiled and executed on the following Mac platforms:
-- Mac OSX 10.10.5, using Clang 6.1.0, LLVM 3.6.0 and CMake 3.3.1
+- Mac OS X 10.10.5, using Clang 6.1.0, LLVM 3.6.0 and CMake 3.3.1
+- Mac OS X 10.7.5, using GCC 4.2.1 and CMake 3.3.2
 
 This program requires the following tools to compile:
 - [CMake](http://www.cmake.org)
