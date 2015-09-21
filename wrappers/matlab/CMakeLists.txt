@@ -12,6 +12,11 @@ target_link_libraries (mexutil PUBLIC mexsift3D meximutil ${MWLAPACK_LIBRARY}
         ${MWBLAS_LIBRARY} ${Matlab_LIBRARIES})
 
 # Build the mex files
+matlab_add_mex (NAME mexImRead3D
+        SRC mexImRead3D.c
+        LINK_TO mexutil ${Matlab_LIBRARIES}
+)
+
 matlab_add_mex (NAME mexDetectSift3D 
         SRC mexDetectSift3D.c 
         LINK_TO mexutil ${Matlab_LIBRARIES}
@@ -23,7 +28,7 @@ matlab_add_mex (NAME mexExtractSift3D
 )
 
 # Configure the build destination
-set_target_properties (mexutil mexDetectSift3D mexExtractSift3D
+set_target_properties (mexutil mexImRead3D mexDetectSift3D mexExtractSift3D
         PROPERTIES 
         ARCHIVE_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
         LIBRARY_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
@@ -31,17 +36,17 @@ set_target_properties (mexutil mexDetectSift3D mexExtractSift3D
 )
 
 # Copy the scripts and test suite to the build tree
-file (COPY setupSift3D.m detectSift3D.m extractSift3D.m Sift3DTest.m 
+file (COPY setupSift3D.m imRead3D.m detectSift3D.m extractSift3D.m Sift3DTest.m
         DESTINATION ${BUILD_TOOLBOX_DIR}
 )
 
 # Install the matlab scripts
-install (FILES setupSift3D.m detectSift3D.m extractSift3D.m
+install (FILES setupSift3D.m imRead3D.m detectSift3D.m extractSift3D.m
         DESTINATION ${INSTALL_TOOLBOX_DIR}
 )
 
 # Install the libraries and mex files
-install (TARGETS mexutil mexDetectSift3D mexExtractSift3D
+install (TARGETS mexutil mexImRead3D mexDetectSift3D mexExtractSift3D
         RUNTIME DESTINATION ${INSTALL_TOOLBOX_DIR}
         LIBRARY DESTINATION ${INSTALL_TOOLBOX_DIR}
         ARCHIVE DESTINATION ${INSTALL_TOOLBOX_DIR}

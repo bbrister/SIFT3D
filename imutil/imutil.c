@@ -1102,12 +1102,23 @@ im_format im_get_format(const char *path) {
  * - Directory of DICOM files
  * - NIFTI-1 (.nii, .nii.gz)
  *
- * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise.
+ * Return values:
+ * -SIFT3D_SUCCESS - Image successfully read
+ * -SIFT3D_FILE_DOES_NOT_EXIST - The file does not exist
+ * -SIFT3D_UNSUPPORTED_FILE_TYPE - The file type is not supported
+ * -SIFT3D_FAILURE - Other error
  */
 int im_read(const char *path, Image *const im) {
 
+        struct stat st;
         const char *ext;
         im_format format;
+
+        // Ensure the file exists
+        if (stat(path, &st) != 0) {
+                fprintf(stderr, "im_read: failed to find file %s \n", path);
+                return SIFT3D_FILE_DOES_NOT_EXIST;
+        }
 
         // Get the file format and write the file
         switch (im_get_format(path)) {
@@ -1122,7 +1133,7 @@ int im_read(const char *path, Image *const im) {
         default:
                 fprintf(stderr, "im_read: unrecognized file extension "
                         "from file %s \n", path);
-                return SIFT3D_FAILURE;
+                return SIFT3D_UNSUPPORTED_FILE_TYPE;
         }
 
         // Unreachable code

@@ -22,7 +22,7 @@ function keys = detectSift3D(im)
 %      keys = detectSift3D(im);
 %
 %  See also:
-%    extractSift3D, setupSift3D
+%    extractSift3D, imRead3D, setupSift3D
 %
 % Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
 

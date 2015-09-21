@@ -23,6 +23,8 @@ void err_msgu(const char *name, const char *msg);
 
 int isDouble(const mxArray *const mx);
 
+mxArray *im2mx(const Image *const im);
+
 int mx2im(const mxArray *const mx, Image *const im);
 
 mxArray *mat2mx(const Mat_rm *const mat);

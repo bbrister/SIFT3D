@@ -99,6 +99,50 @@ int isDouble(const mxArray *const mx) {
         return mxIsDouble(mx) && !mxIsComplex(mx);
 }
 
+/* Convert an Image to an mxArray. The output will have IM_NDIMS + 1 dimensions
+ * and type double. The final dimension denotes the image channels. 
+ *
+ * Returns a pointer to the array, or NULL if an error has occurred. */
+mxArray *im2mx(const Image *const im) {
+    
+#define MX_NDIMS (IM_NDIMS + 1) 
+        mwSize dims[MX_NDIMS]; 
+        mxArray *mx; 
+        double *mxData; 
+        int i, x, y, z, c;
+
+        // Initialize the dimensions
+        for (i = 0; i < IM_NDIMS; i++) {
+                dims[i] = im->dims[i];
+        }
+        dims[IM_NDIMS] = im->nc;
+
+        // Create an array
+        if ((mx = mxCreateNumericArray(MX_NDIMS, dims, mxDOUBLE_CLASS, 
+                mxREAL)) == NULL)
+                return NULL;
+
+        // Get the data
+        if ((mxData = mxGetData(mx)) == NULL)
+                return NULL;
+
+        // Copy the data
+        SIFT3D_IM_LOOP_START_C(im, x, y, z, c)
+
+                mwIndex idx;
+                mwIndex subs[] = {x, y, z, c};
+                const mwSize nSubs = sizeof(subs) / sizeof(mwIndex);
+
+                assert(nSubs == MX_NDIMS);
+                idx = mxCalcSingleSubscript(mx, nSubs, subs); 
+                mxData[idx] = (double) SIFT3D_IM_GET_VOX(im, x, y, z, c);
+
+        SIFT3D_IM_LOOP_END_C
+
+        return mx;
+#undef MX_NDIMS
+}
+
 /* Convert an mxArray to an Image. mx must have IM_NDIMS dimensions and be of
  * type single (float). */
 int mx2im(const mxArray *const mx, Image *const im) {
