@@ -1011,10 +1011,18 @@ static int build_gpyr(SIFT3D *sift3d) {
 		SIFT3D_PYR_LOOP_SCALE_END
 		// Downsample
 		if (o != o_end) {
-			prev = cur;
+
+                        const int downsample_level = SIFT3D_MAX(
+                                gpyr->last_level - 2, gpyr->first_level);
+
+			prev = SIFT3D_PYR_IM_GET(gpyr, o, downsample_level);
 			cur = SIFT3D_PYR_IM_GET(gpyr, o + 1, s_start - 1);
+
+                        assert(fabs(prev->s - cur->s) < FLT_EPSILON);
+
 			if (im_downsample_2x(prev, cur))
 				return SIFT3D_FAILURE;
+
 		}
 	SIFT3D_PYR_LOOP_OCTAVE_END
 
