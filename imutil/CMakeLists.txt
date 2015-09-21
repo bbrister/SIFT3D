@@ -37,6 +37,8 @@ if (${ITK_FOUND})
 
 	target_link_libraries(imutil PUBLIC ${ITK_LIBRARIES})
 	target_include_directories(imutil PUBLIC ${ITK_INCLUDE_DIRS})
+        set (NIFTI_LIBRARIES ${ITK_LIBRARIES})
+        set (NIFTI_INCLUDE_DIRS ${ITK_INCLUDE_DIRS})
 
 # Otherwise link directly to libniftiio
 else ()
@@ -45,27 +47,88 @@ else ()
         endif ()
 
 	find_package (NIFTI REQUIRED)
-
-	target_link_libraries (imutil PUBLIC ${NIFTI_LIBRARIES})
-	target_include_directories (imutil PUBLIC ${NIFTI_INCLUDE_DIRS})
-
 endif ()
+target_link_libraries (imutil PUBLIC ${NIFTI_LIBRARIES})
+target_include_directories (imutil PUBLIC ${NIFTI_INCLUDE_DIRS})
+
 
 # Link to system libraries
 target_link_libraries(imutil PUBLIC ${ZLIB_LIBRARIES} ${M_LIBRARY})
 target_include_directories(imutil PUBLIC ${ZLIB_INCLUDE_DIRS})
+
+# Configure the installation
+install (TARGETS imutil 
+        EXPORT SIFT3D-targets 
+        RUNTIME DESTINATION ${INSTALL_BIN_DIR} 
+	LIBRARY DESTINATION ${INSTALL_LIB_DIR} 
+	ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
+)
+
+# OS-specific installation
+if (WIN32)
+
+	# Make a list of all external dependencies
+	set (DEPS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${NIFTI_LIBRARIES} 
+		${ZLIB_LIBRARIES})
+
+	function (get_runtime_deps ARG_DEPS ARG_RUNTIME_DEPS)
+
+		# Process each dependency, adding a runtime dependency if 
+		# necessary
+		set (${ARG_RUNTIME_DEPS} "")
+		foreach (DEP IN LISTS ${ARG_DEPS})
+
+			# Get the file extension	
+			get_filename_component (DEP_EXT ${DEP} EXT)		
+
+			# Process shared libraries
+			if (DEP_EXT STREQUAL ".dll")
+				list (APPEND ${ARG_RUNTIME_DEPS} ${DEP})
+			# Process MinGW import libraries
+			elseif (DEP_EXT STREQUAL ".dll.a")
+
+				# Extract the filename, parent and grandparent directories
+				get_filename_component (DEP_NAME ${DEP} NAME)
+				get_filename_component (DEP_DIR ${DEP} DIRECTORY)
+				get_filename_component (DEP_DIR_DIR ${DEP_DIR} DIRECTORY)
+
+				# Get the name of the .dll version
+				string (REGEX REPLACE ".dll.a$" ".dll" DEP_DLL_NAME ${DEP_NAME})
+
+				# Find the corresponding .dll
+				string (REGEX REPLACE ".dll" "_DLL" DEP_DLL_VAR ${DEP_DLL_NAME})
+				find_file (${DEP_DLL_VAR} ${DEP_DLL_NAME} 
+					PATHS ${DEP_DIR} ${DEP_DIR_DIR}
+					PATH_SUFFIXES "bin" "lib")
+				if (${DEP_DLL_VAR} STREQUAL "${DEP_DLL_NAME}-NOTFOUND")
+					message (FATAL_ERROR 
+						"Failed to find runtime dependency ${DEP_DLL_NAME}")
+				endif ()
+
+				# The .dll, not the .dll.a, becomes a runtime dependency
+				list (APPEND ${ARG_RUNTIME_DEPS} ${${DEP_DLL_VAR}})
+			endif ()
+
+		endforeach ()
+
+		# Set the return value
+		set (${ARG_RUNTIME_DEPS} ${${ARG_RUNTIME_DEPS}} PARENT_SCOPE)
+
+	endfunction ()
+
+	# Convert dependencies to runtime dependencies
+	get_runtime_deps (DEPS RUNTIME_DEPS)
+
+        # Add the runtime dependencies to the Windows installer
+	install (FILES ${RUNTIME_DEPS} DESTINATION ${INSTALL_BIN_DIR})
+
+endif ()
 
 # If Matlab was found, compile a copy for use with Matlab libraries
 if (${Matlab_FOUND})
 
         add_library (meximutil SHARED imutil.c dicom.cpp)
         target_compile_definitions (meximutil PUBLIC "-DSIFT3D_MEX")
-        set_target_properties (meximutil 
-                PROPERTIES 
-                ARCHIVE_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
-                LIBRARY_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
-                RUNTIME_OUTPUT_DIRECTORY ${TOOLBOX_PATH}
-        )
 
         if (${ITK_FOUND})
                 target_link_libraries(meximutil PUBLIC 
@@ -76,7 +139,7 @@ if (${Matlab_FOUND})
                 target_link_libraries (meximutil PUBLIC 
                         ${DCMTK_LIBRARIES} ${NIFTI_LIBRARIES})
                 target_include_directories (meximutil PUBLIC 
-                        ${NIFTI_INCLUDE_DIRS})
+                        ${DCMTK_INCLUDE_DIRS} ${NIFTI_INCLUDE_DIRS})
         endif ()
 
         target_include_directories (meximutil PUBLIC 
@@ -86,13 +149,27 @@ if (${Matlab_FOUND})
                 ${MWBLAS_LIBRARY} ${Matlab_LIBRARIES} ${ZLIB_LIBRARIES} 
                 ${M_LIBRARY})
 
-endif ()
+        set_target_properties (meximutil 
+                PROPERTIES 
+                ARCHIVE_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
+                LIBRARY_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
+                RUNTIME_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
+        )
 
-# Configure the installation
-install (TARGETS imutil EXPORT SIFT3D-targets 
-	 RUNTIME DESTINATION ${INSTALL_BIN_DIR} 
-	 LIBRARY DESTINATION ${INSTALL_LIB_DIR} 
-	 ARCHIVE DESTINATION ${INSTALL_LIB_DIR})
+        install (TARGETS meximutil 
+                RUNTIME DESTINATION ${INSTALL_TOOLBOX_DIR}
+                LIBRARY DESTINATION ${INSTALL_TOOLBOX_DIR}
+                ARCHIVE DESTINATION ${INSTALL_TOOLBOX_DIR}
+        )
+
+        if (WIN32)
+
+		set (TOOLBOX_DEPS ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES})
+		get_runtime_deps (TOOLBOX_DEPS TOOLBOX_RUNTIME_DEPS)
+                install (FILES ${TOOLBOX_RUNTIME_DEPS} 
+			DESTINATION ${INSTALL_TOOLBOX_DIR})
+        endif ()
+endif ()
 
 # Add the code snippets
 add_subdirectory (templates)
