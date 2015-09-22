@@ -22,6 +22,9 @@ n = 3;
 scaleDefault = 1.6;
 oriDefault = eye(n);
 
+% Error tolerance
+tol = 1E3 * eps;
+
 % Verify coords
 if nargin < 1 || isempty(coords)
     error('Coords argument must be specified')
@@ -40,9 +43,9 @@ m = size(coords, 1);
 % Verify scale
 if nargin < 2 || isempty(scale)
     scale = repmat(scaleDefault, [m 1]);
-elseif size(scale) == [1 m]
+elseif isequal(size(scale), [1 m])
         scale = scale';
-elseif size(scale) ~= [m 1]
+elseif ~isequal(size(scale), [m 1])
     error(['scale argument has invalid dimensions [' ...
         num2str(size(scale)) '] must be [mx1]']);
 elseif ~isa(scale, 'double')
@@ -73,14 +76,14 @@ else
         
         % Verify determinant
         d = det(R);
-        if (abs(d - 1) > 0.1)
+        if (abs(d - 1) > tol)
             error(['det(ori(:, :, ' num2str(i) ')) = ' num2str(d) ...
               ', must be equal or near to 1'])
         end
         
         % Verify orthogonality
         RRt = R * R';
-        if (abs(RRt - eye(size(R))) > 0.1)
+        if (abs(RRt - eye(size(R))) > tol)
             error(['ori(:, :, ' num2str(i) ')) must be orthogonal'])
         end
     end 
