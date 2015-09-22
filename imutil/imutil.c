@@ -1113,6 +1113,7 @@ int im_read(const char *path, Image *const im) {
         struct stat st;
         const char *ext;
         im_format format;
+        int ret;
 
         // Ensure the file exists
         if (stat(path, &st) != 0) {
@@ -1124,20 +1125,28 @@ int im_read(const char *path, Image *const im) {
         switch (im_get_format(path)) {
         case ANALYZE:
         case NIFTI:
-                return read_nii(path, im);
+                ret = read_nii(path, im);
+                break;
         case DICOM:
-                return read_dcm(path, im);
+                ret = read_dcm(path, im);
+                break;
         case DIRECTORY:
-                return read_dcm_dir(path, im);
+                ret = read_dcm_dir(path, im);
+                break;
         case UNKNOWN:
         default:
                 fprintf(stderr, "im_read: unrecognized file extension "
                         "from file %s \n", path);
-                return SIFT3D_UNSUPPORTED_FILE_TYPE;
+                ret = SIFT3D_UNSUPPORTED_FILE_TYPE;
         }
 
-        // Unreachable code
-        return SIFT3D_FAILURE;
+        // Return errors, if any
+        if (ret) return ret;
+
+	// Scale the image to [-1, 1]
+	im_scale(im);
+
+        return SIFT3D_SUCCESS;
 }
 
 /* Helper function to load a file into the specific Image object.
@@ -1239,9 +1248,6 @@ static int read_nii(const char *path, Image *const im)
 	}
 #undef IM_COPY_FROM_TYPE
 
-	// Scale the image to [0, 1]
-	im_scale(im);
-
 	// Clean up NIFTI data
 	nifti_free_extensions(nifti);
 	nifti_image_free(nifti);
@@ -1280,7 +1286,7 @@ int im_write(const char *path, const Image *const im) {
         case NIFTI:
                 return write_nii(path, im);
         case DICOM:
-                return write_dcm(path, im, NULL);
+                return write_dcm(path, im, NULL, -1.0f);
         case DIRECTORY:
 
                 // Create the directory
@@ -1948,28 +1954,40 @@ int im_channel(const Image * const src, Image * const dst,
 	SIFT3D_IM_LOOP_END return SIFT3D_SUCCESS;
 }
 
-/* Scale an image to the [0, 1] range, where
- * the largest value is 1. */
-void im_scale(Image * im)
-{
+/* Find the maximum absolute value of an image */
+float im_max_abs(const Image *const im) {
 
-	float max, samp;
-	int x, y, z, c;
+        float max;
+        int x, y, z, c;
 
-	// Find max (absolute value) 
 	max = 0.0f;
 	SIFT3D_IM_LOOP_START_C(im, x, y, z, c)
-	    samp = fabs(SIFT3D_IM_GET_VOX(im, x, y, z, c));
-	max = SIFT3D_MAX(max, samp);
-	SIFT3D_IM_LOOP_END_C
-	    // Do nothing if all data is zero
-	    if (max == 0.0f)
-		return;
 
-	// Divide by max 
+	        const float samp = fabsf(SIFT3D_IM_GET_VOX(im, x, y, z, c));
+                max = SIFT3D_MAX(max, samp);
+
+	SIFT3D_IM_LOOP_END_C
+
+        return max;
+}
+
+/* Scale an image to the [-1, 1] range, where
+ * the largest absolute value is 1. */
+void im_scale(const Image *const im)
+{
+
+	int x, y, z, c;
+
+        // Find the maximum absolute value
+	const float max = im_max_abs(im);
+        if (max == 0.0f)
+	        return;
+
+	// Divide by the max 
 	SIFT3D_IM_LOOP_START_C(im, x, y, z, c)
-	    SIFT3D_IM_GET_VOX(im, x, y, z, c) /= max;
-SIFT3D_IM_LOOP_END_C}
+	        SIFT3D_IM_GET_VOX(im, x, y, z, c) /= max;
+        SIFT3D_IM_LOOP_END_C
+}
 
 /* Subtract src2 from src1, saving the result in
  * dst.

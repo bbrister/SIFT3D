@@ -34,7 +34,7 @@ int read_dcm(const char *path, Image *const im);
 int read_dcm_dir(const char *path, Image *const im);
 
 int write_dcm(const char *path, const Image *const im, 
-        const Dcm_meta *const meta);
+        const Dcm_meta *const meta, const float max_val);
 
 int write_dcm_dir(const char *path, const Image *const im, 
         const Dcm_meta *const meta);

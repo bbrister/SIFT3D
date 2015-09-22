@@ -56,6 +56,7 @@
 #include <memory>
 #include <vector>
 #include <cmath>
+#include <cfloat>
 #include <stdint.h>
 #include <dirent.h>
 #include "imutil.h"
@@ -93,14 +94,16 @@ const char *default_patient_id = "DefaultSIFT3DPatientID";
 const char default_instance_num = 1;
 
 /* Helper declarations */
-void default_Dcm_meta(Dcm_meta *const meta);
+static bool isLittleEndian(void);
+static void default_Dcm_meta(Dcm_meta *const meta);
 static int read_dcm_cpp(const char *path, Image *const im);
 static int read_dcm_dir_cpp(const char *path, Image *const im);
 static int write_dcm_cpp(const char *path, const Image *const im,
-        const Dcm_meta *const meta);
+        const Dcm_meta *const meta, const float max_val);
 static int write_dcm_dir_cpp(const char *path, const Image *const im,
         const Dcm_meta *const meta);
-void set_meta_defaults(const Dcm_meta *const meta, Dcm_meta *const meta_new);
+static void set_meta_defaults(const Dcm_meta *const meta, 
+        Dcm_meta *const meta_new);
 
 /* Helper class to store DICOM data. */
 class Dicom {
@@ -217,17 +220,17 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         instance = atoll(instanceStr);
 
         // Load the DicomImage object
-        DicomImage image(path.c_str());
-        if (image.getStatus() != EIS_Normal) {
+        DicomImage dicomImage(path.c_str());
+        if (dicomImage.getStatus() != EIS_Normal) {
                std::cerr << "Dicom.image: failed to open image " <<
                         filename << " (" << 
-                        DicomImage::getString(image.getStatus()) << ")" << 
+                        DicomImage::getString(dicomImage.getStatus()) << ")" <<
                         std::endl; 
                 return;
         }
 
         // Check for color images
-        if (!image.isMonochrome()) {
+        if (!dicomImage.isMonochrome()) {
                 std::cerr << "Dicom.Dicom: reading of color DICOM " <<
                         "images is not supported at this time" << std::endl;
                 return;
@@ -235,9 +238,9 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         nc = 1;
 
         // Read the dimensions
-        nx = image.getWidth();
-        ny = image.getHeight();
-        nz = image.getFrameCount();
+        nx = dicomImage.getWidth();
+        ny = dicomImage.getHeight();
+        nz = dicomImage.getFrameCount();
         if (nx < 1 || ny < 1 || nz < 1) {
                 std::cerr << "Dicom.Dicom: invalid dimensions for file "
                         << filename << "(" << nx << ", " << ny << ", " << 
@@ -263,7 +266,7 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         }
 
         // Get the aspect ratio
-        const double ratio = image.getHeightWidthRatio();
+        const double ratio = dicomImage.getHeightWidthRatio();
         uy = ux * ratio;
         if (uy <= 0.0) {
                 std::cerr << "Dicom.Dicom: file " << path << " has invalid " <<
@@ -290,13 +293,20 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         }
         
         // Set the window 
-        image.setMinMaxWindow();
+        dicomImage.setMinMaxWindow();
 
         valid = true;
 }
 
+/* Check the endianness of the machine. Returns true if the machine is little-
+ * endian, false otherwise. */
+static bool isLittleEndian(void) {
+        volatile uint16_t i = 0x0123;
+        return ((uint8_t *) &i)[0] == 0x23;
+}
+
 /* Set a Dcm_meta struct to default values. Generates new UIDs. */
-void default_Dcm_meta(Dcm_meta *const meta) {
+static void default_Dcm_meta(Dcm_meta *const meta) {
         char buf[1024];
         meta->patient_name = default_patient_name;
         meta->patient_id = default_patient_id;
@@ -336,15 +346,19 @@ int read_dcm_dir(const char *path, Image *const im) {
  *      path - File name
  *      im - Image data
  *      meta - Dicom metadata (or NULL for default values)
+ *      max_val - The maximum value of the image, used for scaling. If set
+ *              to a negative number, this functions computes the maximum value
+ *              from this image.
  *
  * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise.
  */
 int write_dcm(const char *path, const Image *const im, 
-        const Dcm_meta *const meta) {
+        const Dcm_meta *const meta, const float max_val) {
 
         int ret;
 
-        CATCH_EXCEPTIONS(ret, "write_dcm", write_dcm_cpp, path, im, meta);
+        CATCH_EXCEPTIONS(ret, "write_dcm", write_dcm_cpp, path, im, meta, 
+                max_val);
 
         return ret;
 }
@@ -377,11 +391,11 @@ static int read_dcm_cpp(const char *path, Image *const im) {
                 return SIFT3D_FAILURE;
 
         // Load the DicomImage object
-        DicomImage image(path);
-        if (image.getStatus() != EIS_Normal) {
+        DicomImage dicomImage(path);
+        if (dicomImage.getStatus() != EIS_Normal) {
                std::cerr << "read_dcm_cpp: failed to open image " <<
                         dicom.name() << " (" << 
-                        DicomImage::getString(image.getStatus()) << ")" << 
+                        DicomImage::getString(dicomImage.getStatus()) << ")" <<
                         std::endl; 
                 return SIFT3D_FAILURE;
         }
@@ -400,18 +414,34 @@ static int read_dcm_cpp(const char *path, Image *const im) {
         if (im_resize(im))
                 return SIFT3D_FAILURE;
 
+        // Get the bit depth of the image
+        const int bufNBits = 32;
+        const int depth = dicomImage.getDepth();
+        if (depth > bufNBits) {
+                std::cerr << "read_dcm_cpp: buffer is insufficiently wide " <<
+                        "for " << depth << "-bit data of image " << path <<
+                        std::endl;
+                return SIFT3D_FAILURE;
+        }
+
+        // Get the number of bits by which we need to shift the 32-bit data, to
+        // recover the original resolution (DICOM uses Big-endian encoding)
+        const uint32_t shift = isLittleEndian() ? 
+                static_cast<uint32_t>(bufNBits - depth) : 0;
+
         // Read each frame
         for (int i = 0; i < im->nz; i++) { 
 
                 // Get a pointer to the data, rendered as a 32-bit int
                 const uint32_t *const frameData = 
-                        static_cast<const uint32_t *const >(
-                                image.getOutputData(32, i));
+                        static_cast<const uint32_t *const>(
+                                dicomImage.getOutputData(
+                                        static_cast<int>(bufNBits), i));
                 if (frameData == NULL) {
                         std::cerr << "read_dcm_cpp: could not get data "
                                 << "from image " << path << " frame " << i <<
                                 " (" << 
-                                DicomImage::getString(image.getStatus()) << 
+                                DicomImage::getString(dicomImage.getStatus()) <<
                                 ")" << std::endl; 
                         return SIFT3D_FAILURE;
                 }
@@ -424,11 +454,17 @@ static int read_dcm_cpp(const char *path, Image *const im) {
                 const int y_end = im->ny - 1;
                 const int z_end = z_start;
                 int x, y, z;
-                SIFT3D_IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, 
+                SIFT3D_IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end,
                         y_start, y_end, z_start, z_end)
 
+                        // Get the voxel and shift it to match the original
+                        // magnitude 
+                        const uint32_t vox =
+                                frameData[x + y * im->nx] >> shift;
+
+                        // Convert to float and write to the output image
                         SIFT3D_IM_GET_VOX(im, x, y, z, 0) =
-                                static_cast<float>(frameData[x + y * im->nx]);
+                                static_cast<float>(vox);
 
                 SIFT3D_IM_LOOP_END
         }
@@ -596,7 +632,8 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
 
 /* Helper function to set meta_new to default values if meta is NULL,
  * otherwise copy meta to meta_new */
-void set_meta_defaults(const Dcm_meta *const meta, Dcm_meta *const meta_new) {
+static void set_meta_defaults(const Dcm_meta *const meta, 
+        Dcm_meta *const meta_new) {
         if (meta == NULL) {
                 default_Dcm_meta(meta_new);
         } else {
@@ -606,7 +643,7 @@ void set_meta_defaults(const Dcm_meta *const meta, Dcm_meta *const meta_new) {
 
 /* Helper function to write a DICOM file using C++ */
 static int write_dcm_cpp(const char *path, const Image *const im,
-        const Dcm_meta *const meta) {
+        const Dcm_meta *const meta, const float max_val) {
 
 #define BUF_LEN 1024
         char buf[BUF_LEN];
@@ -811,14 +848,28 @@ static int write_dcm_cpp(const char *path, const Image *const im,
                 numPixels *= im->dims[i];
         }
 
+        // Get the image scaling factor
+        const float dcm_max_val = static_cast<float>(1 << dcm_bit_width) - 1.0f;
+        const float im_max = max_val < 0.0f ? im_max_abs(im) : max_val;
+        const float scale = im_max == 0.0f ? 1.0f : dcm_max_val / im_max;
+
         // Render the data to an 8-bit unsigned integer array
         assert(dcm_bit_width == 8);
+        assert(fabsf(dcm_max_val - 255.0f) < FLT_EPSILON);
         uint8_t *pixelData = new uint8_t[numPixels];
         int x, y, z, c;
         SIFT3D_IM_LOOP_START_C(im, x, y, z, c)
+
+                const float vox = SIFT3D_IM_GET_VOX(im, x, y, z, c);
+
+                if (vox < 0.0f) {
+                        std::cerr << "write_dcm_cpp: Image cannot be " <<
+                                "negative" << std::endl;                
+                        return SIFT3D_FAILURE;
+                }
+
                 pixelData[c + x + y * im->nx + z * im->nx * im->ny] =
-                        static_cast<uint8_t>(
-                        SIFT3D_IM_GET_VOX(im, x, y, z, c) * 255.0f);
+                        static_cast<uint8_t>(vox * scale);
         SIFT3D_IM_LOOP_END_C
 
         // Write the data
@@ -898,6 +949,9 @@ static int write_dcm_dir_cpp(const char *path, const Image *const im,
                 return SIFT3D_FAILURE;
         }
 
+        // Get the maximum absolute value of the whole image volume
+        const float max_val = im_max_abs(im);
+
         // Write each slice
         for (int i = 0; i < num_slices; i++) {
 
@@ -925,7 +979,7 @@ static int write_dcm_dir_cpp(const char *path, const Image *const im,
                 meta_new.instance_num = instance;
 
                 // Write the slice to a file
-                if (write_dcm(fullfile.c_str(), &slice, &meta_new)) {
+                if (write_dcm(fullfile.c_str(), &slice, &meta_new, max_val)) {
                         im_free(&slice);
                         return SIFT3D_FAILURE;
                 }

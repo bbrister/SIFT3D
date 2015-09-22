@@ -14,7 +14,6 @@ set (EXAMPLES_PATH "${CMAKE_BINARY_DIR}/${EXAMPLES_DIR}")
 # Copy the example data
 configure_file("${DATA_DIR}/1.nii.gz" "${EXAMPLES_PATH}/1.nii.gz" COPYONLY)
 configure_file("${DATA_DIR}/2.nii.gz" "${EXAMPLES_PATH}/2.nii.gz" COPYONLY)
-configure_file("${DATA_DIR}/data.mat" "${EXAMPLES_PATH}/data.mat" COPYONLY)
 
 # The example programs
 add_executable (featuresC featuresC.c)
