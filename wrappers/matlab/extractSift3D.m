@@ -20,7 +20,7 @@ function [desc, coords] = extractSift3D(keys, im)
 %    [desc, coords] = extractSift3D(keys);
 %
 %  See also:
-%    detectSift3D, imRead3D, setupSift3D
+%    detectSift3D, imRead3D, imWrite3D, setupSift3D
 %
 % Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
 

@@ -40,6 +40,9 @@
                         goto err_label; \
         } \
 
+/* The number of dimensions in mxArrays representing images */
+#define MX_IM_NDIMS (IM_NDIMS + 1) 
+
 /* Keypoint struct information */
 #define COORDS_NAME "coords"
 #define SCALE_NAME "scale"
@@ -99,14 +102,25 @@ int isDouble(const mxArray *const mx) {
         return mxIsDouble(mx) && !mxIsComplex(mx);
 }
 
+/* Returns the index in an mxArray of the voxel at the coordinates (x, y, z)
+ * and channel c */
+mwIndex mxImGetIdx(const mxArray *const mx, const int x, const int y, 
+        const int z, const int c) {
+
+        const mwIndex subs[] = {x, y, z, c};
+        const mwSize nSubs = sizeof(subs) / sizeof(mwIndex);
+        assert(nSubs == MX_IM_NDIMS);
+
+        return mxCalcSingleSubscript(mx, nSubs, subs);
+}
+
 /* Convert an Image to an mxArray. The output will have IM_NDIMS + 1 dimensions
  * and type double. The final dimension denotes the image channels. 
  *
  * Returns a pointer to the array, or NULL if an error has occurred. */
 mxArray *im2mx(const Image *const im) {
     
-#define MX_NDIMS (IM_NDIMS + 1) 
-        mwSize dims[MX_NDIMS]; 
+        mwSize dims[MX_IM_NDIMS]; 
         mxArray *mx; 
         double *mxData; 
         int i, x, y, z, c;
@@ -118,7 +132,7 @@ mxArray *im2mx(const Image *const im) {
         dims[IM_NDIMS] = im->nc;
 
         // Create an array
-        if ((mx = mxCreateNumericArray(MX_NDIMS, dims, mxDOUBLE_CLASS, 
+        if ((mx = mxCreateNumericArray(MX_IM_NDIMS, dims, mxDOUBLE_CLASS, 
                 mxREAL)) == NULL)
                 return NULL;
 
@@ -126,44 +140,47 @@ mxArray *im2mx(const Image *const im) {
         if ((mxData = mxGetData(mx)) == NULL)
                 return NULL;
 
-        // Copy the data
+        // Transpose and copy the data
         SIFT3D_IM_LOOP_START_C(im, x, y, z, c)
 
-                mwIndex idx;
-                mwIndex subs[] = {x, y, z, c};
-                const mwSize nSubs = sizeof(subs) / sizeof(mwIndex);
-
-                assert(nSubs == MX_NDIMS);
-                idx = mxCalcSingleSubscript(mx, nSubs, subs); 
+                const mwIndex idx = mxImGetIdx(mx, x, y, z, c); 
                 mxData[idx] = (double) SIFT3D_IM_GET_VOX(im, x, y, z, c);
 
         SIFT3D_IM_LOOP_END_C
 
         return mx;
-#undef MX_NDIMS
 }
 
-/* Convert an mxArray to an Image. mx must have IM_NDIMS dimensions and be of
- * type single (float). */
+/* Convert an mxArray to an Image. mx must have at most IM_NDIMS + 1 
+ * dimensions and be of type single (float). */
 int mx2im(const mxArray *const mx, Image *const im) {
 
         const mwSize *mxDims;
         float *mxData;
-        int i, x, y, z;
+        mwIndex mxNDims;
+        int i, x, y, z, c, mxNSpaceDims;
 
         // Verify inputs
-	if (mxGetNumberOfDimensions(mx) != IM_NDIMS ||
-                !mxIsSingle(mx) || mxIsComplex(mx))
+        mxNDims = (int) mxGetNumberOfDimensions(mx);
+	if (mxNDims > MX_IM_NDIMS || !mxIsSingle(mx) || mxIsComplex(mx))
                 return SIFT3D_FAILURE;
 
-        // Copy the dimensions
+        // Copy the spatial dimensions
+        mxNSpaceDims = SIFT3D_MIN((int) mxNDims, MX_IM_NDIMS - 1);
         mxDims = mxGetDimensions(mx);
-        for (i = 0; i < IM_NDIMS; i++) {
+        for (i = 0; i < mxNSpaceDims; i++) {
                 im->dims[i] = (int) mxDims[i];
         }
 
+        // Pad the unfilled dimensions with 1
+        for (i = mxNSpaceDims; i < MX_IM_NDIMS - 1; i++) {
+                im->dims[i] = 1; 
+        } 
+
+        // Copy the number of channels, defaulting to 1
+        im->nc = mxNDims == MX_IM_NDIMS ? (int) mxDims[MX_IM_NDIMS] : 1;
+
         // Resize the output                
-        im->nc = 1;
         im_default_stride(im);
         if (im_resize(im))
                 return SIFT3D_FAILURE;
@@ -173,16 +190,12 @@ int mx2im(const mxArray *const mx, Image *const im) {
                 return SIFT3D_FAILURE;
 
         // Transpose and copy the data
-        SIFT3D_IM_LOOP_START(im, x, y, z)
+        SIFT3D_IM_LOOP_START_C(im, x, y, z, c)
 
-                mwIndex idx;
+                const mwIndex idx = mxImGetIdx(mx, x, y, z, c);
+                SIFT3D_IM_GET_VOX(im, x, y, z, c) = mxData[idx];
 
-                const mwIndex subs[] = {x, y, z};
-
-                idx = mxCalcSingleSubscript(mx, IM_NDIMS, subs);
-                SIFT3D_IM_GET_VOX(im, x, y, z, 0) = mxData[idx];
-
-        SIFT3D_IM_LOOP_END
+        SIFT3D_IM_LOOP_END_C
 
         return SIFT3D_SUCCESS;
 }

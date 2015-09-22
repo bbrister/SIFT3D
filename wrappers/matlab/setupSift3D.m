@@ -9,7 +9,7 @@
 % SIFT3D installation.
 %
 % See also:
-%   detectSift3D, extractSift3D
+%   imRead3D, imWrite3D, detectSift3D, extractSift3D
 %
 % Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
 

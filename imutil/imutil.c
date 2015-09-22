@@ -1263,7 +1263,10 @@ static int read_nii(const char *path, Image *const im)
  * -Directory of DICOM files
  * -NIFTI (.nii, .nii.gz)
  *
- * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise.
+ * Return values:
+ * -SIFT3D_SUCCESS - Successfully wrote the image
+ * -SIFT3D_UNSUPPORTED_FILE_TYPE - Cannot write this file type
+ * -SIFT3D_FAILURE - Other error
  */
 int im_write(const char *path, const Image *const im) {
 
@@ -1294,7 +1297,7 @@ int im_write(const char *path, const Image *const im) {
                 fprintf(stderr, "im_write: unrecognized file extension "
                         "from file %s \n", path);
 
-                return SIFT3D_FAILURE;
+                return SIFT3D_UNSUPPORTED_FILE_TYPE;
         }
 
         // Unreachable code

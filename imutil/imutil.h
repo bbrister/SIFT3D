@@ -18,8 +18,8 @@ extern "C" {
 #endif
 
 /* Extra return codes for this module */
-#define SIFT3D_FILE_DOES_NOT_EXIST -1 /* The file does not exist */
-#define SIFT3D_UNSUPPORTED_FILE_TYPE -2 /* The file type is not supported */
+#define SIFT3D_FILE_DOES_NOT_EXIST 1 /* The file does not exist */
+#define SIFT3D_UNSUPPORTED_FILE_TYPE 2 /* The file type is not supported */
 
 /* Vendor-specific info */
 #define PLATFORM_NAME_NVIDIA "NVIDIA CUDA"
