@@ -6,7 +6,7 @@ function keys = detectSift3D(im)
 %  Return values:
 %    keys - An array of n keypoint structs. Each struct has the following
 %      fields:
-%      key.coords - The [x y z] coordinates.
+%      key.coords - The [x y z] coordinates, 0-indexed.
 %      key.scale - The scale coordinate.
 %      key.ori - A [3x3] rotation matrix representing the 3D orientation.
 %      key.octave - The pyramid octave index.
