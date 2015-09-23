@@ -101,11 +101,12 @@ typedef wchar_t char16_t;
 
 /* Supported image file formats */
 typedef enum _im_format {
-        ANALYZE,
-        DICOM,
-        DIRECTORY,
-        NIFTI,
-        UNKNOWN
+        ANALYZE, /* Analyze */
+        DICOM, /* DICOM */
+        DIRECTORY, /* Directory */
+        NIFTI, /* NIFTI-1 */ 
+        UNKNOWN, /* Not one of the known extensions */
+        ERROR /* Error occurred in determining the format */
 } im_format;
 
 /* Possible data types for matrix elements */ 

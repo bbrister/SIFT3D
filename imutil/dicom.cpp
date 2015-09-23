@@ -502,15 +502,13 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
         std::vector<Dicom> dicoms;
         while ((ent = readdir(dir)) != NULL) {
 
-                const char *filename = ent->d_name;
+                // Form the full file path
+                std::string fullfile(std::string(path) + std::string(sep) +
+                        ent->d_name);
 
                 // Check if it is a DICOM file 
-                if (im_get_format(filename) != DICOM)
+                if (im_get_format(fullfile.c_str()) != DICOM)
                         continue;
-
-                // Form the whole file path
-                std::string fullfile(std::string(path) + std::string(sep) +
-                        filename);
 
                 // Read the file
                 Dicom dicom(fullfile);

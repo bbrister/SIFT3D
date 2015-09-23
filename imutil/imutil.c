@@ -60,7 +60,6 @@ extern const char ext_dcm[]; // dicom.h
 const char ext_analyze[] = "img";;
 const char ext_gz[] = "gz";
 const char ext_nii[] = "nii";
-const char ext_dir[] = "";
 
 /* Output file permissions */
 const mode_t out_mode = 0755;
@@ -1073,9 +1072,21 @@ int draw_lines(const Mat_rm * const points1, const Mat_rm * const points2,
 /* Detect the format of the supplied file name. */
 im_format im_get_format(const char *path) {
 
+        struct stat st;
         const char *ext;
 
-        // Get the file extension
+        // Check if the file exists
+        if (stat(path, &st) != 0) {
+                fprintf(stderr, "im_get_format: Unable to find file %s \n",
+                        path);
+                return ERROR; 
+        } 
+
+        // Check if the file is a directory
+        if (S_ISDIR(st.st_mode))
+                return DIRECTORY;
+
+        // If not a directory, get the file extension
         ext = get_file_ext(path);
 
         // Check the known types
@@ -1085,9 +1096,6 @@ im_format im_get_format(const char *path) {
 
         if (!strcmp(ext, ext_dcm))
                 return DICOM;
-
-        if (!strcmp(ext, ext_dir))
-                return DIRECTORY;
 
         // The type was not recognized
         return UNKNOWN;
@@ -1132,6 +1140,9 @@ int im_read(const char *path, Image *const im) {
                 break;
         case DIRECTORY:
                 ret = read_dcm_dir(path, im);
+                break;
+        case ERROR:
+                ret = SIFT3D_FAILURE;
                 break;
         case UNKNOWN:
         default:
