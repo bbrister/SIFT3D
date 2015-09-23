@@ -190,6 +190,8 @@ static void vox2hist(const Image *const im, const int x, const int y,
         const int z, Hist *const hist);
 static void hist2vox(Hist *const hist, const Image *const im, const int x, 
         const int y, const int z);
+static int smooth_raw_input(const SIFT3D *const sift3d, const Image *const src, 
+        Image *const dst);
 
 /* Initialize geometry tables. */
 static int init_geometry(SIFT3D *sift3d) {
@@ -1942,12 +1944,12 @@ static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
  * image.
  *
  * parameters:
- * 	sift3d - (initialized) struct defining parameters
- *  im - If use_gpyr == 0, this is a pointer to an Image
- *   	 and features will be extracted from the "raw" data.
- *  	 Else, this is a pointer to a Pyramid and features
- * 		 will be extracted at the nearest pyramid level to
- * 		 the keypoint. 
+ *  sift3d - (initialized) struct defining the algorithm parameters
+ *  im - If use_gpyr == 0, this is a pointer to an Image and features are 
+ *       extracted from the "raw" data. Else, this is a pointer to a Pyramid 
+ *       and features are extracted at the pyramid level of the keypoint. In 
+ *       "raw" data mode, this function will smooth the input image prior to 
+ *       extracting descriptors.
  *  kp - keypoint list populated by a feature detector 
  *  desc - (initialized) struct to hold the descriptors
  *  use_gpyr - see im for details */
@@ -1955,27 +1957,31 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d, const void *const im,
 	const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc,
         const int use_gpyr) {
 
+        Image im_smooth;
         Keypoint key_base;
-
 	const Image *first_level;
 	int i;
 
         // Initialize intermediates
+        init_im(&im_smooth);
         init_Keypoint(&key_base);
 
 	// Resize the descriptor store
 	desc->num = kp->slab.num;
 	if ((desc->buf = (SIFT3D_Descriptor *) realloc(desc->buf, desc->num * 
 				sizeof(SIFT3D_Descriptor))) == NULL)
-		return SIFT3D_FAILURE;
+                goto extract_descriptors_quit;
 
-	// Initialize the image info
+	// Initialize the image data and information
 	if (use_gpyr) {
 		const Pyramid *const gpyr = im;
 		first_level = SIFT3D_PYR_IM_GET(gpyr, gpyr->first_octave, 
                         gpyr->first_level);
 	} else {
-		first_level = im;
+                // Smooth the input image
+		first_level = &im_smooth;
+                if (smooth_raw_input(sift3d, im, &im_smooth))
+                        goto extract_descriptors_quit;
         }
 	desc->nx = first_level->nx;	
 	desc->ny = first_level->ny;	
@@ -1990,7 +1996,7 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d, const void *const im,
 		SIFT3D_Descriptor *const descrip = desc->buf + i;
 		const Image *const level = use_gpyr ? 
                         SIFT3D_PYR_IM_GET((Pyramid *) im, key->o, key->s) : 
-                        im;
+                        &im_smooth;
 
                 // Assign the input keypoint
                 if (use_gpyr || key->o == 0) {
@@ -2005,7 +2011,7 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d, const void *const im,
                                 fputs("SIFT3D_extract_descriptors: failed to "
                                         "convert keypoint to base octave", 
                                         stderr);
-                                return SIFT3D_FAILURE;
+                                goto extract_descriptors_quit;
                         }
                         key_base.xd *= coord_factor;
                         key_base.yd *= coord_factor;
@@ -2022,7 +2028,15 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d, const void *const im,
 		extract_descrip(sift3d, level, key_arg, descrip);
 	}	
 
+        // Clean up
+        im_free(&im_smooth);
+
 	return SIFT3D_SUCCESS;
+
+extract_descriptors_quit:
+        // Clean up and return an error
+        im_free(&im_smooth);
+        return SIFT3D_FAILURE;
 }
 
 /* L2-normalize a histogram */
@@ -2130,11 +2144,7 @@ int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d,
 
         int (*extract_fun)(SIFT3D *const, const Image *const, Image *const);
         Image in_smooth;
-        Gauss_filter gauss;
         int x, y, z;
-
-        const double sigma_n = sift3d->gpyr.sigma_n;
-        const double sigma0 = sift3d->gpyr.sigma0;
 
         // Verify inputs
         if (in->nc != 1) {
@@ -2156,17 +2166,9 @@ int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d,
         if (im_resize(desc))
                 return SIFT3D_FAILURE;
 
-        // Initialize the smoothing filter
-        if (init_Gauss_incremental_filter(&gauss, sigma_n, sigma0, 3))
-                return SIFT3D_FAILURE;
-
         // Initialize the smoothed input image
         init_im(&in_smooth);
-        if (im_copy_dims(in, &in_smooth))
-                return SIFT3D_FAILURE;
-
-        // Smooth the input image
-        if (apply_Sep_FIR_filter(in, &in_smooth, &gauss.f))
+        if (smooth_raw_input(sift3d, in, &in_smooth))
                 goto extract_dense_quit;
 
         // Extract the descriptors
@@ -2194,13 +2196,11 @@ int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d,
 
 
         // Clean up
-        cleanup_Gauss_filter(&gauss);
         im_free(&in_smooth);
 
         return SIFT3D_SUCCESS;
 
 extract_dense_quit:
-        cleanup_Gauss_filter(&gauss);
         im_free(&in_smooth);
         return SIFT3D_FAILURE;
 }
@@ -2367,6 +2367,38 @@ dense_rotate_quit:
         cleanup_Mat_rm(&R);
         cleanup_Mat_rm(&Id);
         return SIFT3D_FAILURE;
+}
+
+/* Smooth a "raw" input image from sigma_n to sigma0 */
+static int smooth_raw_input(const SIFT3D *const sift3d, const Image *const src,
+        Image *const dst) {
+
+        Gauss_filter gauss;
+
+        const double sigma_n = sift3d->gpyr.sigma_n;
+        const double sigma0 = sift3d->gpyr.sigma0;
+
+        // Resize the output
+        if (im_copy_dims(src, dst))
+                return SIFT3D_FAILURE;
+
+        // Initialize the smoothing filter
+        if (init_Gauss_incremental_filter(&gauss, sigma_n, sigma0, IM_NDIMS))
+                return SIFT3D_FAILURE;
+
+        // Smooth the input image
+        if (apply_Sep_FIR_filter(src, dst, &gauss.f))
+                goto smooth_raw_input_quit;
+
+        // Clean up
+        cleanup_Gauss_filter(&gauss);
+
+        return SIFT3D_SUCCESS;
+
+smooth_raw_input_quit:
+        // Clean up and return an error
+        cleanup_Gauss_filter(&gauss);
+        return SIFT3D_FAILURE; 
 }
 
 /* Convert a keypoint store to a matrix. 
