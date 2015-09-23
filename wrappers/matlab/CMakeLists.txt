@@ -43,13 +43,13 @@ set_target_properties (mexutil mexImRead3D mexImWrite3D mexDetectSift3D
 
 # Copy the scripts and test suite to the build tree
 file (COPY setupSift3D.m imRead3D.m imWrite3D.m detectSift3D.m extractSift3D.m
-        Sift3DTest.m
+        keypoint3D.m Sift3DTest.m
         DESTINATION ${BUILD_TOOLBOX_DIR}
 )
 
 # Install the matlab scripts
 install (FILES setupSift3D.m imRead3D.m imWrite3D.m detectSift3D.m 
-        extractSift3D.m
+        keypoint3D.m extractSift3D.m
         DESTINATION ${INSTALL_TOOLBOX_DIR}
 )
 

@@ -1,21 +1,33 @@
 function keys = keypoint(coords, scale, ori)
-%keys = keypoint(coords, scales, orientations)
-% Create an array of Keypoint structs.
+%keypoint3D(coords, scales, orientations) Create an array of Keypoint 
+% structs.
 %
 % Inputs:
-%   -coords: [mx3] matrix of locations, where each row is an [x, y, z]
-%   coordinate triple, 0-indexed (required)
-%   -scale: [mx1] vector of nonnegative scale parameters (default: 1.6)
-%   -ori [3x3xm] array, where ori(:, :, i) is the [3x3] rotation matrix 
-%   of the ith keypoint (default: [3x3] identity matrix)
+%   coords - [Mx3] matrix of locations, where each row is an [x, y, z]
+%     coordinate triple, 0-indexed (required)
+%   scale - [Mx1] vector of nonnegative scale parameters (default: 1.6)
+%   ori - [3x3xM] array, where ori(:, :, i) is the [3x3] rotation matrix 
+%   of the ith keypoint (default: identity matrix)
 %
 % Leaving an argument empty results in setting that value to the default.
+%
+% Return values:
+%   keys - an [Mx1] array of keypoint structs. Each struct has the following
+%      fields:
+%      key.coords - The [x y z] coordinates, 0-indexed.
+%      key.scale - The scale coordinate.
+%      key.ori - A [3x3] rotation matrix representing the 3D orientation.
+%      key.octave - The pyramid octave index.
+%      key.level - The pyramid level index within that octave.
 %
 % Example:
 %   coords = [1 1 1; 2 2 2];
 %   scale = [1 2];
 %   ori = repmat(eye(3), [1 1 2]);
 %   keys = keypoint(coords, scale, ori);
+%
+% See also:
+%   detectSift3D, extractSift3D, setupSift3D
 
 % Default parameters
 n = 3;
