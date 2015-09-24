@@ -792,8 +792,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         snprintf(buf, BUF_LEN, "%u", meta_new.instance_num);
         status = dataset->putAndInsertString(DCM_InstanceNumber, buf);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the pixel " <<
-                        "spacing" << std::endl;
+                std::cerr << "write_dcm_cpp: Failed to set the instance " <<
+                        "number" << std::endl;
                 return SIFT3D_FAILURE;
         }
 
