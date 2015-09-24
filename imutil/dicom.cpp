@@ -77,15 +77,11 @@
                 ret = SIFT3D_FAILURE; \
         } \
 
+/* File spearator in string form */
+const std::string sepStr(1, SIFT3D_FILE_SEP);
+
 /* Dicom parameteres */
 const unsigned int dcm_bit_width = 8; // Bits per pixel
-
-/* File separator */
-#ifdef _WINDOWS
-const char *sep = "\\";
-#else
-const char *sep = "/";
-#endif
 
 /* DICOM metadata defaults */
 const char *default_patient_name = "DefaultSIFT3DPatient";
@@ -503,8 +499,7 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
         while ((ent = readdir(dir)) != NULL) {
 
                 // Form the full file path
-                std::string fullfile(std::string(path) + std::string(sep) +
-                        ent->d_name);
+                std::string fullfile(std::string(path) + sepStr + ent->d_name);
 
                 // Check if it is a DICOM file 
                 if (im_get_format(fullfile.c_str()) != DICOM)
@@ -959,7 +954,7 @@ static int write_dcm_dir_cpp(const char *path, const Image *const im,
                 snprintf(buf, BUF_LEN, format, i);
 
                 // Form the full file path
-                std::string fullfile(path + std::string(sep) + buf);
+                std::string fullfile(path + sepStr + buf);
 
                 // Copy the data to the slice
                 int x, y, z, c;

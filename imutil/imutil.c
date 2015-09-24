@@ -60,6 +60,7 @@ extern const char ext_dcm[]; // dicom.h
 const char ext_analyze[] = "img";;
 const char ext_gz[] = "gz";
 const char ext_nii[] = "nii";
+const char ext_dir[] = "";
 
 /* Output file permissions */
 const mode_t out_mode = 0755;
@@ -203,6 +204,7 @@ static int convolve_sep_cl(const Image * const src, Image * const dst,
 			   const Sep_FIR_filter * const f, const int dim);
 static int convolve_sep_sym(const Image * const src, Image * const dst,
 			    const Sep_FIR_filter * const f, const int dim);
+static const char *get_file_name(const char *path);
 static const char *get_file_ext(const char *name);
 static int read_nii(const char *path, Image *const im);
 static int write_nii(const char *path, const Image *const im);
@@ -1075,16 +1077,11 @@ im_format im_get_format(const char *path) {
         struct stat st;
         const char *ext;
 
-        // Check if the file exists
-        if (stat(path, &st) != 0) {
-                fprintf(stderr, "im_get_format: Unable to find file %s \n",
-                        path);
-                return ERROR; 
+        // Check if the file exists and is a directory
+        if (stat(path, &st) == 0) {
+                if (S_ISDIR(st.st_mode))
+                        return DIRECTORY;
         } 
-
-        // Check if the file is a directory
-        if (S_ISDIR(st.st_mode))
-                return DIRECTORY;
 
         // If not a directory, get the file extension
         ext = get_file_ext(path);
@@ -1096,6 +1093,9 @@ im_format im_get_format(const char *path) {
 
         if (!strcmp(ext, ext_dcm))
                 return DICOM;
+
+        if (!strcmp(ext, ext_dir))
+                return DIRECTORY;
 
         // The type was not recognized
         return UNKNOWN;
@@ -1371,11 +1371,27 @@ static int write_nii(const char *path, const Image *const im)
 	return SIFT3D_FAILURE;
 }
 
+/* Separate the file name component from its path */
+static const char *get_file_name(const char *path) {
+
+        const char *name;
+
+        // Get the last file separator
+        name = strrchr(path, SIFT3D_FILE_SEP);
+        return name == NULL ? path : name;
+}
+
 /* Get the extension of a file name */
 static const char *get_file_ext(const char *name)
 {
 
-	const char *dot = strrchr(name, '.');
+        const char *filename, *dot;
+
+        // Get the file name
+        dot = get_file_name(name);
+
+        // Get the last dot
+	dot = strrchr(name, '.');
 
 	if (dot == NULL || dot == name)
 		return "";

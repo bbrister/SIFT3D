@@ -76,6 +76,13 @@ typedef wchar_t char16_t;
 	typedef unsigned int cl_uint;
 #endif
 
+/* File separator character */
+#ifdef _WINDOWS
+#define SIFT3D_FILE_SEP '\\'
+#else
+#define SIFT3D_FILE_SEP '/'
+#endif
+
 /* Parameters */
 #define ORI_PER_KP 4	// Maximum number of orientations per keypoint
 #define NBINS_AZ 8		// Number of bins for azimuthal angles
