@@ -1118,7 +1118,7 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
         CMP_CUBE(im, x, y, z, CMP, SIFT3D_FALSE, val)
 #define CMP_CUR(im, x, y, z, CMP, val) \
         CMP_CUBE(im, x, y, z, CMP, SIFT3D_TRUE, val)
-#define CMP_NEXT \
+#define CMP_NEXT(im, x, y, z, CMP, val) \
         CMP_CUBE(im, x, y, z, CMP, SIFT3D_FALSE, val)
 #else
 #define CMP_PREV(im, x, y, z, CMP, val) ( \
