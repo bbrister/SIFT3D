@@ -32,8 +32,20 @@ oriSizeReq = [3 3];
 descNumel = 768;
 
 % Verify inputs
-if nargin < 1 || isempty(keys)
-    error('Not enough arguments');
+if nargin < 1
+    error('Not enough arguments')
+end
+
+if ~isa(keys, 'struct')
+   error('keys must be a struct array') 
+end
+
+% Do nothing if we have no keypoints
+if isempty(keys)
+   warning('keys is empty')
+   desc = [];
+   coords = [];
+   return
 end
 
 coordsSize = size(keys(1).coords);
