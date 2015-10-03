@@ -6,11 +6,12 @@ Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
 
 This program requires the following external libraries:
 - [LAPACK](http://www.netlib.org/lapack/)
+- [DCMTK](http://dicom.offis.de/dcmtk.php.en)
 - [nifticlib](http://sourceforge.net/projects/niftilib/files/nifticlib/)
 
 As of version 10.10.5, you can install the dependencies with [Homebrew](http://brew.sh/). First install Homebrew, if you haven't already, then run the following command:
  
-        brew install niftilib
+        brew install dcmtk niftilib
 
 # Installing SIFT3D
 

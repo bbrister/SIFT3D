@@ -6,11 +6,12 @@ Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
 
 This program requires the following external libraries:
 - [LAPACK](http://www.netlib.org/lapack/)
+- [DCMTK](http://dicom.offis.de/dcmtk.php.en)
 - [nifticlib](http://sourceforge.net/projects/niftilib/files/nifticlib/)
 
-On Ubuntu 14.04, the following command will install all dependencies and build tools:
+On Ubuntu 14.04, the following command will install all dependencies:
 
-	sudo apt-get install liblapack-dev libnifti-dev
+	sudo apt-get install liblapack-dev libdcmtk2-dev libnifti-dev
 
 # Installing SIFT3D
 
@@ -25,7 +26,7 @@ This program has been successfully compiled and executed on the following Linux 
 
 This program requires the following tools to compile:
 - [CMake](http://www.cmake.org)
-- A suitable C/C++ compiler. such as GCC or Clang/LLVM.
+- A suitable C/C++ compiler, such as GCC or Clang/LLVM.
 
 On Ubuntu 14.04, the following command will install CMake and GCC:
 
