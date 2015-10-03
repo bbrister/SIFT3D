@@ -59,8 +59,9 @@ const char *fieldNames[] = {
 const mwSize kpNDims = 1;
 const int kpNFields = sizeof(fieldNames) / sizeof(char *);
 
-/* Entry point. */
+/* Global state */
 SIFT3D sift3d;
+int haveGpyr;
 
 /* Error message tag */
 const char *tag = "sift3D";
@@ -73,11 +74,13 @@ static void fini(void) __attribute__((destructor));
 static void init(void) {
         if (init_SIFT3D(&sift3d))
                 err_msgu("main:initSift", "Failed to initialize SIFT3D");
+        haveGpyr = SIFT3D_FALSE;
 }
 
 /* Library cleanup */
 static void fini(void) {
         cleanup_SIFT3D(&sift3d);
+        haveGpyr = SIFT3D_FALSE;
 }
 
 /* Print an error message. */
@@ -533,7 +536,15 @@ desc2mx_quit:
 /* Wrapper for SIFT3D_detect_keypoints. */
 int mex_SIFT3D_detect_keypoints(const Image *const im, 
         Keypoint_store *const kp) {
-        return SIFT3D_detect_keypoints(&sift3d, im, kp);
+
+        // Detect keypoints
+        if (SIFT3D_detect_keypoints(&sift3d, im, kp))
+                return SIFT3D_FAILURE;
+
+        // Mark that we can not access the Gaussian scale-space pyramid
+        haveGpyr = SIFT3D_TRUE;
+
+        return SIFT3D_SUCCESS;
 }
 
 /* Wrapper for SIFT3D_extract_descriptors. */
@@ -545,5 +556,5 @@ int mex_SIFT3D_extract_descriptors(const void *const im,
 
 /* Wrapper to get the Gaussian pyramid from the SIFT3D struct. */
 Pyramid *mexGetGpyr(void) {
-        return &sift3d.gpyr;
+        return haveGpyr ? &sift3d.gpyr : NULL;
 }
