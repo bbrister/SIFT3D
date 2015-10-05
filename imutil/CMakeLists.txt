@@ -10,6 +10,17 @@ find_package (LAPACK REQUIRED)
 # Find DCMTK
 find_package (DCMTK REQUIRED)
 
+# Get the path for DCMTK libraries
+get_filename_component (DCMTK_LIRBARIES_PATH ${DCMTK_dcmdata_LIBRARY} DIRECTORY)
+
+# Search for the relatively DCMTK library liboflog, which CMake does not
+# find. If found, add it to DCMTK_LIBRARIES
+find_library (DCMTK_oflog_LIBRARY oflog liboflog
+        PATHS ${DCMTK_LIBRARIES_PATH})
+if (NOT DCMTK_oflog_LIBRARY STREQUAL "DCMTK_oflog_LIBRARY-NOTFOUND")
+        list (APPEND DCMTK_LIBRARIES ${DCMTK_oflog_LIBRARY})
+endif ()
+
 # Get the base DCMTK include dir. Note that DCMTK_DIR is set incorrectly on 
 # Linux, so we must add additional paths
 find_path (DCMTK_BASE_INCLUDE_PARENT_DIR "include/dcmtk"
