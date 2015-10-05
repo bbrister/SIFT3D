@@ -12,12 +12,14 @@ find_package (DCMTK REQUIRED)
 
 # Get the base DCMTK include dir. Note that DCMTK_DIR is set incorrectly on 
 # Linux, so we must add additional paths
-find_path (_DCMTK_BASE_INCLUDE_DIR "dcmtk"
-        PATHS ${DCMTK_DIR} "${DCMTK_config_INCLUDE_DIR}/../..")
-set (DCMTK_BASE_INCLUDE_DIR "${_DCMTK_BASE_INCLUDE_DIR}" 
+find_path (DCMTK_BASE_INCLUDE_PARENT_DIR "include/dcmtk"
+        PATHS ${DCMTK_DIR} "${DCMTK_config_INCLUDE_DIR}/../../..")
+set (DCMTK_BASE_INCLUDE_DIR "${DCMTK_BASE_INCLUDE_PARENT_DIR}/include" 
         CACHE PATH "DCMTK include directory")
-if (NOT IS_DIRECTORY ${DCMTK_BASE_INCLUDE_DIR})
-	message (FATAL_ERROR "${DCMTK_BASE_INCLUDE_DIR} is not a directory. Please set the variable DCMTK_BASE_INCLUDE_DIR to <DCMTK-INSTALL>/include")
+
+if (_DCMTK_BASE_INCLUDE_PARENT_DIR STREQUAL
+	"DCMTK_BASE_INCLUDE_PARENT_DIR-NOTFOUND")
+	message (FATAL_ERROR "Failed to find the DCMTK include directory. Please set the variable DCMTK_BASE_INCLUDE_DIR to <DCMTK-INSTALL>/include")
 endif ()
 
 # Add the base dir to the DCMTK include paths
