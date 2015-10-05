@@ -11,9 +11,6 @@
 /*----------------Include the very picky DCMTK----------------*/
 #include "dcmtk/config/osconfig.h"    /* make sure OS specific configuration is included first */
 
-//XXX this fix only works for Unix-like systems 
-#include "dcmtk/config/cfunix.h"
-
 #define INCLUDE_CSTDIO
 #define INCLUDE_CSTRING
 #include "dcmtk/ofstd/ofstdinc.h"

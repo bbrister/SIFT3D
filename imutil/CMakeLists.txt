@@ -29,6 +29,19 @@ list(APPEND DCMTK_INCLUDE_DIRS ${DCMTK_BASE_INCLUDE_DIR})
 set (USE_ITK OFF CACHE PATH 
         "Look for dependencies in the ITK installation, if one is found")
 
+# Check if there is a configuration file for DCMTK
+find_file(DCMTK_CONFIG_FILE 
+        NAMES "cfunix.h" "cfwin32.h"
+        PATHS ${DCMTK_config_INCLUDE_DIR}
+        NO_CMAKE_PATH
+        NO_CMAKE_ENVIRONMENT_PATH
+        NO_SYSTEM_ENVIRONMENT_PATH)
+if (DCMTK_CONFIG_FILE STREQUAL "DCMTK_CONFIG_FILE-NOTFOUND")
+        set (DCMTK_HAVE_CONFIG_FILE false)
+else ()
+        set (DCMTK_HAVE_CONFIG_FILE true)
+endif ()
+
 # Compile imutil
 add_library (imutil SHARED imutil.c dicom.cpp)
 target_include_directories (imutil PUBLIC 
@@ -37,6 +50,9 @@ target_include_directories (imutil PUBLIC
 )
 target_link_libraries (imutil PUBLIC ${LAPACK_LIBRARIES} ${DCMTK_LIBRARIES})
 target_include_directories(imutil PUBLIC ${DCMTK_INCLUDE_DIRS})
+if (DCMTK_HAVE_CONFIG_FILE)
+        target_compile_definitions (imutil PRIVATE "HAVE_CONFIG_H")
+endif ()
 install (FILES types.h macros.h imutil.h kernels.cl
         DESTINATION ${INSTALL_INCLUDE_DIR})
 
@@ -143,7 +159,10 @@ endif ()
 if (${Matlab_FOUND})
 
         add_library (meximutil SHARED imutil.c dicom.cpp)
-        target_compile_definitions (meximutil PUBLIC "-DSIFT3D_MEX")
+        target_compile_definitions (meximutil PUBLIC "SIFT3D_MEX")
+        if (DCMTK_HAVE_CONFIG_FILE)
+                target_compile_definitions (meximutil PRIVATE "HAVE_CONFIG_H")
+        endif ()
 
         if (${ITK_FOUND})
                 target_link_libraries(meximutil PUBLIC 
