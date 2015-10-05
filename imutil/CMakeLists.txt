@@ -10,6 +10,15 @@ find_package (LAPACK REQUIRED)
 # Find DCMTK
 find_package (DCMTK REQUIRED)
 
+# Get the base DCMTK include dir
+set (DCMTK_BASE_INCLUDE_DIR "${DCMTK_DIR}/include" CACHE PATH "DCMTK include directory")
+if (NOT IS_DIRECTORY ${DCMTK_BASE_INCLUDE_DIR})
+	message (FATAL_ERROR "${DCMTK_BASE_INCLUDE_DIR} is not a directory. Please set the variable DCMTK_BASE_INCLUDE_DIR to <DCMTK-INSTALL>/include")
+endif ()
+
+# Add the base dir to the DCMTK include paths
+list(APPEND DCMTK_INCLUDE_DIRS ${DCMTK_BASE_INCLUDE_DIR})
+
 # Optionally disable use of ITK
 set (USE_ITK OFF CACHE PATH 
         "Look for dependencies in the ITK installation, if one is found")
