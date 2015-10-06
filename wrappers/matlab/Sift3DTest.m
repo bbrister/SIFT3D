@@ -56,14 +56,14 @@ classdef Sift3DTest < TestCase
             self.tolText = 0.01;
             
             % Run the tests on real data (slow)
-            fullTest = true;
+            self.fullTest = true;
             
         end
         
         % Test keypoint detection against the CLI version
         function detectCliTest(self)
             
-            if (self.fullTest)
+            if (self.fullTest && ~ispc)
                 
                 % Output file name
                 kpCliName = 'kpCli.csv';
@@ -116,7 +116,7 @@ classdef Sift3DTest < TestCase
         % Test descriptor extraction against the CLI version
         function extractCliTest(self)
             
-            if (self.fullTest)
+            if (self.fullTest && ~ispc)
                 
                 % Output file name
                 descCliName = 'descCli.csv';
@@ -312,7 +312,7 @@ classdef Sift3DTest < TestCase
             catch ME
                threwErr = true; 
             end
-            asertTrue(threwErr);
+            assertTrue(threwErr);
         end
         
         % Test reading an invalid filetype
@@ -471,6 +471,12 @@ end
 function status = runCmd(cmd)
 %runCmd helper function to run a command in the default system environment,
 % without Matlab's changes to the environment variables
+
+% The CLI is not supported on Windows
+if ispc
+   warning(['The command-line interface is not supported in the '...
+       'Windows version of SIFT3D']) 
+end
 
 % Strip the LD_LIBRARY_PATH environment variable of Matlab
 % directories
