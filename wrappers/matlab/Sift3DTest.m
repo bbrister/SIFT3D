@@ -323,7 +323,7 @@ classdef Sift3DTest < TestCase
             delete(imName);
             
             % Ensure the results are identical
-            assertElementsAlmostEqual(imWritten, imRead, 'relative', 1E-3);
+            assertElementsAlmostEqual(imWritten, imRead, 'absolute', 1E-2);
         end
         
         % Test switching the parameter order in imWrite3D
