@@ -11,14 +11,27 @@ find_package (LAPACK REQUIRED)
 find_package (DCMTK REQUIRED)
 
 # Get the path for DCMTK libraries
-get_filename_component (DCMTK_LIRBARIES_PATH ${DCMTK_dcmdata_LIBRARY} DIRECTORY)
+get_filename_component (DCMTK_LIBRARIES_PATH ${DCMTK_dcmdata_LIBRARY} DIRECTORY)
 
 # Search for the relatively DCMTK library liboflog, which CMake does not
 # find. If found, add it to DCMTK_LIBRARIES
 find_library (DCMTK_oflog_LIBRARY oflog liboflog
         PATHS ${DCMTK_LIBRARIES_PATH})
 if (NOT DCMTK_oflog_LIBRARY STREQUAL "DCMTK_oflog_LIBRARY-NOTFOUND")
-        list (APPEND DCMTK_LIBRARIES ${DCMTK_oflog_LIBRARY})
+
+	# Find ofstd, which should be the last DCMTK library
+	list (FIND DCMTK_LIBRARIES ${DCMTK_ofstd_LIBRARY} OFSTD_IDX)
+	if (${OFSTD_IDX} LESS 0)
+		message(FATAL_ERROR "Failed to find libofstd in DCMTK_LIBRARIES")
+	endif ()
+
+	list (INSERT DCMTK_LIBRARIES ${OFSTD_IDX} ${DCMTK_oflog_LIBRARY})
+endif ()
+
+# Add platform-specific DCMTK dependencies
+if (WIN32)
+	# Add ws2_32 
+	list (APPEND DCMTK_LIBRARIES "ws2_32")
 endif ()
 
 # Get the base DCMTK include dir. Note that DCMTK_DIR is set incorrectly on 
