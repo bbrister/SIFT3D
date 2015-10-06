@@ -7,9 +7,13 @@
 # The data directory
 set (DATA_DIR "data")
 
-# The name of the examples subdirectory, where compiled examples are found 
-set (EXAMPLES_DIR "examples")
-set (EXAMPLES_PATH "${CMAKE_BINARY_DIR}/${EXAMPLES_DIR}")
+# The name of the examples subdirectory, where compiled examples are found. On Windows, this is simply bin, as the executables must be in the same directory as the DLLs. On other platforms, this is a separate "examples" directory.
+if (WIN32)
+	set (EXAMPLES_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+else ()
+	set (EXAMPLES_DIR "examples")
+	set (EXAMPLES_PATH "${CMAKE_BINARY_DIR}/${EXAMPLES_DIR}")
+endif ()
 
 # Copy the example data
 configure_file("${DATA_DIR}/1.nii.gz" "${EXAMPLES_PATH}/1.nii.gz" COPYONLY)
