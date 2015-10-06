@@ -192,21 +192,6 @@ classdef Sift3DTest < TestCase
             
         end
         
-        % Test extracting descriptors with no input image, before keypoints
-        % were detected
-        function extractBeforeDetectTest(self)
-            
-            keys = keypoint3D([1 1 1]);
-            
-            threwErr = false;
-            try
-                desc = extractSift3D(keys);
-            catch ME
-                threwErr = true;
-            end
-            assertTrue(threwErr);
-        end
-        
         % Test reading and writing a NIFTI image
         function niftiIOTest(self)
             
