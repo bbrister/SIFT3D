@@ -1173,7 +1173,7 @@ static int read_nii(const char *path, Image *const im)
 {
 
 	nifti_image *nifti;
-	int x, y, z, dim_counter;
+	int x, y, z, i, dim_counter;
 
 	// Init type pointers to NULL
 	nifti = NULL;
@@ -1183,6 +1183,7 @@ static int read_nii(const char *path, Image *const im)
 		fprintf(stderr, "read_nii: failure loading file %s", path);
 		goto read_nii_quit;
 	}
+
 	// Find the dimensionality of the array, given by the last dimension
 	// greater than 1. Note that the dimensions begin at dim[1].
 	for (dim_counter = nifti->ndim; dim_counter > 0; dim_counter--) {
@@ -1191,11 +1192,18 @@ static int read_nii(const char *path, Image *const im)
 		}
 	}
 
-	if (dim_counter != 3) {
-		fprintf(stderr, "read_nii: file %s has unsupported"
+        // Check the dimensionality
+	if (dim_counter > 3) {
+		fprintf(stderr, "read_nii: file %s has unsupported "
 			"dimensionality %d\n", path, dim_counter);
 		goto read_nii_quit;
 	}
+
+        // Fill the trailing dimensions with 1
+        for (i = dim_counter; i < IM_NDIMS; i++) {
+                im->dims[i] = 1;
+        }
+
 	// Store the real world coordinates
 	im->ux = nifti->dx;
 	im->uy = nifti->dy;
@@ -1218,28 +1226,28 @@ static int read_nii(const char *path, Image *const im)
 	// Copy the data into im
 	switch (nifti->datatype) {
 	case NIFTI_TYPE_UINT8:
-		IM_COPY_FROM_TYPE(unsigned char);
+		IM_COPY_FROM_TYPE(uint8_t);
 		break;
 	case NIFTI_TYPE_INT8:
-		IM_COPY_FROM_TYPE(char);
+		IM_COPY_FROM_TYPE(int8_t);
 		break;
 	case NIFTI_TYPE_UINT16:
-		IM_COPY_FROM_TYPE(unsigned short);
+		IM_COPY_FROM_TYPE(uint16_t);
 		break;
 	case NIFTI_TYPE_INT16:
-		IM_COPY_FROM_TYPE(short);
-		break;
-	case NIFTI_TYPE_UINT64:
-		IM_COPY_FROM_TYPE(unsigned long);
-		break;
-	case NIFTI_TYPE_INT64:
-		IM_COPY_FROM_TYPE(long);
+		IM_COPY_FROM_TYPE(int16_t);
 		break;
 	case NIFTI_TYPE_UINT32:
-		IM_COPY_FROM_TYPE(unsigned int);
+		IM_COPY_FROM_TYPE(uint32_t);
 		break;
 	case NIFTI_TYPE_INT32:
-		IM_COPY_FROM_TYPE(int);
+		IM_COPY_FROM_TYPE(int32_t);
+		break;
+	case NIFTI_TYPE_UINT64:
+		IM_COPY_FROM_TYPE(uint64_t);
+		break;
+	case NIFTI_TYPE_INT64:
+		IM_COPY_FROM_TYPE(int64_t);
 		break;
 	case NIFTI_TYPE_FLOAT32:
 		IM_COPY_FROM_TYPE(float);

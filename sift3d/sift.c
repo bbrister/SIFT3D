@@ -171,6 +171,9 @@ static void refine_Hist(Hist *hist);
 static int init_cl_SIFT3D(SIFT3D *sift3d);
 static int cart2bary(const Cvec * const cart, const Tri * const tri, 
 		      Cvec * const bary, float * const k);
+static int _SIFT3D_extract_descriptors(SIFT3D *const sift3d, 
+        const void *const im, const Keypoint_store *const kp, 
+        SIFT3D_Descriptor_store *const desc, const int use_gpyr);
 static void SIFT3D_desc_acc_interp(const SIFT3D * const sift3d, 
 				   const Cvec * const vbins, 
 				   const Cvec * const grad,
@@ -1940,8 +1943,51 @@ static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
 	desc->sd = key->sd;
 }
 
-/* Extract SIFT3D descriptors from a list of keypoints and an 
- * image.
+/* Extract SIFT3D descriptors from a list of keypoints and 
+ * a Gaussian scale-space pyramid. To extract from an image, see 
+ * SIFT3D_extract_raw_descriptors. 
+ *
+ * Parameters:
+ *  sift3d - (initialized) struct defining the algorithm parameters
+ *  gpyr - Pointer to a Gaussian pyramid. Descriptors are extracted at the
+ *       specified pyramid level of each keypoint.
+ *  kp - keypoint list populated by a feature detector 
+ *  desc - (initialized) struct to hold the descriptors
+ *
+ * Return value:
+ *  Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise.
+ */
+int SIFT3D_extract_descriptors(SIFT3D *const sift3d, 
+        const Pyramid *const gpyr, const Keypoint_store *const kp, 
+        SIFT3D_Descriptor_store *const desc) {
+        return _SIFT3D_extract_descriptors(sift3d, gpyr, kp, desc, 
+                SIFT3D_TRUE);
+}
+
+/* Extract SIFT3D descriptors from a list of keypoints and 
+ * an image. To extract from a Gaussian scale-space pyramid, see
+ * SIFT3D_extract_descriptors. 
+ *
+ * Parameters:
+ *  sift3d - (initialized) struct defining the algorithm parameters
+ *  im - Pointer to an Image struct. A copy of the image is smoothed from 
+ *      sift3d->sigma_n to sift3d->sigma0 prior to descriptor extraction.
+ *  kp - keypoint list populated by a feature detector 
+ *  desc - (initialized) struct to hold the descriptors
+ *
+ * Return value:
+ *  Returns  SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise.
+ */
+int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d, 
+        const Image *const im, const Keypoint_store *const kp, 
+        SIFT3D_Descriptor_store *const desc) {
+        return _SIFT3D_extract_descriptors(sift3d, im, kp, desc, 
+                SIFT3D_FALSE);
+}
+
+/* Helper funciton to extract SIFT3D descriptors from a list of keypoints and 
+ * an image. Called by SIFT3D_extract_descriptors and 
+ * SIFT3D_extract_raw_descriptors.
  *
  * parameters:
  *  sift3d - (initialized) struct defining the algorithm parameters
@@ -1953,9 +1999,9 @@ static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
  *  kp - keypoint list populated by a feature detector 
  *  desc - (initialized) struct to hold the descriptors
  *  use_gpyr - see im for details */
-int SIFT3D_extract_descriptors(SIFT3D *const sift3d, const void *const im,
-	const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc,
-        const int use_gpyr) {
+static int _SIFT3D_extract_descriptors(SIFT3D *const sift3d, 
+        const void *const im, const Keypoint_store *const kp, 
+        SIFT3D_Descriptor_store *const desc, const int use_gpyr) {
 
         Image im_smooth;
         Keypoint key_base;

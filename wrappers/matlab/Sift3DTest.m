@@ -281,10 +281,33 @@ classdef Sift3DTest < TestCase
             assertElementsAlmostEqual(imWritten, imRead, 'absolute', 1E-2);
         end
         
-        % Test reading and writing a 2D image
-        function io2DTest(self)
+        % Test reading and writing a 2D NIFTI image
+        function nifti2DTest(self)
             % The temporary file name
             imName = 'temp.nii.gz';
+            
+            % Make random image data, scaled to the range [0, 1]
+            imWritten = rand(20, 15);
+            imWritten = imWritten / max(imWritten(:));
+            
+            % Write the image as a NIFTI file
+            imWrite3D(imName, imWritten);
+            
+            % Read the image back
+            imRead = imRead3D(imName);
+            
+            % Clean up
+            delete(imName);
+            
+            % Ensure the results are identical
+            assertElementsAlmostEqual(imWritten, imRead, 'relative', 1E-3);
+        end
+        
+        % Test reading and writing a 2D DICOM image
+        function dicom2DTest(self)
+            
+            % The temporary file name
+            imName = 'temp.dcm';
             
             % Make random image data, scaled to the range [0, 1]
             imWritten = rand(20, 15);
