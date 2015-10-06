@@ -174,6 +174,9 @@ if (WIN32)
 	# Convert dependencies to runtime dependencies
 	get_runtime_deps (DEPS RUNTIME_DEPS)
 
+	# Copy the runtime dependencies to the Windows DLL
+	file (COPY ${RUNTIME_DEPS} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
         # Add the runtime dependencies to the Windows installer
 	install (FILES ${RUNTIME_DEPS} DESTINATION ${INSTALL_BIN_DIR})
 
@@ -225,6 +228,8 @@ if (${Matlab_FOUND})
 		set (TOOLBOX_DEPS ${DCMTK_LIBRARIES} ${NIFTI_LIBRARIES} 
                         ${ZLIB_LIBRARIES})
 		get_runtime_deps (TOOLBOX_DEPS TOOLBOX_RUNTIME_DEPS)
+		file (COPY ${TOOLBOX_RUNTIME_DEPS} DESTINATION 
+			${BUILD_TOOLBOX_DIR})
                 install (FILES ${TOOLBOX_RUNTIME_DEPS} 
 			DESTINATION ${INSTALL_TOOLBOX_DIR})
         endif ()
