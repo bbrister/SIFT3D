@@ -300,16 +300,12 @@ static bool isLittleEndian(void) {
 
 /* Set a Dcm_meta struct to default values. Generates new UIDs. */
 static void default_Dcm_meta(Dcm_meta *const meta) {
-        char buf[1024];
         meta->patient_name = default_patient_name;
         meta->patient_id = default_patient_id;
-        meta->study_uid = dcmGenerateUniqueIdentifier(buf,
-                SITE_STUDY_UID_ROOT);
-        meta->series_uid = dcmGenerateUniqueIdentifier(buf, 
-                SITE_SERIES_UID_ROOT);
         meta->series_descrip = default_series_descrip;
-        meta->instance_uid = dcmGenerateUniqueIdentifier(buf, 
-                SITE_INSTANCE_UID_ROOT); 
+        dcmGenerateUniqueIdentifier(meta->study_uid, SITE_STUDY_UID_ROOT);
+        dcmGenerateUniqueIdentifier(meta->series_uid, SITE_SERIES_UID_ROOT);
+        dcmGenerateUniqueIdentifier(meta->instance_uid, SITE_INSTANCE_UID_ROOT); 
         meta->instance_num = default_instance_num;
 }
 
@@ -961,7 +957,7 @@ static int write_dcm_dir_cpp(const char *path, const Image *const im,
                 SIFT3D_IM_LOOP_END_C
 
                 // Generate a new SOPInstanceUID
-                meta_new.instance_uid = dcmGenerateUniqueIdentifier(buf, 
+                dcmGenerateUniqueIdentifier(meta_new.instance_uid, 
                         SITE_INSTANCE_UID_ROOT); 
 
                 // Set the instance number

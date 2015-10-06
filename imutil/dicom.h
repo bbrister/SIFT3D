@@ -14,6 +14,8 @@
 extern "C" {
 #endif
 
+/* Length of UID buffers */
+#define SIFT3D_UID_LEN 1024 
 
 /* Dicom file extension */
 const char ext_dcm[] = "dcm";
@@ -22,10 +24,10 @@ const char ext_dcm[] = "dcm";
 typedef struct _Dcm_meta {
         const char *patient_name; // Patient name
         const char *patient_id; // Patient ID
-        const char *study_uid; // Study Instance UID
-        const char *series_uid; // Series UID
-        const char *series_descrip;
-        const char *instance_uid; // SOP Instance UID
+        const char *series_descrip; // Series description
+        char study_uid[SIFT3D_UID_LEN]; // Study Instance UID
+        char series_uid[SIFT3D_UID_LEN]; // Series UID
+        char instance_uid[SIFT3D_UID_LEN]; // SOP Instance UID
         int instance_num; // Instance number
 } Dcm_meta;
 
