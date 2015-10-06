@@ -299,6 +299,22 @@ classdef Sift3DTest < TestCase
             assertElementsAlmostEqual(imWritten, imRead, 'relative', 1E-3);
         end
         
+        % Test switching the parameter order in imWrite3D
+        function writeSwappedParamsTest(self)
+            
+            % Make a random image
+            im = rand(10, 10, 10);
+            
+            % Try to write it, with parameters exchanged
+            threwErr = false;
+            try
+                imWrite3D(im, 'im.nii.gz');
+            catch ME
+               threwErr = true; 
+            end
+            asertTrue(threwErr);
+        end
+        
         % Test reading an invalid filetype
         function readInvalidTypeTest(self)
             
