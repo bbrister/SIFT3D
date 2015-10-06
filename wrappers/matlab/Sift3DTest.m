@@ -43,7 +43,11 @@ classdef Sift3DTest < TestCase
             self.binDir = fullfile(self.buildDir, 'bin');
             
             % Examples directory
-            self.examplesDir = fullfile(self.buildDir, 'examples');
+            if ispc
+                self.examplesDir = self.binDir;
+            else
+                self.examplesDir = fullfile(self.buildDir, 'examples');
+            end
             
             % Image file names
             self.im1Name = fullfile(self.examplesDir, '1.nii.gz');
@@ -283,7 +287,7 @@ classdef Sift3DTest < TestCase
             imName = 'temp.nii.gz';
             
             % Make random image data, scaled to the range [0, 1]
-            imWritten = rand(10, 15, 20);
+            imWritten = rand(20, 15);
             imWritten = imWritten / max(imWritten(:));
             
             % Write the image as a NIFTI file
@@ -310,7 +314,7 @@ classdef Sift3DTest < TestCase
             try
                 imWrite3D(im, 'im.nii.gz');
             catch ME
-               threwErr = true; 
+                threwErr = true;
             end
             assertTrue(threwErr);
         end
@@ -474,8 +478,8 @@ function status = runCmd(cmd)
 
 % The CLI is not supported on Windows
 if ispc
-   warning(['The command-line interface is not supported in the '...
-       'Windows version of SIFT3D']) 
+    warning(['The command-line interface is not supported in the '...
+        'Windows version of SIFT3D'])
 end
 
 % Strip the LD_LIBRARY_PATH environment variable of Matlab

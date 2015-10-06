@@ -41,7 +41,23 @@ end
 im = im / max(im(:));
 im = single(im);
 
+% Check if this is a .gz file being written on Windows
+winGz = false;
+[pathstr, name, ext] = fileparts(path);
+if strcmp(ext, '.gz') && ispc   
+    % Strip .gz from the path
+    winGz = true;
+    path = fullfile(pathstr, name);
+end
+
 % Write the image
 mexImWrite3D(path, im);
+
+% On Windows, compress the file from within Matlab. Otherwise, it will
+% crash.
+if winGz
+    gzip(path)
+    delete(path)
+end
 
 end
