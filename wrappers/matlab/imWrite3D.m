@@ -25,6 +25,10 @@ if nargin < 1 || isempty(path)
     error('path not specified')
 end
 
+if ~isa(path, 'char')
+    error('path must be a string')
+end
+
 if nargin < 2 || isempty(im)
     error('im not specified')
 end
