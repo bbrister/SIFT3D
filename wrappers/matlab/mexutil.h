@@ -43,9 +43,11 @@ mxArray *desc2mx(const SIFT3D_Descriptor_store *const desc);
 int mex_SIFT3D_detect_keypoints(const Image *const im, 
         Keypoint_store *const kp);
 
-int mex_SIFT3D_extract_descriptors(const void *const im, 
-        const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc, 
-        const int useGpyr);
+int mex_SIFT3D_extract_descriptors(const Pyramid *const gpyr, 
+        const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc);
+
+int mex_SIFT3D_extract_raw_descriptors(const Image *const im, 
+        const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc);
 
 Pyramid *mexGetGpyr(void);
 

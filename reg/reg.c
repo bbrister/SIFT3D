@@ -96,8 +96,7 @@ int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const src) {
         }
 
         // Extract descriptors
-	if (SIFT3D_extract_descriptors(sift3d, (void *const) gpyr,
-                                       kp_src, desc_src, SIFT3D_TRUE)) {
+	if (SIFT3D_extract_descriptors(sift3d, gpyr, kp_src, desc_src)) {
                 fprintf(stderr, "register_SIFT3D: failed to extract source "
                                 "descriptors \n");
                 return SIFT3D_FAILURE;
@@ -126,8 +125,7 @@ int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const ref) {
         }
 
         // Extract descriptors
-	if (SIFT3D_extract_descriptors(sift3d, (void *const) gpyr,
-                                       kp_ref, desc_ref, SIFT3D_TRUE)) {
+	if (SIFT3D_extract_descriptors(sift3d, gpyr, kp_ref, desc_ref)) {
 		fprintf(stderr, "register_SIFT3D: failed to extract reference "
                         "descriptors\n");
                 return SIFT3D_FAILURE;

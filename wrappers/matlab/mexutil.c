@@ -548,10 +548,15 @@ int mex_SIFT3D_detect_keypoints(const Image *const im,
 }
 
 /* Wrapper for SIFT3D_extract_descriptors. */
-int mex_SIFT3D_extract_descriptors(const void *const im, 
-        const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc, 
-        const int useGpyr) {
-        return SIFT3D_extract_descriptors(&sift3d, im, kp, desc, useGpyr);
+int mex_SIFT3D_extract_descriptors(const Pyramid *const gpyr, 
+        const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc) {
+        return SIFT3D_extract_descriptors(&sift3d, gpyr, kp, desc);
+}
+
+/* Wrapper for SIFT3D_extract_raw_descriptors. */
+int mex_SIFT3D_extract_raw_descriptors(const Image *const im, 
+        const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc) {
+        return SIFT3D_extract_raw_descriptors(&sift3d, im, kp, desc);
 }
 
 /* Wrapper to get the Gaussian pyramid from the SIFT3D struct. */

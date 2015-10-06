@@ -23,11 +23,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
         const mxArray *mxKp, *mxIm;
         const char *errMsg;
-        const void *imArg;
         Image im;
         Keypoint_store kp;
         SIFT3D_Descriptor_store desc;
-        int i, useGpyr;
+        int i;
 
 /* Clean up and print an error */
 #define CLEAN_AND_QUIT(name, msg, expected) { \
@@ -63,28 +62,38 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                 CLEAN_AND_QUIT("main:convertKp", "Failed to convert keypoints",
                         SIFT3D_FALSE);
 
-        // Convert the image, if any
+        // Process the image and extract descriptors
         if (!mxIsEmpty(mxIm)) {
+
+                // Convert the input to an Image struct
                 if (mx2im(mxIm, &im))
                         CLEAN_AND_QUIT("main:convertIm", 
                                         "Failed to convert image", 
                                         SIFT3D_FALSE);
-                imArg = &im;
-                useGpyr = SIFT3D_FALSE;
+                // Extract raw descriptors
+                if (mex_SIFT3D_extract_raw_descriptors(&im, &kp, &desc))
+                        CLEAN_AND_QUIT("main:extractRaw", 
+                                "Failed to extract raw descriptors",
+                                SIFT3D_FALSE);
         } else {
-                if ((imArg = mexGetGpyr()) == NULL)
+
+                const Pyramid *gpyr;
+
+                // Attempt to retrieve the Gaussian pyramid
+                if ((gpyr = mexGetGpyr()) == NULL)
                         CLEAN_AND_QUIT("main:getGpyr",
                                 "Failed to get the Gaussian pyramid. Must "
                                 "call detectSift3D before this function can "
                                 "be called without the im argument.", 
                                 SIFT3D_TRUE);
-                useGpyr = SIFT3D_TRUE; 
+
+                // Extract descriptors from the pyramid
+                if (mex_SIFT3D_extract_descriptors(gpyr, &kp, &desc))
+                        CLEAN_AND_QUIT("main:extractPyramid", 
+                                "Failed to extract pyramid descriptors",
+                                SIFT3D_FALSE);
         }
 
-        // Extract descriptors
-        if (mex_SIFT3D_extract_descriptors(imArg, &kp, &desc, useGpyr))
-                CLEAN_AND_QUIT("main:extract", "Failed to extract descriptors",
-                        SIFT3D_FALSE);
 
         // Convert the descriptors to an output matrix
         if ((plhs[0] = desc2mx(&desc)) == NULL)

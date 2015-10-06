@@ -58,7 +58,7 @@ int demo(void) {
 
         // Extract descriptors
         if (SIFT3D_extract_descriptors(&sift3d, &sift3d.gpyr, &kp,
-                &desc, SIFT3D_TRUE))
+                &desc))
                 goto demo_quit;
 
         // Write the descriptors to a file
