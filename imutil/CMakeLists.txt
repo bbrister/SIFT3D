@@ -110,8 +110,8 @@ install (TARGETS imutil
 if (WIN32)
 
 	# Make a list of all external dependencies
-	set (DEPS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${NIFTI_LIBRARIES} 
-		${ZLIB_LIBRARIES})
+	set (DEPS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${DCMTK_LIBRARIES} 
+                ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES})
 
 	function (get_runtime_deps ARG_DEPS ARG_RUNTIME_DEPS)
 
@@ -209,7 +209,8 @@ if (${Matlab_FOUND})
 
         if (WIN32)
 
-		set (TOOLBOX_DEPS ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES})
+		set (TOOLBOX_DEPS ${DCMTK_LIBRARIES} ${NIFTI_LIBRARIES} 
+                        ${ZLIB_LIBRARIES})
 		get_runtime_deps (TOOLBOX_DEPS TOOLBOX_RUNTIME_DEPS)
                 install (FILES ${TOOLBOX_RUNTIME_DEPS} 
 			DESTINATION ${INSTALL_TOOLBOX_DIR})
