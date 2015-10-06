@@ -180,7 +180,7 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         // Load the image as a DcmFileFormat 
         DcmFileFormat fileFormat;
         OFCondition status = fileFormat.loadFile(path.c_str());
-        if (!status.good()) {
+        if (status.bad()) {
                std::cerr << "Dicom.Dicom: failed to read DICOM file " <<
                         path << " (" << status.text() << ")" << 
                         std::endl; 
@@ -193,8 +193,8 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         // Get the series UID 
         const char *seriesUIDStr;
         status = data->findAndGetString(DCM_SeriesInstanceUID, seriesUIDStr);
-        if (status.bad()) {
-                std::cerr << "Dicom.Dicom: failed to get series UID " <<
+        if (status.bad() || seriesUIDStr == NULL) {
+                std::cerr << "Dicom.Dicom: failed to get SeriesInstanceUID " <<
                         "from file " << path << " (" << status.text() << ")" <<
                         std::endl;
                 return;
@@ -204,7 +204,7 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         // Get the instance number
         const char *instanceStr;
         status = data->findAndGetString(DCM_InstanceNumber, instanceStr);
-        if (status.bad()) {
+        if (status.bad() || instanceStr == NULL) {
                 std::cerr << "Dicom.Dicom: failed to get instance number " <<
                         "from file " << path << " (" << status.text() << ")" <<
                         std::endl;
