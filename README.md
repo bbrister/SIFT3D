@@ -2,7 +2,7 @@
 
 Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
 
-Analogue of the scale-invariant feature transform (SIFT) for three-dimensional images. Includes an image processing and linear algebra library with feature matching and RANSAC regression.
+Analogue of the scale-invariant feature transform (SIFT) for three-dimensional images. Includes an image processing and linear algebra library with feature matching and RANSAC regression. Also includes IO functions supporting a variety of image formats.
 
 ## Contents
 
@@ -13,7 +13,7 @@ This code creates the following executables:
 and the following libraries:
 - libreg.so - Image registration from SIFT3D features
 - libsift3d.so - Extract and match SIFT3D features
-- libimutil.so - Utility library for image processing, regression and linear algebra.
+- libimutil.so - Utility library for image processing, regression and linear algebra. Includes IO functions for DICOM and NIFTI file formats.
 
 It also contains a Matlab toolbox for calling the library functions from Matlab scripts. See the README in /wrappers/matlab for more information.
 
