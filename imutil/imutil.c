@@ -3401,12 +3401,8 @@ int apply_Sep_FIR_filter(const Image * const src, Image * const dst,
 	cur_src = (Image *) src;
 	cur_dst = &temp;
 	for (i = 0; i < IM_NDIMS; i++) {
-#if 0
-		filter_fun(cur_src, cur_dst, f, i);
-		SWAP_BUFFERS
-#else
 #ifdef SIFT3D_USE_OPENCL
-		    filter_fun(cur_src, cur_dst, f, i);
+                filter_fun(cur_src, cur_dst, f, i);
 		SWAP_BUFFERS
 #else
                 // Transpose so that the filter dimension is x
@@ -3427,7 +3423,6 @@ int apply_Sep_FIR_filter(const Image * const src, Image * const dst,
                         SWAP_BUFFERS
 
 		}
-#endif
 #endif
 	}
 
