@@ -199,7 +199,7 @@ static double tform_err_sq(void *tform, Mat_rm * src, Mat_rm * ref, int i,
 static int ransac(Mat_rm * src, Mat_rm * ref, Ransac * ran, const int dim,
 		  void *tform, tform_type type, int **cset, int *len);
 static int convolve_sep(const Image * const src, Image * const dst,
-			const Sep_FIR_filter * const f, int dim);
+			const Sep_FIR_filter * const f, const int dim);
 static int convolve_sep_cl(const Image * const src, Image * const dst,
 			   const Sep_FIR_filter * const f, const int dim);
 static int convolve_sep_sym(const Image * const src, Image * const dst,
@@ -2237,6 +2237,13 @@ static int convolve_sep(const Image * const src,
 	// then make a wrapper to restride, transpose, convolve x, and transpose 
 	// back
 
+	// Resize the output, with the default stride
+	memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));
+	dst->nc = src->nc;
+	im_default_stride(dst);
+	if (im_resize(dst))
+		return SIFT3D_FAILURE;
+
 	// Initialize the output to zeros
 	im_zero(dst);
 
@@ -2313,6 +2320,13 @@ static int convolve_sep_cl(const Image * const src, Image * const dst,
 	cl_int dx, dy, dz, err;
 
 	const size_t global_work_size[] = { src->nx, src->ny, src->nz };
+
+	// Resize the output, with the default stride
+	memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));
+	dst->nc = src->nc;
+	im_default_stride(dst);
+	if (im_resize(dst))
+		return SIFT3D_FAILURE;
 
 	// Do not have a 2D kernel right now
 	if (dim != 3) {
@@ -2393,7 +2407,7 @@ int im_transpose(const Image * const src, const int dim1, const int dim2,
 		 Image * const dst)
 {
 
-	int strides[3];
+	int strides[IM_NDIMS];
 	register int x, y, z, c, temp;
 
 	const float *const data = src->data;
@@ -2406,8 +2420,9 @@ int im_transpose(const Image * const src, const int dim1, const int dim2,
 		return SIFT3D_FAILURE;
 	}
 	// Check for the trivial case
-	if (dim1 == dim2)
-		return SIFT3D_SUCCESS;
+	if (dim1 == dim2) {
+		return im_copy_data(src, dst);
+        }
 
 	// Resize the output
 	memcpy(dims, src->dims, IM_NDIMS * sizeof(int));
@@ -2430,7 +2445,7 @@ int im_transpose(const Image * const src, const int dim1, const int dim2,
 	// Transpose the data
 	SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
 	    SIFT3D_IM_GET_VOX(dst, x, y, z, c) =
-	    data[x * strides[0] + y * strides[1] + z * strides[2]];
+	    data[c + x * strides[0] + y * strides[1] + z * strides[2]];
 	SIFT3D_IM_LOOP_END_C return SIFT3D_SUCCESS;
 }
 
@@ -3368,13 +3383,6 @@ int apply_Sep_FIR_filter(const Image * const src, Image * const dst,
 	filter_fun = f->symmetric ? convolve_sep_sym : convolve_sep;
 #endif
 
-	// Resize the output, with the default stride
-	memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));
-	dst->nc = src->nc;
-	im_default_stride(dst);
-	if (im_resize(dst))
-		return SIFT3D_FAILURE;
-
 	// Allocate temporary storage
 	init_im(&temp);
 	if (im_copy_data(src, &temp))
@@ -3393,29 +3401,30 @@ int apply_Sep_FIR_filter(const Image * const src, Image * const dst,
 	cur_src = (Image *) src;
 	cur_dst = &temp;
 	for (i = 0; i < IM_NDIMS; i++) {
+#if 0
 		filter_fun(cur_src, cur_dst, f, i);
 		SWAP_BUFFERS
-#if 0
+#else
 #ifdef SIFT3D_USE_OPENCL
 		    filter_fun(cur_src, cur_dst, f, i);
 		SWAP_BUFFERS
 #else
-		    // Transpose so that the filter dimension is x
-		    if (i != 0) {
-			if (im_transpose(cur_src, 0, i, cur_dst))
+                // Transpose so that the filter dimension is x
+                if (i != 0) {
+                        if (im_transpose(cur_src, 0, i, cur_dst))
 				goto apply_sep_f_quit;
-		SWAP_BUFFERS}
+                        SWAP_BUFFERS
+                }
+
 		// Apply the filter
 		filter_fun(cur_src, cur_dst, f, 0);
 		SWAP_BUFFERS
-		    // Transpose back
-		    if (i != 0) {
-			//FIXME: should be cur_dst to cur_src
+
+                // Transpose back
+                if (i != 0) {
 			if (im_transpose(cur_src, 0, i, cur_dst))
 				goto apply_sep_f_quit;
-
-			if (i + 1 < dim) {
-			SWAP_BUFFERS}
+                        SWAP_BUFFERS
 
 		}
 #endif
@@ -3435,7 +3444,7 @@ int apply_Sep_FIR_filter(const Image * const src, Image * const dst,
 	im_free(&temp);
 	return SIFT3D_SUCCESS;
 
- apply_sep_f_quit:
+apply_sep_f_quit:
 	im_free(&temp);
 	return SIFT3D_FAILURE;
 }
