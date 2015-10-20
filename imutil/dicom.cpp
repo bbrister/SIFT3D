@@ -103,7 +103,7 @@ class Dicom {
 private:
         std::string filename; // DICOM file name
         std::string seriesUID; // Series UID 
-        int instance; // Instance number in the series
+        double z; // z position in the series
         double ux, uy, uz; // Voxel spacing in real-world coordinates
         int nx, ny, nz, nc; // Image dimensions
         bool valid; // Data validity 
@@ -111,7 +111,7 @@ private:
 public:
 
         /* Data is initially invalid */
-        Dicom() : filename(""), seriesUID(""), instance(-1), valid(false) {};
+        Dicom() : valid(false) {};
 
         ~Dicom() {};
 
@@ -163,9 +163,9 @@ public:
                 return filename;
         }
 
-        /* Sort by instance number */
+        /* Sort by z position */
         bool operator < (const Dicom &dicom) const {
-                return instance < dicom.instance;
+                return z < dicom.z;
         }
 
         /* Check if another DICOM file is from the same series */
@@ -201,16 +201,72 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         }
         seriesUID = std::string(seriesUIDStr); 
 
-        // Get the instance number
-        const char *instanceStr;
-        status = data->findAndGetString(DCM_InstanceNumber, instanceStr);
-        if (status.bad() || instanceStr == NULL) {
-                std::cerr << "Dicom.Dicom: failed to get instance number " <<
+#if 0
+        // Read the patient position
+        const char *patientPosStr;
+        status = data->findAndGetString(DCM_PatientPosition, patientPosStr);
+        if (status.bad() || patientPosStr == NULL) {
+                std::cerr << "Dicom.Dicom: failed to get PatientPosition " <<
                         "from file " << path << " (" << status.text() << ")" <<
                         std::endl;
                 return;
         }
-        instance = atoll(instanceStr);
+
+        // Interpret the patient position to give the sign of the z axis
+        double zSign;
+        switch (patientPosStr[0]) {
+        case 'H':
+                zSign = -1.0;
+                break;
+        case 'F':
+                zSign = 1.0;
+                break;
+        default:
+                std::cerr << "Dicom.Dicom: unrecognized patient position: " <<
+                        patientPosStr << std::endl;
+                return;
+        }
+#else
+        //TODO: Is this needed?
+        const double zSign = 1.0;
+#endif
+
+        // Read the image position patient vector
+        const char *imPosPatientStr;
+        status = data->findAndGetString(DCM_ImagePositionPatient, 
+                imPosPatientStr);
+        if (status.bad() || imPosPatientStr == NULL) {
+                std::cerr << "Dicom.Dicom: failed to get " <<
+                        "ImagePositionPatient" << " (" << status.text() <<
+                        ")" << std::endl;
+                return;
+        }
+
+        // Convert back slashes to commas
+        std::string imPosPatient(imPosPatientStr);
+        size_t backSlashPos;
+        while (1) {
+                backSlashPos = imPosPatient.find('\\');
+                if (backSlashPos == std::string::npos)
+                        break;
+
+                imPosPatient.replace(backSlashPos, 1, 1, ',');
+        }
+
+        // Parse the image position patient vector to get the z coordinate
+        double imPosZ;
+        const int numPos = sscanf(imPosPatient.c_str(), "%*f, %*f, %lf", 
+                &imPosZ);
+        if (numPos != 1) {
+                std::cerr << "Dicom.Dicom: failed to parse " <<
+                        "ImagePositionPatient tag " << imPosPatientStr <<
+                        std::endl;
+                return;
+        }
+
+        // Compute the z-location of the upper-left corner, in feet-first 
+        // coordinates
+        z = zSign * imPosZ;
 
         // Load the DicomImage object
         DicomImage dicomImage(path.c_str());
