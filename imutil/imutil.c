@@ -3239,7 +3239,7 @@ int trace_Mat_rm(Mat_rm * mat, void *trace)
 
 /* Tranposes a matrix. Resizes dst with the type of src. 
  * All matrices must be initialized prior to calling this function. */
-int transpose_Mat_rm(Mat_rm * src, Mat_rm * dst)
+int transpose_Mat_rm(const Mat_rm *const src, Mat_rm *const dst)
 {
 
 	int i, j;

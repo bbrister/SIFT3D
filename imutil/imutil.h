@@ -66,7 +66,7 @@ int solve_Mat_rm(Mat_rm *A, Mat_rm *B, double limit, Mat_rm *X);
 
 int solve_Mat_rm_ls(Mat_rm *A, Mat_rm *B, Mat_rm *X);
 
-int transpose_Mat_rm(Mat_rm *src, Mat_rm *dst);
+int transpose_Mat_rm(const Mat_rm *const src, Mat_rm *const dst);
 
 int det_symm_Mat_rm(Mat_rm *mat, void *det);
 
