@@ -242,20 +242,9 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
                 return;
         }
 
-        // Convert back slashes to commas
-        std::string imPosPatient(imPosPatientStr);
-        size_t backSlashPos;
-        while (1) {
-                backSlashPos = imPosPatient.find('\\');
-                if (backSlashPos == std::string::npos)
-                        break;
-
-                imPosPatient.replace(backSlashPos, 1, 1, ',');
-        }
-
         // Parse the image position patient vector to get the z coordinate
         double imPosZ;
-        const int numPos = sscanf(imPosPatient.c_str(), "%*f, %*f, %lf", 
+        const int numPos = sscanf(imPosPatientStr, "%*f\\%*f\\%lf", 
                 &imPosZ);
         if (numPos != 1) {
                 std::cerr << "Dicom.Dicom: failed to parse " <<
@@ -846,10 +835,21 @@ static int write_dcm_cpp(const char *path, const Image *const im,
                 return SIFT3D_FAILURE;
         }
 
+        // Set the ImagePositionPatient vector
+        const double imPosX = static_cast<double>(im->nx - 1) * im->ux;
+        const double imPosY = static_cast<double>(im->ny - 1) * im->uy;
+        const double imPosZ = static_cast<double>(meta_new.instance_num) * 
+                              im->uz;
+        snprintf(buf, BUF_LEN, "%f\\%f\\%f", imPosX, imPosY, imPosZ);
+        status = dataset->putAndInsertString(DCM_ImagePositionPatient, buf);
+        if (status.bad()) {
+                std::cerr << "write_dcm_cpp: Failed to set the "
+                        "ImagePositionPatient vector" << std::endl;
+                return SIFT3D_FAILURE;
+        }
+
         // Set the slice location
-        const double slice_loc = 
-                im->uz * ((double) meta_new.instance_num - 1.0);
-        snprintf(buf, BUF_LEN, "%f", slice_loc);
+        snprintf(buf, BUF_LEN, "%f", imPosZ);
         status = dataset->putAndInsertString(DCM_SliceLocation, buf);
         if (status.bad()) {
                 std::cerr << "write_dcm_cpp: Failed to set the slice "
