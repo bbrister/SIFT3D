@@ -27,6 +27,17 @@
 #include "dicom.h"
 #include "imutil.h"
 
+/* Check for a version number */
+#if !defined(SIFT3D_VERSION_NUMBER)
+#error imutil.c: Must define the preprocessor macro SIFT3D_VERSION_NUMBER
+#endif
+
+/* Stringify a macro name */
+#define STR(x) #x
+
+/* Stringify the result of a macro expansion */
+#define XSTR(x) STR(x)
+
 /* zlib definitions */
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
 #include <fcntl.h>
@@ -42,7 +53,7 @@
 
 /* SIFT3D version message */
 const char version_msg[] =
-    "SIFT3D version 1.1.0 \n"
+    "SIFT3D version " XSTR(SIFT3D_VERSION_NUMBER)  " \n"
     "\n"
     "Source code available at https://github.com/bbrister/SIFT3D\n"
     "\n"
