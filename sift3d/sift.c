@@ -28,11 +28,6 @@
 //#define SIFT3D_MATCH_MAX_DIST 0.3 // Maximum distance between matching features 
 //#define CUBOID_EXTREMA // Search for extrema in a cuboid region
 
-/* Safety checks */
-#if defined ICOS_HIST && !defined EIG_ORI
-#pragma error("sift.c: Cannot use ICOS_HIST without EIG_ORI")
-#endif
-
 /* Default SIFT3D parameters. These may be overriden by 
  * the calling appropriate functions. */
 const int first_octave_default = 0; // Starting octave index
