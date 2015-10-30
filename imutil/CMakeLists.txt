@@ -176,8 +176,8 @@ if (${Matlab_FOUND})
         target_include_directories (meximutil PRIVATE 
                 ${DCMTK_INCLUDE_DIRS} ${NIFTI_INCLUDE_DIRS} 
                 ${Matlab_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
-        target_link_libraries (meximutil PUBLIC ${MWLAPACK_LIBRARY} 
-                ${MWBLAS_LIBRARY} ${Matlab_LIBRARIES} ${DCMTK_LIBRARIES}
+        target_link_libraries (meximutil PUBLIC ${Matlab_MWLAPACK_LIBRARY} 
+                ${Matlab_MWBLAS_LIBRARY} ${Matlab_LIBRARIES} ${DCMTK_LIBRARIES}
                 ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES} ${M_LIBRARY})
 
         set_target_properties (meximutil 

@@ -40,7 +40,7 @@ endif()
 set (BUILD_CLI ${_BUILD_CLI} CACHE BOOL 
         "If ON, builds the command line interface")
 set (BUILD_EXAMPLES "ON" CACHE BOOL "If ON, builds the example programs")
-set (USE_Matlab "ON" CACHE BOOL "If ON, builds the Matlab toolbox")
+set (BUILD_Matlab "ON" CACHE BOOL "If ON, builds the Matlab toolbox")
 set (BUILD_PACKAGE "OFF" CACHE BOOL "If ON, builds the package generator")
 
 # Configurable paths        
@@ -119,7 +119,7 @@ endif ()
 find_package (ZLIB REQUIRED)
 
 # Optionally find Matlab
-if (USE_Matlab)
+if (BUILD_Matlab)
 	# Look for MATLAB in the default locations
 	find_package (Matlab QUIET)
 
@@ -163,10 +163,10 @@ if (${Matlab_FOUND})
 	endif ()
 
         # Find the Matlab LAPACK and BLAS libraries
-        find_library (MWLAPACK_LIBRARY mwlapack libmwlapack 
+        find_library (Matlab_MWLAPACK_LIBRARY mwlapack libmwlapack 
                 PATHS ${Matlab_LIBRARIES_PATH}
         )
-        find_library (MWBLAS_LIBRARY mwblas libmwblas 
+        find_library (Matlab_MWBLAS_LIBRARY mwblas libmwblas 
                 PATHS ${Matlab_LIBRARIES_PATH}
         )
 else ()
