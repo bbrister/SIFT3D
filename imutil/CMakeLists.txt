@@ -73,8 +73,8 @@ target_include_directories (imutil PUBLIC
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
 )
 target_link_libraries (imutil PUBLIC ${LAPACK_LIBRARIES} ${DCMTK_LIBRARIES})
-target_include_directories(imutil PUBLIC ${DCMTK_INCLUDE_DIRS})
-target_compile_definitions (imutil PUBLIC 
+target_include_directories(imutil PRIVATE ${DCMTK_INCLUDE_DIRS})
+target_compile_definitions (imutil PRIVATE
         "SIFT3D_VERSION_NUMBER=${SIFT3D_VERSION}")
 if (DCMTK_HAVE_CONFIG_FILE)
         target_compile_definitions (imutil PRIVATE "HAVE_CONFIG_H")
@@ -93,7 +93,7 @@ if (${ITK_FOUND})
 	message(STATUS "Linking to ITK")
 
 	target_link_libraries(imutil PUBLIC ${ITK_LIBRARIES})
-	target_include_directories(imutil PUBLIC ${ITK_INCLUDE_DIRS})
+	target_include_directories(imutil PRIVATE ${ITK_INCLUDE_DIRS})
         set (NIFTI_LIBRARIES ${ITK_LIBRARIES})
         set (NIFTI_INCLUDE_DIRS ${ITK_INCLUDE_DIRS})
 
@@ -106,12 +106,12 @@ else ()
 	find_package (NIFTI REQUIRED)
 endif ()
 target_link_libraries (imutil PUBLIC ${NIFTI_LIBRARIES})
-target_include_directories (imutil PUBLIC ${NIFTI_INCLUDE_DIRS})
+target_include_directories (imutil PRIVATE ${NIFTI_INCLUDE_DIRS})
 
 
 # Link to system libraries
 target_link_libraries(imutil PUBLIC ${ZLIB_LIBRARIES} ${M_LIBRARY})
-target_include_directories(imutil PUBLIC ${ZLIB_INCLUDE_DIRS})
+target_include_directories(imutil PRIVATE ${ZLIB_INCLUDE_DIRS})
 
 # Configure the installation
 install (TARGETS imutil 
@@ -188,30 +188,23 @@ endif ()
 if (${Matlab_FOUND})
 
         add_library (meximutil SHARED imutil.c dicom.cpp)
-        target_compile_definitions (meximutil PUBLIC 
-                "SIFT3D_VERSION_NUMBER=${SIFT3D_VERSION} SIFT3D_MEX")
+        target_compile_definitions (meximutil PUBLIC "SIFT3D_MEX")
+        target_compile_definitions (meximutil PRIVATE 
+                "SIFT3D_VERSION_NUMBER=${SIFT3D_VERSION}")
         if (DCMTK_HAVE_CONFIG_FILE)
                 target_compile_definitions (meximutil PRIVATE "HAVE_CONFIG_H")
         endif ()
 
-        if (${ITK_FOUND})
-                target_link_libraries(meximutil PUBLIC 
-                        ${ITK_LIBRARIES})
-                target_include_directories(meximutil PUBLIC 
-                        ${ITK_INCLUDE_DIRS})
-        else ()
-                target_link_libraries (meximutil PUBLIC 
-                        ${DCMTK_LIBRARIES} ${NIFTI_LIBRARIES})
-                target_include_directories (meximutil PUBLIC 
-                        ${DCMTK_INCLUDE_DIRS} ${NIFTI_INCLUDE_DIRS})
-        endif ()
-
         target_include_directories (meximutil PUBLIC 
-                ${DCMTK_INCLUDE_DIRS} ${Matlab_INCLUDE_DIRS} 
-                ${ZLIB_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR})
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+                $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
+        )
+        target_include_directories (meximutil PRIVATE 
+                ${DCMTK_INCLUDE_DIRS} ${NIFTI_INCLUDE_DIRS} 
+                ${Matlab_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
         target_link_libraries (meximutil PUBLIC ${MWLAPACK_LIBRARY} 
-                ${MWBLAS_LIBRARY} ${Matlab_LIBRARIES} ${ZLIB_LIBRARIES} 
-                ${M_LIBRARY})
+                ${MWBLAS_LIBRARY} ${Matlab_LIBRARIES} ${DCMTK_LIBRARIES}
+                ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES} ${M_LIBRARY})
 
         set_target_properties (meximutil 
                 PROPERTIES 

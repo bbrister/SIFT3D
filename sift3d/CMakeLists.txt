@@ -16,8 +16,10 @@ install (FILES sift.h DESTINATION ${INSTALL_INCLUDE_DIR})
 if (${Matlab_FOUND})
 
         add_library (mexsift3D SHARED sift.c)
-        target_include_directories (mexsift3D PUBLIC 
-                ${CMAKE_CURRENT_SOURCE_DIR})
+        target_include_directories (mexsift3D PUBLIC
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+                $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
+        )
         target_link_libraries (mexsift3D PUBLIC meximutil ${M_LIBRARY})
         set_target_properties (mexsift3D
                 PROPERTIES 

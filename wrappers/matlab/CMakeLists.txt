@@ -6,8 +6,11 @@
 
 # Build the mex utility library
 add_library (mexutil SHARED mexutil.c)
-target_include_directories(mexutil PUBLIC ${Matlab_INCLUDE_DIR} 
-        ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories (mexutil PUBLIC ${Matlab_INCLUDE_DIRS})
+target_include_directories (mexutil PUBLIC
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+                $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
+)
 target_link_libraries (mexutil PUBLIC mexsift3D meximutil ${MWLAPACK_LIBRARY}
         ${MWBLAS_LIBRARY} ${Matlab_LIBRARIES})
 
