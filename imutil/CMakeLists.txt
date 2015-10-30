@@ -10,6 +10,9 @@ find_package (LAPACK REQUIRED)
 # Find DCMTK
 find_package (DCMTK REQUIRED)
 
+# Find NIFTI 
+find_package (NIFTI REQUIRED)
+
 # Get the path for DCMTK libraries
 get_filename_component (DCMTK_LIBRARIES_PATH ${DCMTK_dcmdata_LIBRARY} DIRECTORY)
 
@@ -49,10 +52,6 @@ endif ()
 # Add the base dir to the DCMTK include paths
 list(APPEND DCMTK_INCLUDE_DIRS ${DCMTK_BASE_INCLUDE_DIR})
 
-# Optionally disable use of ITK
-set (USE_ITK OFF CACHE PATH 
-        "Look for dependencies in the ITK installation, if one is found")
-
 # Check if there is a configuration file for DCMTK
 find_file(DCMTK_CONFIG_FILE 
         NAMES "cfunix.h" "cfwin32.h"
@@ -72,8 +71,10 @@ target_include_directories (imutil PUBLIC
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
 )
-target_link_libraries (imutil PUBLIC ${LAPACK_LIBRARIES} ${DCMTK_LIBRARIES})
-target_include_directories(imutil PRIVATE ${DCMTK_INCLUDE_DIRS})
+target_link_libraries (imutil PUBLIC ${LAPACK_LIBRARIES} ${DCMTK_LIBRARIES} 
+        ${NIFTI_LIBRARIES})
+target_include_directories(imutil PRIVATE ${DCMTK_INCLUDE_DIRS} 
+        ${NIFTI_INCLUDE_DIRS})
 target_compile_definitions (imutil PRIVATE
         "SIFT3D_VERSION_NUMBER=${SIFT3D_VERSION}")
 if (DCMTK_HAVE_CONFIG_FILE)
@@ -81,33 +82,6 @@ if (DCMTK_HAVE_CONFIG_FILE)
 endif ()
 install (FILES types.h macros.h imutil.h kernels.cl
         DESTINATION ${INSTALL_INCLUDE_DIR})
-
-# Try to find ITK, unless disabled
-if (${USE_ITK})
-        find_package (ITK 4 QUIET)
-else ()
-        set (ITK_FOUND OFF)
-endif ()
-
-if (${ITK_FOUND})
-	message(STATUS "Linking to ITK")
-
-	target_link_libraries(imutil PUBLIC ${ITK_LIBRARIES})
-	target_include_directories(imutil PRIVATE ${ITK_INCLUDE_DIRS})
-        set (NIFTI_LIBRARIES ${ITK_LIBRARIES})
-        set (NIFTI_INCLUDE_DIRS ${ITK_INCLUDE_DIRS})
-
-# Otherwise link directly to libniftiio
-else ()
-        if (${USE_ITK})
-                message(STATUS "ITK not found. Linking to niftiio directly")
-        endif ()
-
-	find_package (NIFTI REQUIRED)
-endif ()
-target_link_libraries (imutil PUBLIC ${NIFTI_LIBRARIES})
-target_include_directories (imutil PRIVATE ${NIFTI_INCLUDE_DIRS})
-
 
 # Link to system libraries
 target_link_libraries(imutil PUBLIC ${ZLIB_LIBRARIES} ${M_LIBRARY})
