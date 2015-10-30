@@ -24,7 +24,7 @@ function keys = keypoint(coords, scale, ori)
 %   coords = [1 1 1; 2 2 2];
 %   scale = [1 2];
 %   ori = repmat(eye(3), [1 1 2]);
-%   keys = keypoint(coords, scale, ori);
+%   keys = keypoint3D(coords, scale, ori);
 %
 % See also:
 %   detectSift3D, extractSift3D, setupSift3D
