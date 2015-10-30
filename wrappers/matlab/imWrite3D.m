@@ -1,5 +1,5 @@
 function imWrite3D(path, im)
-%imRead3D(im) Write a 3D image to a file.
+%imWrite3D(im) Write a 3D image to a file.
 %  Arguments:
 %    path - The path to the file.
 %    im - An [MxNxP] array containing the image data, where the voxels 
