@@ -15,6 +15,13 @@ project (SIFT3D)
 # Project version
 set (SIFT3D_VERSION 1.1.1)
 
+# Default build type
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+        message (STATUS  "Build type not specified. Defaulting to 'Release'.")
+        set (CMAKE_BUILD_TYPE Release CACHE STRING "The type of build" FORCE)
+        set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
+endif ()
+
 # Platform path separation character
 if (WIN32 AND NOT CYGWIN)
         set (PATH_SEP ";")
@@ -131,7 +138,7 @@ endif ()
 
 # Set up Matlab paths
 if (${Matlab_FOUND})
-        message ("-- Found Matlab. Building the Matlab toolbox.")
+        message (STATUS "Found Matlab. Building the Matlab toolbox.")
 
         # Set the name and location of the Matlab toolbox
         set (TOOLBOX_NAME "matlab")
@@ -163,7 +170,7 @@ if (${Matlab_FOUND})
                 PATHS ${Matlab_LIBRARIES_PATH}
         )
 else ()
-        message ("-- Matlab not found. The toolbox will not be built.")
+        message (STATUS "Matlab not found. The toolbox will not be built.")
 endif ()
 
 # Generate the package configuration files
