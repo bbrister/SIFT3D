@@ -39,11 +39,11 @@ The following commands will generate Makefiles and use them to compile the binar
 	cmake .. -DDCMTK_DIR=/usr/local
 	make
 
+*Note: If you installed DCMTK to some place other than /usr/local, set DCMTK_DIR to that path in the above CMake command.*
+
+If CMake cannot find the dependencies, you can specify the paths manually with the CMake GUI.
+
 Use the following command to install the files:
 
 	sudo make install
-
-### Troubleshooting 
-
-CMake has trouble finding the dependencies on Mac. If CMake cannot find the dependencies, you can specify the paths manually with the CMake GUI. For example, DCMTK_DIR=/usr/local tells CMake to find DCMTK in /usr/local. If you installed DCMTK to some other directory, change this variable to that path instead.
 

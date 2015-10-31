@@ -8,7 +8,7 @@
 find_package (LAPACK REQUIRED)
 
 # Find DCMTK
-find_package (DCMTK REQUIRED)
+find_package (DCMTK QUIET)
 if (NOT DCMTK_FOUND)
 	message (FATAL_ERROR "DCMTK not found. Please set the variable "
 		"DCMTK_DIR to the location of DCMTK on your system.")
