@@ -8,26 +8,44 @@
 find_package (LAPACK REQUIRED)
 
 # Find DCMTK
-find_package (DCMTK REQUIRED)
+find_package (DCMTK 
+	REQUIRED
+	PATHS "/usr" "/usr/local" "/opt" "/opt/local" 
+	PATH_SUFFIXES "include/dcmtk/config"
+)
 
 # Find NIFTI 
 find_package (NIFTI REQUIRED)
 
-# Get the path for DCMTK libraries
-get_filename_component (DCMTK_LIBRARIES_PATH ${DCMTK_dcmdata_LIBRARY} DIRECTORY)
+# Try to find the path for DCMTK libraries
+if (DCMTK_dcmdata_LIBRARY)
+	get_filename_component (DCMTK_LIBRARIES_PATH 
+		${DCMTK_dcmdata_LIBRARY} DIRECTORY)
+endif ()
 
-# Search for the relatively DCMTK library liboflog, which CMake does not
-# find. If found, add it to DCMTK_LIBRARIES
-find_library (DCMTK_oflog_LIBRARY oflog liboflog
-        PATHS ${DCMTK_LIBRARIES_PATH})
-if (NOT DCMTK_oflog_LIBRARY STREQUAL "DCMTK_oflog_LIBRARY-NOTFOUND")
+# Check if CMake is missing the new DCMTK library liboflog
+if (NOT DCMTK_oflog_LIBRARY AND NOT TARGET oflog)
 
-	# Find ofstd, which should be the last DCMTK library
-	list (FIND DCMTK_LIBRARIES ${DCMTK_ofstd_LIBRARY} OFSTD_IDX)
-	if (${OFSTD_IDX} LESS 0)
-		message(FATAL_ERROR "Failed to find libofstd in DCMTK_LIBRARIES")
+	# Search for liboflog
+	find_library (DCMTK_oflog_LIBRARY oflog liboflog
+		PATHS ${DCMTK_LIBRARIES_PATH})
+	if (DCMTK_oflog_LIBRARY STREQUAL "DCMTK_oflog_LIBRARY-NOTFOUND")
+		message (FATAL_ERROR "Could not find DCMTK library liboflog")
 	endif ()
 
+	# Find libofstd in the libraries list, which should be the last DCMTK 
+	# library
+	if (DEFINED DCMTK_LIBRARIES AND NOT TARGET ofstd)
+		list (FIND DCMTK_LIBRARIES ${DCMTK_ofstd_LIBRARY} OFSTD_IDX)
+		if (${OFSTD_IDX} LESS 0)
+			message(FATAL_ERROR "Failed to find libofstd in 
+				DCMTK_LIBRARIES")
+		endif ()
+	else ()
+		set (OFSTD_IDX 0)
+	endif ()
+
+	# Insert liboflog just before libofstd
 	list (INSERT DCMTK_LIBRARIES ${OFSTD_IDX} ${DCMTK_oflog_LIBRARY})
 endif ()
 
