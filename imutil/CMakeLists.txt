@@ -23,15 +23,18 @@ if (DCMTK_dcmdata_LIBRARY)
 		${DCMTK_dcmdata_LIBRARY} DIRECTORY)
 endif ()
 
-# Check if CMake is missing the new DCMTK library liboflog
+# Search for the new DCMTK library liboflog
 if (NOT DCMTK_oflog_LIBRARY)
-
-	# Search for liboflog
 	find_library (DCMTK_oflog_LIBRARY oflog liboflog
 		PATHS ${DCMTK_LIBRARIES_PATH})
-	if (DCMTK_oflog_LIBRARY STREQUAL "DCMTK_oflog_LIBRARY-NOTFOUND")
-		message (FATAL_ERROR "Could not find DCMTK library liboflog")
-	endif ()
+endif ()
+if (DCMTK_oflog_LIBRARY STREQUAL "DCMTK_oflog_LIBRARY-NOTFOUND")
+	message (FATAL_ERROR "Could not find DCMTK library liboflog")
+endif ()
+
+# Check if CMake is missing liboflog
+list (FIND DCMTK_LIBRARIES ${DCMTK_oflog_LIBRARY} OFLOG_IDX)
+if (${OFLOG_IDX} LESS 0)
 
 	# Find libofstd in the libraries list, which should be the last DCMTK 
 	# library
