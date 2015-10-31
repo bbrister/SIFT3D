@@ -12,8 +12,9 @@
 * Changed C function SIFT3D_Extract_Descriptors to SIFT3D_Extract_Descriptors and SIFT3D_Extract_Raw_Descriptors
 * Fixed various bugs, improving keypoint and descriptor accuracy
 
-## 1.1.1
+## 1.1.1 October 30, 2015
 
 * Performance optimizations
 * Fixes to DICOM slice ordering (im_read, imRead3D)
 * Write more DICOM metadata (im_write, imWrite3D)
+* Corrected Mac build instructions
