@@ -96,9 +96,9 @@ if (WIN32)
         # Convert GNU archives to .lib files in Windows
         set (CMAKE_GNUtoMS ON)
 elseif (APPLE)
-        # Enable undefined symbols
-        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -undefined dynamic_lookup")
-        set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -undefined dynamic_lookup")
+        # Enable undefined shared library symbols
+        set (CMAKE_SHARED_LINKER_FLAGS 
+		"${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup")
 
         # Use rpath
         set (CMAKE_MACOSX_RPATH ON)
