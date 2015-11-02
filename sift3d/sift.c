@@ -978,8 +978,9 @@ static int resize_SIFT3D(SIFT3D *const sift3d) {
 /* Build the GSS pyramid on a single CPU thread */
 static int build_gpyr(SIFT3D *sift3d) {
 
+        const Image *prev;
 	Sep_FIR_filter *f;
-	Image *cur, *prev;
+	Image *cur;
 	int o, s;
 
 	Pyramid *const gpyr = &sift3d->gpyr;

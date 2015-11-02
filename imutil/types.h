@@ -343,7 +343,7 @@ typedef struct _SIFT3D {
 	Pyramid dog;
 
 	// Image to process
-	Image *im;
+	const Image *im;
 
 	// Parameters
 	double peak_thresh; // Keypoint peak threshold

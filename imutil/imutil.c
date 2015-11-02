@@ -1786,7 +1786,7 @@ int im_upsample_2x(Image * src, Image * dst)
 /* Downsample an image by a factor of 2 in each dimension.
  * This function initializes dst with the proper 
  * dimensions, and allocates memory. */
-int im_downsample_2x(Image * src, Image * dst)
+int im_downsample_2x(const Image *const src, Image *const dst)
 {
 
 	int x, y, z, c;

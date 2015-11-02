@@ -141,7 +141,7 @@ void im_free(Image *im);
 int im_channel(const Image * const src, Image * const dst,
 	       const unsigned int chan);
 
-int im_downsample_2x(Image *src, Image *dst);
+int im_downsample_2x(const Image *const src, Image *const dst);
 
 int im_downsample_2x_cl(Image *src, Image *dst);
 
