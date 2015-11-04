@@ -1364,7 +1364,12 @@ static int write_nii(const char *path, const Image *const im)
 	    == NULL)
 		goto write_nii_quit;
 
-	// Copy data
+        // Copy the units
+        nifti->dx = im->ux;
+        nifti->dy = im->uy;
+        nifti->dz = im->uz;
+
+	// Copy the data
 	for (i = 0; i < im->size; i++) {
 		((float *)nifti->data)[i] = im->data[i];
 	}
