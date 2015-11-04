@@ -1186,13 +1186,10 @@ static int read_nii(const char *path, Image *const im)
 	nifti_image *nifti;
 	int x, y, z, i, dim_counter;
 
-	// Init type pointers to NULL
-	nifti = NULL;
-
 	// Read NIFTI file
 	if ((nifti = nifti_image_read(path, 1)) == NULL) {
 		fprintf(stderr, "read_nii: failure loading file %s", path);
-		goto read_nii_quit;
+                return SIFT3D_FAILURE;
 	}
 
 	// Find the dimensionality of the array, given by the last dimension
@@ -1266,15 +1263,14 @@ static int read_nii(const char *path, Image *const im)
 	case NIFTI_TYPE_FLOAT64:
 		IM_COPY_FROM_TYPE(double);
 		break;
-
 	case NIFTI_TYPE_FLOAT128:
 	case NIFTI_TYPE_COMPLEX128:
 	case NIFTI_TYPE_COMPLEX256:
 	case NIFTI_TYPE_COMPLEX64:
 	default:
-		fprintf(stderr, "\nWarning, cannot support %s yet.\n",
+		fprintf(stderr, "read_nii: unsupported datatype %s \n",
 			nifti_datatype_string(nifti->datatype));
-		return SIFT3D_FAILURE;
+                goto read_nii_quit;
 	}
 #undef IM_COPY_FROM_TYPE
 
@@ -1284,11 +1280,9 @@ static int read_nii(const char *path, Image *const im)
 
 	return SIFT3D_SUCCESS;
 
- read_nii_quit:
-	if (nifti != NULL) {
-		nifti_free_extensions(nifti);
-		nifti_image_free(nifti);
-	}
+read_nii_quit:
+        nifti_free_extensions(nifti);
+        nifti_image_free(nifti);
 	return SIFT3D_FAILURE;
 }
 
