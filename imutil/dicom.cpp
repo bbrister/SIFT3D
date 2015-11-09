@@ -244,9 +244,7 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
 
         // Parse the image position patient vector to get the z coordinate
         double imPosZ;
-        const int numPos = sscanf(imPosPatientStr, "%*f\\%*f\\%lf", 
-                &imPosZ);
-        if (numPos != 1) {
+        if (sscanf(imPosPatientStr, "%*f\\%*f\\%lf", &imPosZ) != 1) {
                 std::cerr << "Dicom.Dicom: failed to parse " <<
                         "ImagePositionPatient tag " << imPosPatientStr <<
                         std::endl;
@@ -287,28 +285,23 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         }
 
         // Read the pixel spacing
-        Float64 pixelSpacing;
-        status = data->findAndGetFloat64(DCM_PixelSpacing,
-                pixelSpacing);
+        const char *pixelSpacingStr;
+        status = data->findAndGetString(DCM_PixelSpacing, pixelSpacingStr);
         if (status.bad()) {
                 std::cerr << "Dicom.Dicom: failed to get pixel spacing " <<
                         "from file " << path << " (" << status.text() << ")" <<
                         std::endl;
                 return;
         }
-        ux = static_cast<double>(pixelSpacing);
-        if (ux <= 0.0) {
-                std::cerr << "Dicom.Dicom: file " << path << " has " <<
-                        "invalid pixel spacing: " << ux << std::endl;
+        if (sscanf(pixelSpacingStr, "%lf\\%lf", &ux, &uy) != 2) {
+                std::cerr << "Dicom.Dicom: unable to parse pixel spacing " <<
+                        "from file " << path << std::endl;
                 return;
         }
-
-        // Get the aspect ratio
-        const double ratio = dicomImage.getHeightWidthRatio();
-        uy = ux * ratio;
-        if (uy <= 0.0) {
-                std::cerr << "Dicom.Dicom: file " << path << " has invalid " <<
-                        "pixel aspect ratio: " << ratio << std::endl;
+        if (ux <= 0.0 || uy <= 0.0) {
+                std::cerr << "Dicom.Dicom: file " << path << " has " <<
+                        "invalid pixel spacing: [" << ux << ", " << uy << 
+                        "]" << std::endl;
                 return;
         }
 
