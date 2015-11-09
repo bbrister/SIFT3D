@@ -1688,10 +1688,6 @@ static void kp_iso2input(const SIFT3D *const sift3d, Keypoint_store *const kp) {
                inv_factors[i] = 1.0 / sift3d->factors[i];
         }
 
-        //XXX
-        printf("first keypoint before inverse scaling: (%f, %f, %f) \n",
-                kp->buf[0].xd, kp->buf[0].yd, kp->buf[0].zd);
-
         // Scale the keypoints
         for (i = 0; i < kp->slab.num; i++) {
 
@@ -1705,9 +1701,6 @@ static void kp_iso2input(const SIFT3D *const sift3d, Keypoint_store *const kp) {
                 key->zi = (int) key->zd;
         }
 
-        //XXX
-        printf("first keypoint after inverse scaling: (%f, %f, %f) \n",
-                kp->buf[0].xd, kp->buf[0].yd, kp->buf[0].zd);
 }
 
 /* Detect keypoint locations and orientations. You must initialize
@@ -2142,10 +2135,6 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d,
         if (resize_Keypoint_store(&kp_iso, kp->slab.num))
                 goto extract_descriptors_quit;
 
-        //XXX
-        printf("first keypoint before descriptor scaling: (%f, %f, %f) \n",
-                kp->buf[0].xd, kp->buf[0].yd, kp->buf[0].zd);
-
         // Convert keypoints to isotropic coordinates
         for (i = 0; i < kp->slab.num; i++) {
 
@@ -2155,10 +2144,6 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d,
                 if (scale_Keypoint(src, sift3d->factors, dst))
                         goto extract_descriptors_quit;
         }
-
-        //XXX
-        printf("first keypoint after descriptor scaling: (%f, %f, %f) \n",
-                kp_iso.buf[0].xd, kp_iso.buf[0].yd, kp_iso.buf[0].zd);
 
         // Extract features
         if (_SIFT3D_extract_descriptors(sift3d, &sift3d->gpyr, &kp_iso, desc))

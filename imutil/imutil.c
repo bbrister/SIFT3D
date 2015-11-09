@@ -2508,9 +2508,6 @@ int im_make_isotropic(const Image *const src, Image *const dst) {
         int i, isotropic;
         double umin;
 
-        //XXX
-        printf("ux: %f uy %f uz %f \n", src->ux, src->uy, src->uz);
-
         // Get the minimum voxel spacing of all the dimensions of src, which 
         // will become the new voxel spacing
         umin = DBL_MAX;
@@ -2528,9 +2525,6 @@ int im_make_isotropic(const Image *const src, Image *const dst) {
                 isotropic = SIFT3D_FALSE;
                 break;
         }
-
-        //XXX
-        printf("isotropic: %d \n", isotropic);
 
         // If the image is isotropic, simply copy the data
         if (isotropic)
@@ -2554,10 +2548,6 @@ int im_make_isotropic(const Image *const src, Image *const dst) {
         if (Affine_set_mat(&A, &affine) ||
                 im_inv_transform(&affine, src, dst, LINEAR))
                 goto im_make_isotropic_quit;
-
-        //XXX
-        printf("isotropic transform matrix: \n");
-        print_Mat_rm(&affine.A);
 
         // Set the units of dst
         for (i = 0; i < IM_NDIMS; i++) {
