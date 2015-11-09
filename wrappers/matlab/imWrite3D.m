@@ -1,9 +1,11 @@
-function imWrite3D(path, im)
+function imWrite3D(path, im, units)
 %imWrite3D(im) Write a 3D image to a file.
 %  Arguments:
 %    path - The path to the file.
 %    im - An [MxNxP] array containing the image data, where the voxels 
 %       are indexed in (x, y, z) order.
+%    units - (Optional) See imRead3D. If not provided, a default value of
+%       [1 1 1] will be used.
 %
 %  Supported file formats:
 %    NIFTI (.nii, .nii.gz)
@@ -14,11 +16,17 @@ function imWrite3D(path, im)
 %    imWrite3D('image.nii.gz', im); % NIFTI
 %    imWrite3D('image.dcm', im); % Multi-slice DICOM
 %    imWrite3D('image', im); % Directory of DICOM slices
+%    imWrite3D('image.dcm', im, [1 1 2]) % Anisotropic, multi-slice DICOM  
 %
 %  See also:
 %    imRead3D, detectSift3D, extractSift3D, setupSift3D
 %
 % Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+
+% Default parameters
+if nargin < 3 || isempty(units)
+   units = ones(3, 1); 
+end
 
 % Verify inputs
 if nargin < 1 || isempty(path)
@@ -37,6 +45,8 @@ if ndims(im) > 3
    error(['im has invalid dimensionality: ' num2str(ndims(im))]) 
 end
 
+units = checkUnits3D(units);
+
 % Scale and convert the image to single-precision
 im = im / max(im(:));
 im = single(im);
@@ -51,7 +61,7 @@ if strcmp(ext, '.gz') && ispc
 end
 
 % Write the image
-mexImWrite3D(path, im);
+mexImWrite3D(path, im, units);
 
 % On Windows, compress the file from within Matlab. Otherwise, it will
 % crash.

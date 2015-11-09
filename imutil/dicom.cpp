@@ -991,6 +991,10 @@ static int write_dcm_dir_cpp(const char *path, const Image *const im,
                 return SIFT3D_FAILURE;
         }
 
+        // Copy the units to the slice
+        memcpy(SIFT3D_IM_GET_UNITS(&slice), SIFT3D_IM_GET_UNITS(im), 
+                IM_NDIMS * sizeof(double));
+
         // Get the maximum absolute value of the whole image volume
         const float max_val = im_max_abs(im);
 

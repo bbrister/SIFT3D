@@ -1,4 +1,4 @@
-function im = imRead3D(path)
+function [im, units] = imRead3D(path)
 %imRead3D(im) Read a 3D image from a file.
 %  Arguments:
 %    path - The path to the file.
@@ -10,14 +10,16 @@ function im = imRead3D(path)
 %
 %  Return values:
 %    im - An [MxNxPxC] array containing the image data, scaled to the range
-%    [0, 1]. The last dimension denotes the channels of the [MxNxP] image.
-%    The voxels are indexed in (x, y, z, c) order, where c is the channel
-%    index and (x, y, z) are the spatial coordinates.
+%      [0, 1]. The last dimension denotes the channels of the [MxNxP]
+%      image. The voxels are indexed in (x, y, z, c) order, where c is the
+%      channel index and (x, y, z) are the spatial coordinates.
+%    units - A [3x1] vector of the (x, y, z) real-world units for the
+%       voxels in im.
 %
 %  Examples:
-%      im = imRead3D('image.nii.gz'); % NIFTI
-%      im = imRead3D('image.dcm'); % Multi-slice DICOM
-%      im = imRead3D('image'); % Directory of DICOM slices
+%      [im, units] = imRead3D('image.nii.gz'); % NIFTI
+%      [im, units] = imRead3D('image.dcm'); % Multi-slice DICOM
+%      [im, units] = imRead3D('image'); % Directory of DICOM slices
 %
 %  See also:
 %    imWrite3D, detectSift3D, extractSift3D, setupSift3D
@@ -34,7 +36,7 @@ if ~exist(path, 'file')
 end
 
 % Read the image
-im = mexImRead3D(path);
+[im, units] = mexImRead3D(path);
 
 end
 

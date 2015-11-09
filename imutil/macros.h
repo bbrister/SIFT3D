@@ -31,6 +31,10 @@ extern "C" {
 	 "warnings or sub-optimal performance. \n")
 #endif
 
+// Get a pointer to the [ux, uy, uz] array of an image
+#define SIFT3D_IM_GET_UNITS(im) \
+        (&(im)->ux)
+
 // Get the index of an [x,y,z] pair in an image 
 #define SIFT3D_IM_GET_IDX(im, x, y, z, c) ((x) * (im)->x_stride + \
         (y) * (im)->y_stride + (z) * (im)->z_stride + (c))

@@ -1536,7 +1536,8 @@ void im_default_stride(Image *const im)
 }
 
 /* Pads an image to a new size. Prior to calling this function, initialize 
- * pad with all dimensions and strides, as in im_resize. */
+ * pad with all dimensions and strides, as in im_resize. Other metadata,
+ * such as units, will be copied from im to pad. */
 int im_pad(const Image * const im, Image * const pad)
 {
 
@@ -1549,6 +1550,10 @@ int im_pad(const Image * const im, Image * const pad)
 	const int data_x_end = SIFT3D_MIN(im->nx - 1, pad_x_end);
 	const int data_y_end = SIFT3D_MIN(im->ny - 1, pad_y_end);
 	const int data_z_end = SIFT3D_MIN(im->nz - 1, pad_z_end);
+
+        // Copy relevant metadata, omitting dimensions and strides
+        memcpy(SIFT3D_IM_GET_UNITS(pad), SIFT3D_IM_GET_UNITS(im), 
+                IM_NDIMS * sizeof(double));
 
 	// Resize the output 
 	if (im_resize(pad))
@@ -2072,7 +2077,6 @@ SIFT3D_IM_LOOP_END_C}
 
 /* Transform an image according to the inverse of the provided tform. 
  * Resizes im_out. */
-
 int im_inv_transform(void *const tform, const Image * const in,
 		     Image * const out, const interp_type interp)
 {
@@ -2484,7 +2488,97 @@ int im_restride(const Image * const src, const int *const strides,
 	SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
 	    SIFT3D_IM_GET_VOX(dst, x, y, z, c) =
 	    SIFT3D_IM_GET_VOX(src, x, y, z, c);
-	SIFT3D_IM_LOOP_END_C return SIFT3D_SUCCESS;
+	SIFT3D_IM_LOOP_END_C 
+
+        return SIFT3D_SUCCESS;
+}
+
+/* Interpolate an image to an isotropic version of itself.
+ *
+ * Parameters:
+ *  -src: The source image. Must be initialized.
+ *  -dst: The destination image. The final voxel spacing is the minimum of the
+ *      spacings in each dimension of src. 
+ *
+ * Return: SIFT3D_SUCCESS (0) on success, nonzero otherwise. */
+int im_make_isotropic(const Image *const src, Image *const dst) {
+
+        Affine affine;
+        Mat_rm A;
+        int i, isotropic;
+        double umin;
+
+        //XXX
+        printf("ux: %f uy %f uz %f \n", src->ux, src->uy, src->uz);
+
+        // Get the minimum voxel spacing of all the dimensions of src, which 
+        // will become the new voxel spacing
+        umin = DBL_MAX;
+        for (i = 0; i < IM_NDIMS; i++) {
+                umin = SIFT3D_MIN(umin, SIFT3D_IM_GET_UNITS(src)[i]);
+        } 
+
+        // Check if the image is isotropic
+        isotropic = SIFT3D_TRUE;
+        for (i = 0; i < IM_NDIMS; i++) {
+
+                if (umin == SIFT3D_IM_GET_UNITS(src)[i])
+                        continue;
+
+                isotropic = SIFT3D_FALSE;
+                break;
+        }
+
+        //XXX
+        printf("isotropic: %d \n", isotropic);
+
+        // If the image is isotropic, simply copy the data
+        if (isotropic)
+                return im_copy_data(src, dst);
+
+        // Initialize intermediates 
+        if (init_tform(&affine, AFFINE))
+                return SIFT3D_FAILURE;
+        if (init_Mat_rm(&A, IM_NDIMS, IM_NDIMS + 1, DOUBLE, SIFT3D_TRUE)) {
+                cleanup_tform(&affine);
+                return SIFT3D_FAILURE;
+        }
+
+        // Create the transformation matrix mapping src to an isotropic space
+        for (i = 0; i < IM_NDIMS; i++) {
+                const double u = SIFT3D_IM_GET_UNITS(src)[i];
+                SIFT3D_MAT_RM_GET(&A, i, i, double) = umin / u;
+        }
+
+        // Set the affine transformation and apply it to src
+        if (Affine_set_mat(&A, &affine) ||
+                im_inv_transform(&affine, src, dst, LINEAR))
+                goto im_make_isotropic_quit;
+
+        //XXX
+        printf("isotropic transform matrix: \n");
+        print_Mat_rm(&affine.A);
+
+        // Set the units of dst
+        for (i = 0; i < IM_NDIMS; i++) {
+#if 1
+                SIFT3D_IM_GET_UNITS(dst)[i] = SIFT3D_IM_GET_UNITS(src)[i] * 
+                        SIFT3D_MAT_RM_GET(&A, i, i, double);
+#else
+                SIFT3D_IM_GET_UNITS(dst)[i] = 1.0;
+#endif
+        }
+
+        // Clean up
+        cleanup_tform(&affine);
+        cleanup_Mat_rm(&A);
+
+        return SIFT3D_SUCCESS;
+
+im_make_isotropic_quit:
+        cleanup_tform(&affine);
+        cleanup_Mat_rm(&A);
+        return SIFT3D_FAILURE;
 }
 
 /* Initializes a tform to ensure memory safety. 
@@ -2555,7 +2649,7 @@ static int copy_Tps(const void *const src, void *const dst)
 	return SIFT3D_FAILURE;
 }
 
-/* Initialize an Affine transform defined by the given matrix.
+/* Set an Affine transform to the given matrix.
  * mat is copied. mat must be an n x (n + 1) matrix, where
  * n is the dimensionality of the transformation. */
 int Affine_set_mat(const Mat_rm * const mat, Affine * const affine)
@@ -2566,7 +2660,7 @@ int Affine_set_mat(const Mat_rm * const mat, Affine * const affine)
 		return SIFT3D_FAILURE;
 
 	affine->dim = mat->num_rows;
-	return copy_Mat_rm(mat, &affine->A);
+	return convert_Mat_rm(mat, &affine->A, DOUBLE);
 }
 
 /* Apply an arbitrary transformation to an [x, y, z] triple. */
@@ -3727,7 +3821,6 @@ void init_Pyramid(Pyramid * const pyr)
  * -first_level
  * -first_octave
  * -last_octave
- * -num_kp_levels
  * -sigma0 
  *
  * Note: For realtime implementations, this function 

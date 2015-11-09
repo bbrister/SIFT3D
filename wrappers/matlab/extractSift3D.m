@@ -1,4 +1,4 @@
-function [desc, coords] = extractSift3D(keys, im)
+function [desc, coords] = extractSift3D(keys, im, units)
 %extractSift3D(keys, im) Extract Sift3D descriptors from keypoints.
 %  Arguments:
 %    keys - An array of n keypoint structs. See keypoint.m for the
@@ -7,6 +7,8 @@ function [desc, coords] = extractSift3D(keys, im)
 %      (x, y, z) order. If im is empty or not provided, this function uses 
 %      the Gaussian scale-space pyramid from the most recent call to 
 %      detectSift3D.
+%    units - (Optional) See imRead3D. If units are specified, the extracted
+%       descriptors are isotropic even when im is not.
 %
 %  Return values:
 %    desc - An [n x 768] array of descriptors. The ith row is a descriptor
@@ -30,6 +32,15 @@ oriSizeReq = [3 3];
 
 % The number of descriptor elements
 descNumel = 768;
+
+% Default parameters
+if nargin < 2
+    im = [];
+end
+
+if nargin < 3 || isempty(units)
+    units = ones(3,1);
+end
 
 % Verify inputs
 if nargin < 1
@@ -92,9 +103,10 @@ if (~isempty(im))
     im = im / max(im(:));
 end
 
+units = checkUnits3D(units);
 
 % Detect features
-ret = mexExtractSift3D(keys, im);
+ret = mexExtractSift3D(keys, im, units);
 
 % Splice the outputs
 coords = ret(:, 1 : 3);

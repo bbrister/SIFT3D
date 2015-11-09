@@ -15,7 +15,7 @@
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
         Image im;
-        const mxArray *mxPath, *mxIm;
+        const mxArray *mxPath, *mxIm, *mxUnits;
         const char *path;
 
 /* Clean up and print an error */
@@ -25,8 +25,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         }
 
 	// Verify the number of inputs
-	if (nrhs != 2)
-                err_msgu("main:numInputs", "This function takes 2 inputs.");
+	if (nrhs != 3)
+                err_msgu("main:numInputs", "This function takes 3 inputs.");
 
         // Verify the number of outputs
         if (nlhs != 0) 
@@ -35,6 +35,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         // Assign the inputs
         mxPath = prhs[0];
         mxIm = prhs[1];
+        mxUnits = prhs[2];
 
         // Initialize intermediates
         init_im(&im);
@@ -48,6 +49,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         if (mx2im(mxIm, &im))
                 CLEAN_AND_QUIT("main:mx2im", "Failed to convert the input "
                         "image array to the internal image format");
+
+        // Convert the units to the internal format
+        if (mx2units(mxUnits, &im))
+                CLEAN_AND_QUIT("main:mx2im", "Failed to convert the input "
+                        "units array to the internal format");
 
         // Write the image
         switch (im_write(path, &im)) {

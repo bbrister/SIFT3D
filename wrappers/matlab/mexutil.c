@@ -61,7 +61,6 @@ const int kpNFields = sizeof(fieldNames) / sizeof(char *);
 
 /* Global state */
 SIFT3D sift3d;
-int haveGpyr;
 
 /* Error message tag */
 const char *tag = "sift3D";
@@ -74,13 +73,11 @@ static void fini(void) __attribute__((destructor));
 static void init(void) {
         if (init_SIFT3D(&sift3d))
                 err_msgu("main:initSift", "Failed to initialize SIFT3D");
-        haveGpyr = SIFT3D_FALSE;
 }
 
 /* Library cleanup */
 static void fini(void) {
         cleanup_SIFT3D(&sift3d);
-        haveGpyr = SIFT3D_FALSE;
 }
 
 /* Print an error message. */
@@ -195,12 +192,101 @@ int mx2im(const mxArray *const mx, Image *const im) {
         // Transpose and copy the data
         SIFT3D_IM_LOOP_START_C(im, x, y, z, c)
 
-                const mwIndex idx = mxImGetIdx(mx, x, y, z, c);
+                mwIndex idx;
+
+                idx = mxImGetIdx(mx, x, y, z, c);
+
                 SIFT3D_IM_GET_VOX(im, x, y, z, c) = mxData[idx];
 
         SIFT3D_IM_LOOP_END_C
 
         return SIFT3D_SUCCESS;
+}
+
+/* Returns an mxArray representing the units of image im.
+ *
+ * Parameters:
+ * Return: the array, or NULL on failure. */
+mxArray *units2mx(const Image *const im) {
+
+        mxArray *mx;
+        double *mxData;
+        int i;
+
+        // Create an array
+        if ((mx = mxCreateDoubleMatrix(IM_NDIMS, 1, mxREAL)) == NULL)
+                return NULL;
+
+        // Get the data
+        if ((mxData = mxGetData(mx)) == NULL)
+                goto units2mx_quit;
+
+        // Copy the data from im
+        for (i = 0; i < IM_NDIMS; i++) {
+
+                mwIndex idx;
+
+                const mwIndex subs[] = {i, 0};
+                const mwIndex nSubs = sizeof(subs) / sizeof(mwIndex);
+
+                idx = mxCalcSingleSubscript(mx, nSubs, subs);
+                mxData[idx] = SIFT3D_IM_GET_UNITS(im)[i];
+        }
+
+        return mx;
+
+units2mx_quit:
+        mxDestroyArray(mx);
+        return NULL;
+}
+
+/* Set the units of an image to the data stored in an mxArray,
+ *
+ * Parameters:
+ *  -mx: An array of IM_NDIMS dimensions, type double.
+ *  -im: The Image struct to which the units are written.
+ *
+ * Return: SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
+int mx2units(const mxArray *const mx, Image *const im) {
+
+        const mwSize *mxDims;
+        double *mxData;
+        mwIndex mxNDims;
+        int i;
+
+        // Verify inputs
+        mxNDims = (int) mxGetNumberOfDimensions(mx);
+	if (mxNDims != 2 || !isDouble(mx))
+                return SIFT3D_FAILURE;
+
+        // Verify the dimensions
+        mxDims = mxGetDimensions(mx);
+        if (mxDims[0] != IM_NDIMS || mxDims[1] != 1)
+                return SIFT3D_FAILURE; 
+
+        // Get the data
+        if ((mxData = mxGetData(mx)) == NULL)
+                return SIFT3D_FAILURE;
+
+        // Copy the data to im
+        for (i = 0; i < IM_NDIMS; i++) {
+
+                mwIndex idx;
+
+                const mwIndex subs[] = {i, 0};
+                const mwIndex nSubs = sizeof(subs) / sizeof(mwIndex);
+
+                idx = mxCalcSingleSubscript(mx, nSubs, subs);
+                SIFT3D_IM_GET_UNITS(im)[i] = mxData[idx];
+        }
+
+        return SIFT3D_SUCCESS;
+}
+
+/* Wrapper around mx2im and mx2units. */
+int mxDataAndUnits2im(const mxArray *const data, const mxArray *const units,
+        Image *const im) {
+        return mx2im(data, im) || mx2units(units, im);
 }
 
 /* Convert a Mat_rm struct to an mxArray. Returns the array, or NULL on
@@ -541,16 +627,13 @@ int mex_SIFT3D_detect_keypoints(const Image *const im,
         if (SIFT3D_detect_keypoints(&sift3d, im, kp))
                 return SIFT3D_FAILURE;
 
-        // Mark that we can not access the Gaussian scale-space pyramid
-        haveGpyr = SIFT3D_TRUE;
-
         return SIFT3D_SUCCESS;
 }
 
 /* Wrapper for SIFT3D_extract_descriptors. */
-int mex_SIFT3D_extract_descriptors(const Pyramid *const gpyr, 
-        const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc) {
-        return SIFT3D_extract_descriptors(&sift3d, gpyr, kp, desc);
+int mex_SIFT3D_extract_descriptors(const Keypoint_store *const kp, 
+        SIFT3D_Descriptor_store *const desc) {
+        return SIFT3D_extract_descriptors(&sift3d, kp, desc);
 }
 
 /* Wrapper for SIFT3D_extract_raw_descriptors. */
@@ -561,5 +644,5 @@ int mex_SIFT3D_extract_raw_descriptors(const Image *const im,
 
 /* Wrapper to get the Gaussian pyramid from the SIFT3D struct. */
 Pyramid *mexGetGpyr(void) {
-        return haveGpyr ? &sift3d.gpyr : NULL;
+        return SIFT3D_have_gpyr(&sift3d) ? &sift3d.gpyr : NULL;
 }

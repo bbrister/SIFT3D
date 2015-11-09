@@ -82,7 +82,6 @@ int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const src) {
         SIFT3D *const sift3d = &reg->sift3d;
         Keypoint_store *const kp_src = &reg->kp_src;
         SIFT3D_Descriptor_store *const desc_src = &reg->desc_src;
-        Pyramid *const gpyr = &sift3d->gpyr;
 
         // Copy the data
         if (im_copy_data(src, &reg->src))
@@ -96,7 +95,7 @@ int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const src) {
         }
 
         // Extract descriptors
-	if (SIFT3D_extract_descriptors(sift3d, gpyr, kp_src, desc_src)) {
+	if (SIFT3D_extract_descriptors(sift3d, kp_src, desc_src)) {
                 fprintf(stderr, "register_SIFT3D: failed to extract source "
                                 "descriptors \n");
                 return SIFT3D_FAILURE;
@@ -111,7 +110,6 @@ int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const ref) {
         SIFT3D *const sift3d = &reg->sift3d;
         Keypoint_store *const kp_ref = &reg->kp_ref;
         SIFT3D_Descriptor_store *const desc_ref = &reg->desc_ref;
-        Pyramid *const gpyr = &sift3d->gpyr;
 
         // Copy the data
         if (im_copy_data(ref, &reg->ref))
@@ -125,7 +123,7 @@ int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const ref) {
         }
 
         // Extract descriptors
-	if (SIFT3D_extract_descriptors(sift3d, gpyr, kp_ref, desc_ref)) {
+	if (SIFT3D_extract_descriptors(sift3d, kp_ref, desc_ref)) {
 		fprintf(stderr, "register_SIFT3D: failed to extract reference "
                         "descriptors\n");
                 return SIFT3D_FAILURE;

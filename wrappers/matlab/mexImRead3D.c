@@ -29,8 +29,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                 err_msgu("main:numInputs", "This function takes 1 input.");
 
         // Verify the number of outputs
-        if (nlhs > 1) 
-                err_msgu("main:numOutputs", "This function takes 1 output.");
+        if (nlhs > 2) 
+                err_msgu("main:numOutputs", "This function takes 2 outputs.");
 
         // Assign the inputs
         mxPath = prhs[0];
@@ -61,9 +61,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                                 "reading the image");
         }
 
-        // Convert the output to a MATLAB array
+        // Convert the output image to a MATLAB array
         if ((plhs[0] = im2mx(&im)) == NULL)
                 CLEAN_AND_QUIT("main:im2mx", "Failed to convert image to an "
+                        "mxArray");
+
+        // Convert the output units to a MATLAB array
+        if ((plhs[1] = units2mx(&im)) == NULL)
+                CLEAN_AND_QUIT("main:im2mx", "Failed to convert units to an "
                         "mxArray");
 
         // Clean up

@@ -18,3 +18,7 @@
 * Fixes to DICOM slice ordering (im_read, imRead3D)
 * Write more DICOM metadata (im_write, imWrite3D)
 * Corrected Mac build instructions
+
+## 1.2
+
+* Write more NIFTI metadata (im_write, imWrite3D)

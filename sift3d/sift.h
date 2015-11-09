@@ -65,8 +65,10 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
 int SIFT3D_detect_keypoints(SIFT3D *const sift3d, const Image *const im,
 			    Keypoint_store *const kp);
 
+int SIFT3D_have_gpyr(const SIFT3D *const sift3d);
+
 int SIFT3D_extract_descriptors(SIFT3D *const sift3d, 
-        const Pyramid *const gpyr, const Keypoint_store *const kp, 
+        const Keypoint_store *const kp, 
         SIFT3D_Descriptor_store *const desc);
 
 int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d, 

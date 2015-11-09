@@ -206,7 +206,7 @@ typedef struct _GSS_filters {
 
 	Gauss_filter first_gauss;		// Used on the very first blur
 	Gauss_filter *gauss_octave;		// Array of kernels for one octave
-	int num_filters;				// Number of filters for one octave
+	int num_filters;			// Number of filters for one octave
 	int first_level;
 	int last_level;
 
@@ -343,7 +343,10 @@ typedef struct _SIFT3D {
 	Pyramid dog;
 
 	// Image to process
-	const Image *im;
+	Image im;
+
+        // Isotropic-to-input scaling factors
+        double factors[IM_NDIMS];
 
 	// Parameters
 	double peak_thresh; // Keypoint peak threshold

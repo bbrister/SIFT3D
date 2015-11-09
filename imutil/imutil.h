@@ -163,6 +163,8 @@ int im_resize(Image *im);
 int im_concat(const Image *const src1, const Image *const src2, const int dim, 
 	      Image *const dst);
 
+int im_make_isotropic(const Image *const src, Image *const dst);
+
 float im_max_abs(const Image *const im);
 
 void im_scale(const Image *const im);

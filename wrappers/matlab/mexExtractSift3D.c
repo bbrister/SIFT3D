@@ -88,7 +88,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                                 SIFT3D_TRUE);
 
                 // Extract descriptors from the pyramid
-                if (mex_SIFT3D_extract_descriptors(gpyr, &kp, &desc))
+                if (mex_SIFT3D_extract_descriptors(&kp, &desc))
                         CLEAN_AND_QUIT("main:extractPyramid", 
                                 "Failed to extract pyramid descriptors",
                                 SIFT3D_FALSE);

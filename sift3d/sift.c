@@ -100,23 +100,32 @@ const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientaiton elements
  * rad is the radius of the window. vdisp is a pointer to a Cvec storing
  * the displacement from the window center. sqdisp is a float storing the
  * squared Euclidean distance from the window center.
- * 
- * Delimit with SIFT3D_IM_LOOP_END. */
+ *
+ * Delimit with IM_LOOP_SPHERE_END. */
 #define IM_LOOP_SPHERE_START(im, x, y, z, vcenter, rad, vdisp, sq_dist) \
-	const int x_start = (int) SIFT3D_MAX((int) (vcenter)->x - (int) ((rad) + 0.5), 1); \
-	const int x_end   = (int) SIFT3D_MIN((int) (vcenter)->x + (int) ((rad) + 0.5), im->nx - 2); \
-	const int y_start = (int) SIFT3D_MAX((int) (vcenter)->y - (int) ((rad) + 0.5), 1); \
-	const int y_end   = (int) SIFT3D_MIN((int) (vcenter)->y + (int) ((rad) + 0.5), im->ny - 2); \
-	const int z_start = (int) SIFT3D_MAX((int) (vcenter)->z - (int) ((rad) + 0.5), 1); \
-	const int z_end   = (int) SIFT3D_MIN((int) (vcenter)->z + (int) ((rad) + 0.5), im->nz - 2); \
-	SIFT3D_IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, y_start, y_end, \
-			      z_start, z_end) \
+{ \
+	const int x_start = \
+                (int) SIFT3D_MAX((int) (vcenter)->x - (int) ((rad) + 0.5), 1); \
+	const int x_end   = \
+                (int) SIFT3D_MIN((int) (vcenter)->x + (int) ((rad) + 0.5), im->nx - 2); \
+	const int y_start = \
+                (int) SIFT3D_MAX((int) (vcenter)->y - (int) ((rad) + 0.5), 1); \
+	const int y_end   = \
+                (int) SIFT3D_MIN((int) (vcenter)->y + (int) ((rad) + 0.5), im->ny - 2); \
+	const int z_start = \
+                (int) SIFT3D_MAX((int) (vcenter)->z - (int) ((rad) + 0.5), 1); \
+	const int z_end   = \
+                (int) SIFT3D_MIN((int) (vcenter)->z + (int) ((rad) + 0.5), im->nz - 2); \
+	SIFT3D_IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, y_start, \
+                 y_end, z_start, z_end) \
 	    (vdisp)->x = ((float) x + 0.5f) - (vcenter)->x; \
 	    (vdisp)->y = ((float) y + 0.5f) - (vcenter)->y; \
 	    (vdisp)->z = ((float) z + 0.5f) - (vcenter)->z; \
 	    (sq_dist) = SIFT3D_CVEC_L2_NORM_SQ(vdisp); \
 	    if ((sq_dist) > (rad) * (rad)) \
 		continue; \
+
+#define IM_LOOP_SPHERE_END } SIFT3D_IM_LOOP_END
 
 // Loop over all bins in a gradient histogram. If ICOS_HIST is defined, p
 // is not referenced
@@ -151,6 +160,8 @@ extern CL_data cl_data;
 
 /* Helper routines */
 static int init_geometry(SIFT3D *sift3d);
+static int make_isotropic_with_factors(const Image *const src, 
+        Image *const dst, double *const factors);
 static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im);
 static int resize_SIFT3D(SIFT3D *const sift3d);
 static int build_gpyr(SIFT3D *sift3d);
@@ -161,14 +172,17 @@ static int assign_eig_ori(SIFT3D *const sift3d, const Image *const im,
                           const Cvec *const vcenter,
                           const double sigma, Mat_rm *const R);
 static int assign_orientations(SIFT3D *sift3d, Keypoint_store *kp);
+static void kp_iso2input(const SIFT3D *const sift3d, Keypoint_store *const kp);
 static int Cvec_to_sbins(const Cvec * const vd, Svec * const bins);
 static void refine_Hist(Hist *hist);
 static int init_cl_SIFT3D(SIFT3D *sift3d);
 static int cart2bary(const Cvec * const cart, const Tri * const tri, 
 		      Cvec * const bary, float * const k);
+static int scale_Keypoint(const Keypoint *const src, 
+        const double *const factors, Keypoint *const dst);
 static int _SIFT3D_extract_descriptors(SIFT3D *const sift3d, 
-        const void *const im, const Keypoint_store *const kp, 
-        SIFT3D_Descriptor_store *const desc, const int use_gpyr);
+        const Pyramid *const gpyr, const Keypoint_store *const kp, 
+        SIFT3D_Descriptor_store *const desc);
 static void SIFT3D_desc_acc_interp(const SIFT3D * const sift3d, 
 				   const Cvec * const vbins, 
 				   const Cvec * const grad,
@@ -188,8 +202,6 @@ static void vox2hist(const Image *const im, const int x, const int y,
         const int z, Hist *const hist);
 static void hist2vox(Hist *const hist, const Image *const im, const int x, 
         const int y, const int z);
-static int smooth_raw_input(const SIFT3D *const sift3d, const Image *const src, 
-        Image *const dst);
 static int _SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
 		    const SIFT3D_Descriptor_store *const d2,
 		    const float nn_thresh, int **const matches, 
@@ -602,8 +614,8 @@ int init_SIFT3D(SIFT3D *sift3d) {
 	if (init_cl_SIFT3D(sift3d))
 		return SIFT3D_FAILURE;
 
-	// Initialize image to null, to mark for resizing
-	sift3d->im = NULL;
+	// Initialize the image data
+	init_im(&sift3d->im);
 
 	// Save data
 	dog->first_level = gpyr->first_level = -1;
@@ -636,7 +648,7 @@ int copy_SIFT3D(const SIFT3D *const src, SIFT3D *const dst) {
         dst->dense_rotate = src->dense_rotate;
 
         // Initialize the image pointer, pyramid dimensions, and GSS
-        set_im_SIFT3D(dst, src->im);
+        set_im_SIFT3D(dst, &src->im);
 
         // Copy the pyramids, if any
         if (copy_Pyramid(&src->gpyr, &dst->gpyr) ||
@@ -909,19 +921,57 @@ parse_args_quit:
         return -1;
 }
 
+/* Helper routine to transform an image to make it isotropic, and compute
+ * the input-to-isotropic scaling factors. 
+ *
+ * Parameters:
+ * -src: see im_make_isotropic
+ * -dst: see im_make_isotropic
+ * -factors: an array of length IM_NDIMS, where the factors will be written. 
+ *
+ * Return: SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
+static int make_isotropic_with_factors(const Image *const src, 
+        Image *const dst, double *const factors) {
+
+        int i;
+
+        // Make an isotropic copy of the input image
+        if (im_make_isotropic(src, dst))
+                return SIFT3D_FAILURE;
+
+        // Save the input-to-isotropic scaling factors
+        for (i = 0; i < IM_NDIMS; i++) {
+                const double u_old = SIFT3D_IM_GET_UNITS(src)[i];
+                const double u_new = SIFT3D_IM_GET_UNITS(dst)[i];
+                factors[i] = u_old / u_new;
+        }
+
+        return SIFT3D_SUCCESS;
+}
+
 /* Helper routine to begin processing a new image. If the dimensions differ
  * from the last one, this function resizes the SIFT3D struct. */
 static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im) {
 
+        int dims_old[IM_NDIMS];
+        int i;
 
-	Image const *im_old = sift3d->im;
+        Image *const im_new = &sift3d->im;
+	const float *const data_old = sift3d->im.data;
 
-        // Initialize the image
-        sift3d->im = (Image *const) im;
+        // Make a temporary copy the previous image dimensions
+        for (i = 0; i < IM_NDIMS; i++) {
+                dims_old[i] = sift3d->im.dims[i];
+        }
+
+        // Make an isotropic copy of the input image
+        if (make_isotropic_with_factors(im, &sift3d->im, sift3d->factors))
+                return SIFT3D_FAILURE;
 
         // Resize the internal data, if necessary
-        if ((im_old == NULL || im->nx != im_old->nx || im->ny != im_old->ny || 
-            im->nz != im_old->nz) && resize_SIFT3D(sift3d))
+        if ((data_old == NULL || 
+                memcmp(dims_old, sift3d->im.dims, IM_NDIMS * sizeof(int))) &&
+                resize_SIFT3D(sift3d))
                 return SIFT3D_FAILURE;
 
         return SIFT3D_SUCCESS;
@@ -933,11 +983,11 @@ static int resize_SIFT3D(SIFT3D *const sift3d) {
 
 	int last_octave, num_octaves; 
 
-        const Image *const im = sift3d->im;
+        const Image *const im = &sift3d->im;
 	const int first_octave = sift3d->gpyr.first_octave;
 
         // Do nothing if we have no image
-        if (im == NULL)
+        if (im->data == NULL)
                 return SIFT3D_SUCCESS;
 
 	// Compute the number of octaves, if not specified by user
@@ -964,8 +1014,8 @@ static int resize_SIFT3D(SIFT3D *const sift3d) {
 	sift3d->dog.num_octaves = sift3d->gpyr.num_octaves = num_octaves;
 
 	// Resize the pyramid
-	if (resize_Pyramid(sift3d->im, &sift3d->gpyr) ||
-		resize_Pyramid(sift3d->im, &sift3d->dog))
+	if (resize_Pyramid(&sift3d->im, &sift3d->gpyr) ||
+		resize_Pyramid(&sift3d->im, &sift3d->dog))
 		return SIFT3D_FAILURE;
 
 	// Compute the Gaussian filters
@@ -992,7 +1042,7 @@ static int build_gpyr(SIFT3D *sift3d) {
 
 	// Build the first image
 	cur = SIFT3D_PYR_IM_GET(gpyr, o_start, s_start - 1);
-	prev = sift3d->im;
+	prev = &sift3d->im;
 #ifdef SIFT3D_USE_OPENCL
 	if (im_load_cl(cur, SIFT3D_FALSE))
 		return SIFT3D_FAILURE;	
@@ -1486,7 +1536,7 @@ static int assign_eig_ori(SIFT3D *const sift3d, const Image *const im,
 
 	// Update the window gradient
 	SIFT3D_CVEC_OP(&vd_win, &vd, +, &vd_win);
-    SIFT3D_IM_LOOP_END
+    IM_LOOP_SPHERE_END
 
     // Fill in the remaining elements
     SIFT3D_MAT_RM_GET(&A, 1, 0, double) = SIFT3D_MAT_RM_GET(&A, 0, 1, double);
@@ -1626,6 +1676,40 @@ static int assign_orientations(SIFT3D *sift3d,
         return resize_Keypoint_store(kp, num);
 }
 
+/* Convert the detected keypoints from isotropic space back to the input image
+ * space. */
+static void kp_iso2input(const SIFT3D *const sift3d, Keypoint_store *const kp) {
+
+        double inv_factors[IM_NDIMS];
+        int i;
+
+        // Invert the scaling factors
+        for (i = 0; i < IM_NDIMS; i++) {
+               inv_factors[i] = 1.0 / sift3d->factors[i];
+        }
+
+        //XXX
+        printf("first keypoint before inverse scaling: (%f, %f, %f) \n",
+                kp->buf[0].xd, kp->buf[0].yd, kp->buf[0].zd);
+
+        // Scale the keypoints
+        for (i = 0; i < kp->slab.num; i++) {
+
+                Keypoint *const key = kp->buf + i;
+
+                key->xd *= inv_factors[0];
+                key->yd *= inv_factors[1];
+                key->zd *= inv_factors[2];
+                key->xi = (int) key->xd;
+                key->yi = (int) key->yd;
+                key->zi = (int) key->zd;
+        }
+
+        //XXX
+        printf("first keypoint after inverse scaling: (%f, %f, %f) \n",
+                kp->buf[0].xd, kp->buf[0].yd, kp->buf[0].zd);
+}
+
 /* Detect keypoint locations and orientations. You must initialize
  * the SIFT3D struct, image, and keypoint store with the appropriate
  * functions prior to calling this function. */
@@ -1663,6 +1747,9 @@ int SIFT3D_detect_keypoints(SIFT3D *const sift3d, const Image *const im,
 	// Assign orientations
 	if (assign_orientations(sift3d, kp))
 		return SIFT3D_FAILURE;
+
+        // Convert the keypoints back to the input image space
+        kp_iso2input(sift3d, kp);
 
 	return SIFT3D_SUCCESS;
 }
@@ -1880,7 +1967,7 @@ static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
                 hist_zero(hist);
 	}
 
-	// Iterate over a sphere window in image space
+	// Iterate over a sphere window in real-world coordinates 
 	vcenter.x = key->xd;
 	vcenter.y = key->yd;
 	vcenter.z = key->zd;
@@ -1913,7 +2000,7 @@ static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
 
 		// Finally, accumulate bins by 5x linear interpolation
 		SIFT3D_desc_acc_interp(sift3d, &vbins, &grad_rot, desc);
-	SIFT3D_IM_LOOP_END
+	IM_LOOP_SPHERE_END
 
 	// Histogram refinement steps
 	for (i = 0; i < DESC_NUM_TOTAL_HIST; i++) {
@@ -1943,14 +2030,90 @@ static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
 	desc->sd = key->sd;
 }
 
-/* Extract SIFT3D descriptors from a list of keypoints and 
- * a Gaussian scale-space pyramid. To extract from an image, see 
- * SIFT3D_extract_raw_descriptors. 
+/* Check if the Gaussian scale-space pyramid in a SIFT3D struct is valid. This
+ * shall return SIFT3D_TRUE if the struct was initialized, and 
+ * SIFT3D_detect_keypoints has been successfully called on it since 
+ * initialization. 
+ *
+ * Note: sift3d must be initialized before calling this function. */
+int SIFT3D_have_gpyr(const SIFT3D *const sift3d) {
+
+        const Pyramid *const gpyr = &sift3d->gpyr;
+
+        return gpyr->levels != NULL && gpyr->num_levels != 0 && 
+                gpyr->num_octaves != 0;
+}
+
+/* Helper function to scale keypoint coordinates.
  *
  * Parameters:
- *  sift3d - (initialized) struct defining the algorithm parameters
- *  gpyr - Pointer to a Gaussian pyramid. Descriptors are extracted at the
- *       specified pyramid level of each keypoint.
+ *  -src: The source keypoints.
+ *  -factors: An array of length IM_NDIMS specifying the scaling factors.
+ *  -dst: The scaled keypoints.
+ *
+ * Return: SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
+static int scale_Keypoint(const Keypoint *const src, 
+        const double *const factors, Keypoint *const dst) {
+
+        // Copy the source keypoint
+        if (copy_Keypoint(src, dst)) {
+                fputs("scale_Keypoint: failed to convert keypoints", 
+                        stderr);
+                return SIFT3D_FAILURE;
+        }
+      
+        // Scale the coordinates 
+        dst->xd *= factors[0];
+        dst->yd *= factors[1];
+        dst->zd *= factors[2];
+
+        // Derive the integer coordinates
+        dst->xi = (int) dst->xd;
+        dst->yi = (int) dst->yd;
+        dst->zi = (int) dst->zd;
+
+        return SIFT3D_SUCCESS;
+}
+
+/* Helper function to scale descriptor coordinates from isotropic space back to
+ * the input space. 
+ *
+ * Parameters:
+ *  -factors: see SIFT3D.factors 
+ *  -desc: see SIFT3D_extract_descriptors */
+void desc_iso2input(const double *const factors, 
+        SIFT3D_Descriptor_store *const desc) {
+
+        double inv_factors[IM_NDIMS];
+        int i;
+
+        // Invert the scaling factors
+        for (i = 0; i < IM_NDIMS; i++) {
+               inv_factors[i] = 1.0 / factors[i];
+        }
+
+        // Scale the descriptors
+        for (i = 0; i < desc->num; i++) {
+
+                SIFT3D_Descriptor *const descriptor = desc->buf + i;
+
+                descriptor->xd *= inv_factors[0];
+                descriptor->yd *= inv_factors[1];
+                descriptor->zd *= inv_factors[2];
+        }
+}
+
+/* Extract SIFT3D descriptors from a list of keypoints. Uses the Gaussian
+ * scale-space pyramid from the previous call to SIFT3D_detect_keypoints on
+ * this SIFT3D struct. To extract from an image, see 
+ * SIFT3D_extract_raw_descriptors. 
+ *
+ * Note: To check if SIFT3D_detect_keypoints has been called on this struct,
+ * use SIFT3D_have_gpyr.
+ *
+ * Parameters:
+ *  sift3d - (initialized) struct defining the algorithm parameters. Must have
+ *      been used in some previous call to SIFT3D_detect_keypoints.
  *  kp - keypoint list populated by a feature detector 
  *  desc - (initialized) struct to hold the descriptors
  *
@@ -1958,10 +2121,59 @@ static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
  *  Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise.
  */
 int SIFT3D_extract_descriptors(SIFT3D *const sift3d, 
-        const Pyramid *const gpyr, const Keypoint_store *const kp, 
+        const Keypoint_store *const kp, 
         SIFT3D_Descriptor_store *const desc) {
-        return _SIFT3D_extract_descriptors(sift3d, gpyr, kp, desc, 
-                SIFT3D_TRUE);
+
+        Keypoint_store kp_iso;
+        int i;
+
+        // Check if a Gaussian scale-space pyramid is available for processing
+        if (!SIFT3D_have_gpyr(sift3d)) {
+                fputs("SIFT3D_extract_descriptors: no Gaussian pyramid is "
+                        "available. Make sure SIFT3D_detect_keypoints was "
+                        "called prior to calling this function. \n", stderr);
+                return SIFT3D_FAILURE;
+        }
+
+        // Initialize intermediates
+        init_Keypoint_store(&kp_iso);
+
+        // Allocate a temporary copy of the keypoints
+        if (resize_Keypoint_store(&kp_iso, kp->slab.num))
+                goto extract_descriptors_quit;
+
+        //XXX
+        printf("first keypoint before descriptor scaling: (%f, %f, %f) \n",
+                kp->buf[0].xd, kp->buf[0].yd, kp->buf[0].zd);
+
+        // Convert keypoints to isotropic coordinates
+        for (i = 0; i < kp->slab.num; i++) {
+
+                const Keypoint *const src = kp->buf + i;
+                Keypoint *const dst = kp_iso.buf + i;
+
+                if (scale_Keypoint(src, sift3d->factors, dst))
+                        goto extract_descriptors_quit;
+        }
+
+        //XXX
+        printf("first keypoint after descriptor scaling: (%f, %f, %f) \n",
+                kp_iso.buf[0].xd, kp_iso.buf[0].yd, kp_iso.buf[0].zd);
+
+        // Extract features
+        if (_SIFT3D_extract_descriptors(sift3d, &sift3d->gpyr, &kp_iso, desc))
+                goto extract_descriptors_quit;
+
+        // Convert descriptors back to original coordinates
+        desc_iso2input(sift3d->factors, desc);
+
+        // Clean up
+        cleanup_Keypoint_store(&kp_iso);
+        return SIFT3D_SUCCESS;
+
+extract_descriptors_quit:
+        cleanup_Keypoint_store(&kp_iso);
+        return SIFT3D_FAILURE;
 }
 
 /* Extract SIFT3D descriptors from a list of keypoints and 
@@ -1981,8 +2193,114 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d,
 int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d, 
         const Image *const im, const Keypoint_store *const kp, 
         SIFT3D_Descriptor_store *const desc) {
-        return _SIFT3D_extract_descriptors(sift3d, im, kp, desc, 
-                SIFT3D_FALSE);
+
+        double factors[IM_NDIMS];
+        Keypoint_store kp_iso;
+        Pyramid pyr;
+        Image im_interp;
+        Image *level;
+        int i;
+
+        const int first_octave = 0;
+        const int first_level = 0;
+        const double scale_factor = pow(2.0, -first_octave);
+
+        // Initialize intermediates
+        init_im(&im_interp);
+        init_Pyramid(&pyr);
+        init_Keypoint_store(&kp_iso);
+
+        // Check keypoint validity
+        for (i = 0; i < kp->slab.num; i++) {
+
+                const Keypoint *key = kp->buf + i;
+
+                if (key->xd >= 0 &&
+                        key->yd >= 0 &&
+                        key->zd >= 0 &&
+                        key->xd < (double) im->nx && 
+                        key->yd < (double) im->ny && 
+                        key->zd < (double) im->nz)
+                        continue;
+
+                fprintf(stderr, "SIFT3D_extract_raw_descriptors: keypoint %d "
+                        "(%f, %f, %f) exceeds image dimensions (%d, %d, %d) "
+                        "\n", i, key->xd, key->yd, key->zd, im->nx, im->ny,     
+                        im->nz);
+                goto extract_raw_descriptors_quit;
+        }
+
+        // Interpolate the input image to make it isotropic
+        if (make_isotropic_with_factors(im, &im_interp, factors))
+                goto extract_raw_descriptors_quit;
+
+        // Initialize the image pyramid
+        pyr.num_kp_levels = 1;
+        pyr.num_levels = 1;
+        pyr.first_level = 0;
+        pyr.last_level = 0;
+        pyr.first_octave = first_octave;
+        pyr.last_octave = first_level;
+        if (resize_Pyramid(&im_interp, &pyr))
+                goto extract_raw_descriptors_quit;
+
+        // Smooth the input image, storing the result in the pyramid
+        level = SIFT3D_PYR_IM_GET(&pyr, first_octave, first_level); 
+        if (apply_Sep_FIR_filter(&im_interp, level, &sift3d->gss.first_gauss.f))
+                goto extract_raw_descriptors_quit;
+
+
+        // Allocate a temporary copy of the keypoints
+        if (resize_Keypoint_store(&kp_iso, kp->slab.num))
+                goto extract_raw_descriptors_quit;
+
+        // Convert keypoints to isotropic coordinates in the base scale and 
+        // octave
+        for (i = 0; i < kp->slab.num; i++) {
+
+                double base_factors[IM_NDIMS];
+                int j;
+
+                const Keypoint *const src = kp->buf + i;
+                Keypoint *const dst = kp_iso.buf + i; 
+
+                const double octave_factor = 
+                        pow(2.0, src->o - first_octave);
+
+                // Convert the factors to the base octave
+                for (j = 0; j < IM_NDIMS; j++) {
+                        base_factors[j] = factors[j] * octave_factor;
+                }
+
+                // Scale the keypoint
+                if (scale_Keypoint(src, base_factors, dst))
+                        goto extract_raw_descriptors_quit;
+
+                // Assign the keypoint the base octave and scale level
+                dst->o = first_octave;
+                dst->s = first_level;
+                dst->sd_rel = dst->sd * scale_factor;
+        }
+
+        // Extract the descriptors
+        if (_SIFT3D_extract_descriptors(sift3d, &pyr, &kp_iso, desc))
+                goto extract_raw_descriptors_quit;
+
+        // Convert descriptors back to original coordinates
+        desc_iso2input(factors, desc);
+
+        // Clean up
+        im_free(&im_interp);
+        cleanup_Pyramid(&pyr);
+        cleanup_Keypoint_store(&kp_iso);
+
+        return SIFT3D_SUCCESS;
+
+extract_raw_descriptors_quit:
+        im_free(&im_interp);
+        cleanup_Pyramid(&pyr);
+        cleanup_Keypoint_store(&kp_iso);
+        return SIFT3D_FAILURE;
 }
 
 /* Helper funciton to extract SIFT3D descriptors from a list of keypoints and 
@@ -1991,98 +2309,42 @@ int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d,
  *
  * parameters:
  *  sift3d - (initialized) struct defining the algorithm parameters
- *  im - If use_gpyr == 0, this is a pointer to an Image and features are 
- *       extracted from the "raw" data. Else, this is a pointer to a Pyramid 
- *       and features are extracted at the pyramid level of the keypoint. In 
- *       "raw" data mode, this function will smooth the input image prior to 
- *       extracting descriptors.
+ *  gpyr - A Gaussian Scale-Space pyramid containing the image data
  *  kp - keypoint list populated by a feature detector 
  *  desc - (initialized) struct to hold the descriptors
  *  use_gpyr - see im for details */
 static int _SIFT3D_extract_descriptors(SIFT3D *const sift3d, 
-        const void *const im, const Keypoint_store *const kp, 
-        SIFT3D_Descriptor_store *const desc, const int use_gpyr) {
+        const Pyramid *const gpyr, const Keypoint_store *const kp, 
+        SIFT3D_Descriptor_store *const desc) {
 
-        Image im_smooth;
-        Keypoint key_base;
-	const Image *first_level;
 	int i;
 
-        // Initialize intermediates
-        init_im(&im_smooth);
-        init_Keypoint(&key_base);
+	const Image *const first_level = 
+                SIFT3D_PYR_IM_GET(gpyr, gpyr->first_octave, gpyr->first_level);
+
+	// Initialize the metadata 
+	desc->nx = first_level->nx;	
+	desc->ny = first_level->ny;	
+	desc->nz = first_level->nz;	
 
 	// Resize the descriptor store
 	desc->num = kp->slab.num;
 	if ((desc->buf = (SIFT3D_Descriptor *) realloc(desc->buf, desc->num * 
 				sizeof(SIFT3D_Descriptor))) == NULL)
-                goto extract_descriptors_quit;
-
-	// Initialize the image data and information
-	if (use_gpyr) {
-		const Pyramid *const gpyr = im;
-		first_level = SIFT3D_PYR_IM_GET(gpyr, gpyr->first_octave, 
-                        gpyr->first_level);
-	} else {
-                // Smooth the input image
-		first_level = &im_smooth;
-                if (smooth_raw_input(sift3d, im, &im_smooth))
-                        goto extract_descriptors_quit;
-        }
-	desc->nx = first_level->nx;	
-	desc->ny = first_level->ny;	
-	desc->nz = first_level->nz;	
+                return SIFT3D_FAILURE;
 
         // Extract the descriptors
 	for (i = 0; i < desc->num; i++) {
 
-                const Keypoint *key_arg;
-
                 const Keypoint *const key = kp->buf + i;
 		SIFT3D_Descriptor *const descrip = desc->buf + i;
-		const Image *const level = use_gpyr ? 
-                        SIFT3D_PYR_IM_GET((Pyramid *) im, key->o, key->s) : 
-                        &im_smooth;
+		const Image *const level = 
+                        SIFT3D_PYR_IM_GET(gpyr, key->o, key->s);
 
-                // Assign the input keypoint
-                if (use_gpyr || key->o == 0) {
-                        // Use the provided keypoint 
-                        key_arg = key;
-                } else {
-
-                        const double coord_factor = pow(2.0, key->o);
-        
-                        // Convert the keypoint to the base octave
-                        if (copy_Keypoint(key, &key_base)) {
-                                fputs("SIFT3D_extract_descriptors: failed to "
-                                        "convert keypoint to base octave", 
-                                        stderr);
-                                goto extract_descriptors_quit;
-                        }
-                        key_base.xd *= coord_factor;
-                        key_base.yd *= coord_factor;
-                        key_base.zd *= coord_factor;
-                        key_base.xi = (int) key_base.xd;
-                        key_base.yi = (int) key_base.yd;
-                        key_base.zi = (int) key_base.zd;
-                        key_base.o = 0;
-                        key_base.sd_rel = key_base.sd;
-                        key_arg = &key_base;
-
-                }
-
-		extract_descrip(sift3d, level, key_arg, descrip);
+		extract_descrip(sift3d, level, key, descrip);
 	}	
 
-        // Clean up
-        im_free(&im_smooth);
-
 	return SIFT3D_SUCCESS;
-
-extract_descriptors_quit:
-        // Clean up and return an error
-        im_free(&im_smooth);
-        return SIFT3D_FAILURE;
 }
 
 /* L2-normalize a histogram */
@@ -2151,7 +2413,7 @@ static void extract_dense_descrip_rotate(SIFT3D *const sift3d,
 	// Zero the descriptor
         hist_zero(hist);
 
-	// Iterate over a sphere window in image space
+	// Iterate over a sphere window in real-world coordinates
 	IM_LOOP_SPHERE_START(im, x, y, z, vcenter, win_radius, &vim, sq_dist)
 
 		// Take the gradient and rotate
@@ -2173,7 +2435,7 @@ static void extract_dense_descrip_rotate(SIFT3D *const sift3d,
                 MESH_HIST_GET(mesh, hist, bin, 1) += mag * weight * bary.y;
                 MESH_HIST_GET(mesh, hist, bin, 2) += mag * weight * bary.z;
 
-	SIFT3D_IM_LOOP_END
+	IM_LOOP_SPHERE_END
 }
 
 /* Get a descriptor with a single histogram at each voxel of an image.
@@ -2212,9 +2474,11 @@ int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d,
         if (im_resize(desc))
                 return SIFT3D_FAILURE;
 
+        //TODO: Interpolate to be isotropic
+
         // Initialize the smoothed input image
         init_im(&in_smooth);
-        if (smooth_raw_input(sift3d, in, &in_smooth))
+        if (apply_Sep_FIR_filter(in, &in_smooth, &sift3d->gss.first_gauss.f))
                 goto extract_dense_quit;
 
         // Extract the descriptors
@@ -2240,6 +2504,7 @@ int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d,
 
         SIFT3D_IM_LOOP_END
 
+        // TODO transform back to original space
 
         // Clean up
         im_free(&in_smooth);
@@ -2413,38 +2678,6 @@ dense_rotate_quit:
         cleanup_Mat_rm(&R);
         cleanup_Mat_rm(&Id);
         return SIFT3D_FAILURE;
-}
-
-/* Smooth a "raw" input image from sigma_n to sigma0 */
-static int smooth_raw_input(const SIFT3D *const sift3d, const Image *const src,
-        Image *const dst) {
-
-        Gauss_filter gauss;
-
-        const double sigma_n = sift3d->gpyr.sigma_n;
-        const double sigma0 = sift3d->gpyr.sigma0;
-
-        // Resize the output
-        if (im_copy_dims(src, dst))
-                return SIFT3D_FAILURE;
-
-        // Initialize the smoothing filter
-        if (init_Gauss_incremental_filter(&gauss, sigma_n, sigma0, IM_NDIMS))
-                return SIFT3D_FAILURE;
-
-        // Smooth the input image
-        if (apply_Sep_FIR_filter(src, dst, &gauss.f))
-                goto smooth_raw_input_quit;
-
-        // Clean up
-        cleanup_Gauss_filter(&gauss);
-
-        return SIFT3D_SUCCESS;
-
-smooth_raw_input_quit:
-        // Clean up and return an error
-        cleanup_Gauss_filter(&gauss);
-        return SIFT3D_FAILURE; 
 }
 
 /* Convert a keypoint store to a matrix. 

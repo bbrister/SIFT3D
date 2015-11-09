@@ -164,8 +164,7 @@ int main(int argc, char *argv[]) {
         if (desc_path != NULL) {
 
                 // Extract descriptors
-	        if (SIFT3D_extract_descriptors(&sift3d, &sift3d.gpyr, &kp,
-                        &desc)) {
+	        if (SIFT3D_extract_descriptors(&sift3d, &kp,&desc)) {
                         err_msgu("Failed to extract descriptors.");
                         return 1;
                 }

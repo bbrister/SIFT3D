@@ -57,8 +57,7 @@ int demo(void) {
         printf("Keypoints written to %s. \n", keys_path);
 
         // Extract descriptors
-        if (SIFT3D_extract_descriptors(&sift3d, &sift3d.gpyr, &kp,
-                &desc))
+        if (SIFT3D_extract_descriptors(&sift3d, &kp, &desc))
                 goto demo_quit;
 
         // Write the descriptors to a file
