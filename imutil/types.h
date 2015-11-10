@@ -231,12 +231,10 @@ typedef struct _Pyramid {
 	int num_kp_levels;
 
 	// Indexing information -- see macros.h
-	int num_octaves;
-	int num_levels;
 	int first_octave;
-	int last_octave;
+	int num_octaves;
 	int first_level;
-	int last_level;	
+	int num_levels;
 
 } Pyramid;
 

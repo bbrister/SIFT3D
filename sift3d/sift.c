@@ -163,7 +163,10 @@ static int init_geometry(SIFT3D *sift3d);
 static int make_isotropic_with_factors(const Image *const src, 
         Image *const dst, double *const factors);
 static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im);
-static int resize_SIFT3D(SIFT3D *const sift3d);
+static int set_scales_SIFT3D(SIFT3D *const sift3d, const double sigma0,
+        const double sigma_n);
+static int resize_SIFT3D(SIFT3D *const sift3d, const int first_octave, 
+        const int num_octaves, const int num_kp_levels);
 static int build_gpyr(SIFT3D *sift3d);
 static int build_dog(SIFT3D *dog);
 static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp);
@@ -180,6 +183,8 @@ static int cart2bary(const Cvec * const cart, const Tri * const tri,
 		      Cvec * const bary, float * const k);
 static int scale_Keypoint(const Keypoint *const src, 
         const double *const factors, Keypoint *const dst);
+static int smooth_raw_input(const SIFT3D *const sift3d, const Image *const src,
+        Image *const dst);
 static int _SIFT3D_extract_descriptors(SIFT3D *const sift3d, 
         const Pyramid *const gpyr, const Keypoint_store *const kp, 
         SIFT3D_Descriptor_store *const desc);
@@ -490,9 +495,12 @@ static int init_cl_SIFT3D(SIFT3D *sift3d) {
 int set_first_octave_SIFT3D(SIFT3D *const sift3d, 
                                 const int first_octave) {
 
-	sift3d->dog.first_octave = sift3d->gpyr.first_octave = first_octave;
+        const Pyramid *const gpyr = &sift3d->gpyr;
+        const int num_octaves = gpyr->num_octaves;
+        const int num_kp_levels = gpyr->num_kp_levels;
 
-        return resize_SIFT3D(sift3d);
+        return resize_SIFT3D(sift3d, first_octave, num_octaves,
+                num_kp_levels);
 }
 
 /* Sets the peak threshold, checking that it is in the interval (0, inf) */
@@ -527,9 +535,12 @@ int set_corner_thresh_SIFT3D(SIFT3D *const sift3d,
 int set_num_octaves_SIFT3D(SIFT3D *const sift3d,
                                 const unsigned int num_octaves) {
 
-	sift3d->dog.num_octaves = sift3d->gpyr.num_octaves = (int) num_octaves;
+        const Pyramid *const gpyr = &sift3d->gpyr;
+        const int first_octave = gpyr->first_octave;
+        const int num_kp_levels = gpyr->num_kp_levels;
 
-        return resize_SIFT3D(sift3d);
+        return resize_SIFT3D(sift3d, first_octave, num_octaves, 
+                num_kp_levels);
 }
 
 /* Sets the number of levels per octave. This function will resize the
@@ -537,17 +548,12 @@ int set_num_octaves_SIFT3D(SIFT3D *const sift3d,
 int set_num_kp_levels_SIFT3D(SIFT3D *const sift3d,
                                 const unsigned int num_kp_levels) {
 
-	const int num_dog_levels = (int) num_kp_levels + 2;
-	const int num_gpyr_levels = num_dog_levels + 1;
+        const Pyramid *const gpyr = &sift3d->gpyr;
+        const int first_octave = sift3d->gpyr.first_octave;
+        const int num_octaves = gpyr->num_octaves;
 
-        // Set the new parameter
-	sift3d->dog.num_kp_levels = sift3d->gpyr.num_kp_levels = 
-                (int) num_kp_levels;
-	sift3d->dog.num_levels = num_dog_levels;
-	sift3d->gpyr.num_levels = num_gpyr_levels;
-
-        // Resize the data
-        return resize_SIFT3D(sift3d);
+        return resize_SIFT3D(sift3d, first_octave, num_octaves,
+                num_kp_levels);
 }
 
 /* Sets the nominal scale parameter of the input data, checking that it is 
@@ -555,14 +561,15 @@ int set_num_kp_levels_SIFT3D(SIFT3D *const sift3d,
 int set_sigma_n_SIFT3D(SIFT3D *const sift3d,
                                 const double sigma_n) {
 
+        const double sigma0 = sift3d->gpyr.sigma0;
+
         if (sigma_n < 0.0) {
                 fprintf(stderr, "SIFT3D sigma_n must be nonnegative. Provided: "
                         "%f \n", sigma_n);
                 return SIFT3D_FAILURE;
         }
 
-	sift3d->dog.sigma_n = sift3d->gpyr.sigma_n = sigma_n;
-        return SIFT3D_SUCCESS;
+        return set_scales_SIFT3D(sift3d, sigma0, sigma_n);
 }
 
 /* Sets the scale parameter of the first level of octave 0, checking that it
@@ -570,14 +577,15 @@ int set_sigma_n_SIFT3D(SIFT3D *const sift3d,
 int set_sigma0_SIFT3D(SIFT3D *const sift3d,
                                 const double sigma0) {
 
+        const double sigma_n = sift3d->gpyr.sigma_n;
+
         if (sigma0 < 0.0) {
                 fprintf(stderr, "SIFT3D sigma0 must be nonnegative. Provided: "
                         "%f \n", sigma0);
                 return SIFT3D_FAILURE; 
         } 
 
-	sift3d->dog.sigma0 = sift3d->gpyr.sigma0 = sigma0;
-        return SIFT3D_SUCCESS;
+        return set_scales_SIFT3D(sift3d, sigma0, sigma_n);
 }
 
 /* Initialize a SIFT3D struct with the default parameters. */
@@ -593,7 +601,6 @@ int init_SIFT3D(SIFT3D *sift3d) {
 	const int first_octave = first_octave_default;
 	const double peak_thresh = peak_thresh_default;
 	const double corner_thresh = corner_thresh_default;
-	const int num_octaves = -1;
 	const int num_kp_levels = num_kp_levels_default;
 	const double sigma_n = sigma_n_default;
 	const double sigma0 = sigma0_default;
@@ -619,15 +626,14 @@ int init_SIFT3D(SIFT3D *sift3d) {
 
 	// Save data
 	dog->first_level = gpyr->first_level = -1;
-        set_sigma_n_SIFT3D(sift3d, sigma_n);
-        set_sigma0_SIFT3D(sift3d, sigma0);
-        if (set_first_octave_SIFT3D(sift3d, first_octave) ||
-            set_peak_thresh_SIFT3D(sift3d, peak_thresh) ||
-            set_corner_thresh_SIFT3D(sift3d, corner_thresh) ||
-            set_num_octaves_SIFT3D(sift3d, num_octaves) ||
-            set_num_kp_levels_SIFT3D(sift3d, num_kp_levels))
-                return SIFT3D_FAILURE;
         sift3d->dense_rotate = dense_rotate;
+        if (set_sigma_n_SIFT3D(sift3d, sigma_n) ||
+                set_sigma0_SIFT3D(sift3d, sigma0) ||
+                set_first_octave_SIFT3D(sift3d, first_octave) ||
+                set_peak_thresh_SIFT3D(sift3d, peak_thresh) ||
+                set_corner_thresh_SIFT3D(sift3d, corner_thresh) ||
+                set_num_kp_levels_SIFT3D(sift3d, num_kp_levels))
+                return SIFT3D_FAILURE;
 
 	return SIFT3D_SUCCESS;
 }
@@ -958,6 +964,10 @@ static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im) {
 
         Image *const im_new = &sift3d->im;
 	const float *const data_old = sift3d->im.data;
+        const Pyramid *const gpyr = &sift3d->gpyr;
+        const int first_octave = sift3d->gpyr.first_octave;
+        const int num_octaves = gpyr->num_octaves;
+        const int num_kp_levels = gpyr->num_kp_levels;
 
         // Make a temporary copy the previous image dimensions
         for (i = 0; i < IM_NDIMS; i++) {
@@ -971,52 +981,78 @@ static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im) {
         // Resize the internal data, if necessary
         if ((data_old == NULL || 
                 memcmp(dims_old, sift3d->im.dims, IM_NDIMS * sizeof(int))) &&
-                resize_SIFT3D(sift3d))
+                resize_SIFT3D(sift3d, first_octave, num_octaves, 
+                        num_kp_levels))
                 return SIFT3D_FAILURE;
 
         return SIFT3D_SUCCESS;
 }
 
-/* Resize a SIFT3D struct, allocating temporary storage and recompiling the 
- * filters. Does nothing unless set_im_SIFT3D was previously called. */
-static int resize_SIFT3D(SIFT3D *const sift3d) {
+/* Helper function to set the scale parameters for a SIFT3D struct. */
+static int set_scales_SIFT3D(SIFT3D *const sift3d, const double sigma0,
+        const double sigma_n) {
 
-	int last_octave, num_octaves; 
+        Pyramid *const gpyr = &sift3d->gpyr;
+        Pyramid *const dog = &sift3d->dog;
+        GSS_filters *const gss = &sift3d->gss;
 
-        const Image *const im = &sift3d->im;
-	const int first_octave = sift3d->gpyr.first_octave;
+        // Set the scales for the GSS and DOG pyramids
+        set_scales_Pyramid(sigma0, sigma_n, gpyr);
+        set_scales_Pyramid(sigma0, sigma_n, dog);
 
-        // Do nothing if we have no image
-        if (im->data == NULL)
+        // Do nothing more if we have no image
+        if (sift3d->im.data == NULL)
                 return SIFT3D_SUCCESS;
 
+        // Recompute the filters
+	return make_gss(gss, gpyr);
+}
+
+/* Resize a SIFT3D struct, allocating temporary storage and recompiling the 
+ * filters. Does nothing unless set_im_SIFT3D was previously called. */
+static int resize_SIFT3D(SIFT3D *const sift3d, const int first_octave, 
+        const int num_octaves, const int num_kp_levels) {
+
+        unsigned int arg_num_octaves; 
+        int last_octave; 
+
+        const Image *const im = &sift3d->im;
+        Pyramid *const gpyr = &sift3d->gpyr;
+        Pyramid *const dog = &sift3d->dog;
+	const unsigned int num_dog_levels = num_kp_levels + 2;
+	const unsigned int num_gpyr_levels = num_dog_levels + 1;
+        const int first_level = -1;
+
 	// Compute the number of octaves, if not specified by user
-	if ((num_octaves = sift3d->gpyr.num_octaves) == -1) {
-		last_octave = (int) log2((double) SIFT3D_MIN(
-                // The minimum size is 8 in any dimension
-                SIFT3D_MIN(im->nx, im->ny), im->nz)) - 3 - first_octave;
+	if (num_octaves == 0 && im->data != NULL) {
+                // The minimum size of a pyramid level is 8 in any dimension
+		last_octave = 
+                        (int) log2((double) SIFT3D_MIN(SIFT3D_MIN(im->nx, im->ny), 
+                        im->nz)) - 3 - first_octave;
 
-		num_octaves = last_octave - first_octave + 1;
+		arg_num_octaves = last_octave - first_octave + 1;
 
-                if (num_octaves < 1) {
-                        fputs("resize_SIFT3D: input image is too small: \n"
-                              "must have at least 8 voxels in each dimension",
+                if (last_octave < first_octave) {
+                        fputs("resize_SIFT3D: input image is too small: must "
+                              "have at least 8 voxels in each dimension \n",
                               stderr);
                         return SIFT3D_FAILURE;
                 }
 	} else {
-		// Number of octaves specified by user: compute last octave
-		last_octave = num_octaves + first_octave - 1;
+		// Number of octaves specified by user
+                arg_num_octaves = num_octaves;
 	}
 
-	// Update pyramid data
-	sift3d->gpyr.last_octave = sift3d->dog.last_octave = last_octave;
-	sift3d->dog.num_octaves = sift3d->gpyr.num_octaves = num_octaves;
-
 	// Resize the pyramid
-	if (resize_Pyramid(&sift3d->im, &sift3d->gpyr) ||
-		resize_Pyramid(&sift3d->im, &sift3d->dog))
+	if (resize_Pyramid(&sift3d->im, first_level, num_kp_levels,
+                num_gpyr_levels, first_octave, arg_num_octaves, gpyr) ||
+	        resize_Pyramid(&sift3d->im, first_level, num_kp_levels, 
+                num_dog_levels, first_octave, arg_num_octaves, dog))
 		return SIFT3D_FAILURE;
+
+        // Do nothing more if we have no image
+        if (im->data == NULL)
+                return SIFT3D_SUCCESS;
 
 	// Compute the Gaussian filters
 	if (make_gss(&sift3d->gss, &sift3d->gpyr))
@@ -1036,9 +1072,9 @@ static int build_gpyr(SIFT3D *sift3d) {
 	Pyramid *const gpyr = &sift3d->gpyr;
 	const GSS_filters *const gss = &sift3d->gss;
 	const int s_start = gpyr->first_level + 1;
-	const int s_end = gpyr->last_level;
+	const int s_end = SIFT3D_PYR_LAST_LEVEL(gpyr);
 	const int o_start = gpyr->first_octave;
-	const int o_end = gpyr->last_octave;
+	const int o_end = SIFT3D_PYR_LAST_OCTAVE(gpyr);
 
 	// Build the first image
 	cur = SIFT3D_PYR_IM_GET(gpyr, o_start, s_start - 1);
@@ -1067,8 +1103,8 @@ static int build_gpyr(SIFT3D *sift3d) {
 		// Downsample
 		if (o != o_end) {
 
-                        const int downsample_level = SIFT3D_MAX(
-                                gpyr->last_level - 2, gpyr->first_level);
+                        const int downsample_level = 
+                                SIFT3D_MAX(s_end - 2, gpyr->first_level);
 
 			prev = SIFT3D_PYR_IM_GET(gpyr, o, downsample_level);
 			cur = SIFT3D_PYR_IM_GET(gpyr, o + 1, s_start - 1);
@@ -1120,9 +1156,9 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 
 	const Pyramid *const dog = &sift3d->dog;
 	const int o_start = dog->first_octave;
-	const int o_end = dog->last_octave;
+	const int o_end = SIFT3D_PYR_LAST_OCTAVE(dog);
 	const int s_start = dog->first_level + 1;
-	const int s_end = dog->last_level - 1;
+	const int s_end = SIFT3D_PYR_LAST_LEVEL(dog) - 1;
 
 	// Verify the inputs
 	if (dog->num_levels < 3) {
@@ -2096,6 +2132,41 @@ void desc_iso2input(const double *const factors,
         }
 }
 
+/* Helper function to smooth a "raw" input image, as if it were processed
+ * via SIFT3D_detect_keypoints.
+ *
+ * Parameters:
+ *  -sift3d: Stores the parameters sigma_n and sigma0.
+ *  -src: The input "raw" image.
+ *  -dst: The output, smoothed image.
+ *
+ * Return: SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
+static int smooth_raw_input(const SIFT3D *const sift3d, const Image *const src,
+        Image *const dst) {
+
+        Gauss_filter gauss;
+
+        const double sigma_n = sift3d->gpyr.sigma_n;
+        const double sigma0 = sift3d->gpyr.sigma0;
+
+        // Initialize the smoothing filter        
+        if (init_Gauss_incremental_filter(&gauss, sigma_n, sigma0, IM_NDIMS))
+                return SIFT3D_FAILURE;
+
+        // Smooth the input
+        if (apply_Sep_FIR_filter(src, dst, &gauss.f))
+                goto smooth_raw_input_quit;
+
+        // Clean up
+        cleanup_Gauss_filter(&gauss);
+        
+        return SIFT3D_SUCCESS;
+
+smooth_raw_input_quit:
+        cleanup_Gauss_filter(&gauss);
+        return SIFT3D_FAILURE;
+}
+
 /* Extract SIFT3D descriptors from a list of keypoints. Uses the Gaussian
  * scale-space pyramid from the previous call to SIFT3D_detect_keypoints on
  * this SIFT3D struct. To extract from an image, see 
@@ -2188,6 +2259,11 @@ int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d,
 
         const int first_octave = 0;
         const int first_level = 0;
+        const int num_kp_levels = 1;
+        const int num_levels = 1;
+        const int num_octaves = 1;
+        const double sigma0 = sift3d->gpyr.sigma0;
+        const double sigma_n = sift3d->gpyr.sigma_n;
         const double scale_factor = pow(2.0, -first_octave);
 
         // Initialize intermediates
@@ -2220,18 +2296,14 @@ int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d,
                 goto extract_raw_descriptors_quit;
 
         // Initialize the image pyramid
-        pyr.num_kp_levels = 1;
-        pyr.num_levels = 1;
-        pyr.first_level = 0;
-        pyr.last_level = 0;
-        pyr.first_octave = first_octave;
-        pyr.last_octave = first_level;
-        if (resize_Pyramid(&im_interp, &pyr))
+        set_scales_Pyramid(sigma0, sigma_n, &pyr);
+        if (resize_Pyramid(&im_interp, first_level, num_kp_levels, num_levels,
+                first_octave, num_octaves, &pyr))
                 goto extract_raw_descriptors_quit;
 
         // Smooth the input image, storing the result in the pyramid
         level = SIFT3D_PYR_IM_GET(&pyr, first_octave, first_level); 
-        if (apply_Sep_FIR_filter(&im_interp, level, &sift3d->gss.first_gauss.f))
+        if (smooth_raw_input(sift3d, &im_interp, level))
                 goto extract_raw_descriptors_quit;
 
 
@@ -2428,9 +2500,9 @@ static void extract_dense_descrip_rotate(SIFT3D *const sift3d,
  * bin of the histogram.
  *
  * Parameters:
- * -sift3d The descriptor extractor.
+ * -sift3d Stores the algorithm parameters.
  * -in The input image.
- * -out The output image.
+ * -desc The output image of descriptors.
  */
 int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d, 
         const Image *const in, Image *const desc) {
@@ -2459,11 +2531,13 @@ int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d,
         if (im_resize(desc))
                 return SIFT3D_FAILURE;
 
+        // Intialize intermediates
+        init_im(&in_smooth);
+
         //TODO: Interpolate to be isotropic
 
-        // Initialize the smoothed input image
-        init_im(&in_smooth);
-        if (apply_Sep_FIR_filter(in, &in_smooth, &sift3d->gss.first_gauss.f))
+        // Smooth the input image
+        if (smooth_raw_input(sift3d, in, &in_smooth))
                 goto extract_dense_quit;
 
         // Extract the descriptors

@@ -203,7 +203,13 @@ void init_Pyramid(Pyramid *const pyr);
 
 int copy_Pyramid(const Pyramid *const src, Pyramid *const dst);
 
-int resize_Pyramid(const Image *const im, Pyramid *const pyr);
+int resize_Pyramid(const Image *const im, const int first_level, 
+        const unsigned int num_kp_levels, const unsigned int num_levels,
+        const int first_octave, const unsigned int num_octaves, 
+        Pyramid *const pyr);
+
+void set_scales_Pyramid(const double sigma0, const double sigma_n, 
+        Pyramid *const pyr);
 
 void cleanup_Pyramid(Pyramid *const pyr);
 

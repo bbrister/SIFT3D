@@ -139,10 +139,20 @@ extern "C" {
 						((o) - (pyr)->first_octave) * \
 						(pyr)->num_levels + ((s) - (pyr)->first_level))
 
+// Get the index of the last octave of a Pyramid struct
+#define SIFT3D_PYR_LAST_OCTAVE(pyr) \
+        ((pyr)->first_octave + (pyr)->num_octaves - 1)
+
+// Get the index of the last level of a Pyramid struct
+#define SIFT3D_PYR_LAST_LEVEL(pyr) \
+        ((pyr)->first_level + (pyr)->num_levels - 1)
+
 // Loop through all levels of a given pyramid
 #define SIFT3D_PYR_LOOP_START(pyr, o, s) \
-	for ((o) = (pyr)->first_octave; (o) <= (pyr)->last_octave; (o)++) { \
-	for ((s) = (pyr)->first_level; (s) <= (pyr)->last_level; (s)++) {
+	for ((o) = (pyr)->first_octave; (o) <= SIFT3D_PYR_LAST_OCTAVE(pyr); \
+                (o)++) { \
+	for ((s) = (pyr)->first_level; (s) <= SIFT3D_PYR_LAST_LEVEL(pyr); \
+                (s)++) {
 
 // Loop from the specified (inclusive) limits of a given pyramid
 #define SIFT3D_PYR_LOOP_LIMITED_START(o, s, o_start, o_end, s_start, s_end) \
