@@ -284,7 +284,7 @@ int mx2units(const mxArray *const mx, Image *const im) {
 }
 
 /* Wrapper around mx2im and mx2units. */
-int mxDataAndUnits2im(const mxArray *const data, const mxArray *const units,
+int mx2imWithUnits(const mxArray *const data, const mxArray *const units,
         Image *const im) {
         return mx2im(data, im) || mx2units(units, im);
 }
@@ -642,7 +642,7 @@ int mex_SIFT3D_extract_raw_descriptors(const Image *const im,
         return SIFT3D_extract_raw_descriptors(&sift3d, im, kp, desc);
 }
 
-/* Wrapper to get the Gaussian pyramid from the SIFT3D struct. */
-Pyramid *mexGetGpyr(void) {
-        return SIFT3D_have_gpyr(&sift3d) ? &sift3d.gpyr : NULL;
+/* Wrapper around SIFT3D_have_gpyr. */
+int mexHaveGpyr(void) {
+        return SIFT3D_have_gpyr(&sift3d);
 }

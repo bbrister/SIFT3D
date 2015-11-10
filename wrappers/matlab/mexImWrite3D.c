@@ -46,14 +46,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                         "to a string");
 
         // Convert the image to the internal format
-        if (mx2im(mxIm, &im))
+        if (mx2imWithUnits(mxIm, mxUnits, &im))
                 CLEAN_AND_QUIT("main:mx2im", "Failed to convert the input "
-                        "image array to the internal image format");
-
-        // Convert the units to the internal format
-        if (mx2units(mxUnits, &im))
-                CLEAN_AND_QUIT("main:mx2im", "Failed to convert the input "
-                        "units array to the internal format");
+                        "image to the internal format");
 
         // Write the image
         switch (im_write(path, &im)) {

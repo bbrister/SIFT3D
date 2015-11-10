@@ -34,6 +34,9 @@ mxArray *units2mx(const Image *const im);
 
 int mx2units(const mxArray *const mx, Image *const im);
 
+int mx2imWithUnits(const mxArray *const data, const mxArray *const units,
+        Image *const im);
+
 mxArray *mat2mx(const Mat_rm *const mat);
 
 int mx2mat(const mxArray *const mx, Mat_rm *const mat);
@@ -53,7 +56,7 @@ int mex_SIFT3D_extract_descriptors(const Keypoint_store *const kp,
 int mex_SIFT3D_extract_raw_descriptors(const Image *const im, 
         const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc);
 
-Pyramid *mexGetGpyr(void);
+int mexHaveGpyr(void);
 
 #ifdef __cplusplus
 }

@@ -15,7 +15,7 @@
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
-        const mxArray *mxIm;
+        const mxArray *mxIm, *mxUnits;
         mwSize imNDims;
         Image im;
         Keypoint_store kp;
@@ -29,8 +29,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         }
 
 	// Verify the number of inputs
-	if (nrhs != 1)
-                err_msgu("main:numInputs", "This function takes 1 input.");
+	if (nrhs != 2)
+                err_msgu("main:numInputs", "This function takes 2 inputs.");
 
         // Verify the number of outputs
         if (nlhs > 1) 
@@ -38,14 +38,16 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
         // Assign the inputs
         mxIm = prhs[0];
+        mxUnits = prhs[1];
 
         // Initialize intermediates
         init_Keypoint_store(&kp);
         init_im(&im);
 
         // Copy the transposed image
-        if (mx2im(mxIm, &im))
-                CLEAN_AND_QUIT("main:copyIm", "Failed to copy the input image");
+        if (mx2imWithUnits(mxIm, mxUnits, &im))
+                CLEAN_AND_QUIT("main:copyIm", "Failed to convert the input "
+                        "image");
 
         // Detect keypoints
 	if (mex_SIFT3D_detect_keypoints(&im, &kp))

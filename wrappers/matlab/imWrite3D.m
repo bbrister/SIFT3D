@@ -4,8 +4,7 @@ function imWrite3D(path, im, units)
 %    path - The path to the file.
 %    im - An [MxNxP] array containing the image data, where the voxels 
 %       are indexed in (x, y, z) order.
-%    units - (Optional) See imRead3D. If not provided, a default value of
-%       [1 1 1] will be used.
+%    units - (Optional) See imRead3D. Missing values default to 1.
 %
 %  Supported file formats:
 %    NIFTI (.nii, .nii.gz)

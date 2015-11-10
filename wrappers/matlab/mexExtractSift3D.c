@@ -21,7 +21,7 @@
  */
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
-        const mxArray *mxKp, *mxIm;
+        const mxArray *mxKp, *mxIm, *mxUnits;
         const char *errMsg;
         Image im;
         Keypoint_store kp;
@@ -41,8 +41,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         }
 
 	// Verify the number of inputs
-	if (nrhs != 2)
-                err_msgu("main:numInputs", "This function takes 2 inputs.");
+	if (nrhs != 3)
+                err_msgu("main:numInputs", "This function takes 3 inputs.");
 
         // Verify the number of outputs
         if (nlhs > 1) 
@@ -51,6 +51,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         // Assign inputs
         mxKp = prhs[0];
         mxIm = prhs[1];
+        mxUnits = prhs[2];
 
         // Initialize intermediates
         init_im(&im); 
@@ -66,10 +67,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         if (!mxIsEmpty(mxIm)) {
 
                 // Convert the input to an Image struct
-                if (mx2im(mxIm, &im))
+                if (mx2imWithUnits(mxIm, mxUnits, &im))
                         CLEAN_AND_QUIT("main:convertIm", 
                                         "Failed to convert image", 
                                         SIFT3D_FALSE);
+
                 // Extract raw descriptors
                 if (mex_SIFT3D_extract_raw_descriptors(&im, &kp, &desc))
                         CLEAN_AND_QUIT("main:extractRaw", 
@@ -77,11 +79,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                                 SIFT3D_FALSE);
         } else {
 
-                const Pyramid *gpyr;
-
                 // Attempt to retrieve the Gaussian pyramid
-                if ((gpyr = mexGetGpyr()) == NULL)
-                        CLEAN_AND_QUIT("main:getGpyr",
+                if (!mexHaveGpyr)
+                        CLEAN_AND_QUIT("main:haveGpyr",
                                 "Failed to get the Gaussian pyramid. Must "
                                 "call detectSift3D before this function can "
                                 "be called without the im argument.", 

@@ -81,10 +81,10 @@ classdef Sift3DTest < TestCase
                 kpCli = csvread(kpCliName);
                 
                 % Load the image data
-                im1 = imRead3D(self.im1Name);
+                [im1, units1] = imRead3D(self.im1Name);
                 
                 % Detect keypoints using matlab
-                keys = detectSift3D(im1);
+                keys = detectSift3D(im1, units1);
                 
                 % Check the dimensions
                 assertEqual(size(kpCli, 1), length(keys));
@@ -134,10 +134,10 @@ classdef Sift3DTest < TestCase
                 descCli = csvread(descCliName);
                 
                 % Load the image data
-                im1 = imRead3D(self.im1Name);
+                [im1, units1] = imRead3D(self.im1Name);
                 
                 % Extract descriptors using matlab
-                keys = detectSift3D(im1);
+                keys = detectSift3D(im1, units1);
                 [desc, coords] = extractSift3D(keys);
                 
                 % Check the dimensions
@@ -173,20 +173,21 @@ classdef Sift3DTest < TestCase
             if (self.fullTest)
                 
                 % Load the image data
-                im1 = imRead3D(self.im1Name);
+                [im1, units1] = imRead3D(self.im1Name);
                 
                 % Detect keypoints
-                keys = detectSift3D(im1);
+                keys = detectSift3D(im1, units1);
                 
                 % Extract descriptors using the pyramid
                 [descPyr, coordsPyr] = extractSift3D(keys);
                 
                 % Extract raw descriptors
-                [descRaw, coordsRaw] = extractSift3D(keys, im1);
+                [descRaw, coordsRaw] = extractSift3D(keys, im1, units1);
                 
                 % Check the results
                 assertElementsAlmostEqual(coordsPyr, coordsRaw);
-                assertElementsAlmostEqual(descPyr, descRaw, 'absolute', 0.2);
+                assertElementsAlmostEqual(descPyr, descRaw, 'absolute', ...
+                    0.2);
                 
             end
             
@@ -311,6 +312,113 @@ classdef Sift3DTest < TestCase
             assertElementsAlmostEqual(imWritten, imRead, 'absolute', 1E-2);
         end
         
+        % Test reading and writing units from a NIFTI image
+        function niftiUnitsTest(self)
+            
+            % The temporary file name
+            imName = 'temp.nii.gz';
+            
+            % Make random image data
+            imWritten = rand(10, 15, 20);
+            
+            % Make random units
+            unitsWritten = rand(3, 1);
+            
+            % Write the image as a NIFTI file
+            imWrite3D(imName, imWritten, unitsWritten);
+            
+            % Read the units back
+            [~, unitsRead] = imRead3D(imName);
+            
+            % Clean up
+            delete(imName);
+            
+            % Ensure the results are identical
+            assertElementsAlmostEqual(unitsWritten, unitsRead, ...
+                'relative', 1E-3);
+        end
+        
+        % Test reading and writing units from a DICOM image
+        function dicomUnitsTest(self)
+            
+            % The temporary file name
+            imName = 'temp.dcm';
+            
+            % Make random image data
+            imWritten = rand(10, 15, 20);
+            
+            % Make random units
+            unitsWritten = rand(3, 1);
+            
+            % Write the image as a NIFTI file
+            imWrite3D(imName, imWritten, unitsWritten);
+            
+            % Read the units back
+            [~, unitsRead] = imRead3D(imName);
+            
+            % Clean up
+            delete(imName);
+            
+            % Ensure the results are identical
+            assertElementsAlmostEqual(unitsWritten, unitsRead, ...
+                'relative', 1E-3);
+        end
+        
+        % Test reading and writing units from a directory of DICOM images
+        function dirUnitsTest(self)
+            
+            % The temporary file name
+            imName = 'temp';
+            
+            % Make random image data
+            imWritten = rand(10, 15, 20);
+            
+            % Make random units
+            unitsWritten = rand(3, 1);
+            
+            % Write the image as a NIFTI file
+            imWrite3D(imName, imWritten, unitsWritten);
+            
+            % Read the units back
+            [~, unitsRead] = imRead3D(imName);
+            
+            % Clean up
+            rmdir(imName, 's');
+            
+            % Ensure the results are identical
+            assertElementsAlmostEqual(unitsWritten, unitsRead, ...
+                'relative', 1E-3);
+        end
+        
+        % Test reading and writing units from a 2D DICOM image
+        function units2DTest(self)
+            
+            % The temporary file name
+            imName = 'temp.dcm';
+            
+            % Make random image data
+            imWritten = rand(20, 15);
+            
+            % Make random units
+            unitsWritten = rand(2, 1);
+            
+            % Write the image as a NIFTI file
+            imWrite3D(imName, imWritten, unitsWritten);
+            
+            % Read the image back
+            [~, unitsRead] = imRead3D(imName);
+            
+            % Remove the trailing units
+            unitsRead = unitsRead(1 : length(unitsWritten));
+            
+            % Clean up
+            delete(imName);
+            
+            % Ensure the results are identical
+            assertElementsAlmostEqual(unitsWritten, unitsRead, ...
+                'relative', 1E-3);
+        end
+        
         % Test switching the parameter order in imWrite3D
         function writeSwappedParamsTest(self)
             
@@ -368,6 +476,42 @@ classdef Sift3DTest < TestCase
             threwErr = false;
             try
                 im = imRead3D('nonexistent.nii.gz');
+            catch ME
+                threwErr = true;
+            end
+            assertTrue(threwErr);
+        end
+        
+        % Test writing negative units
+        function negativeUnitsTest(self)
+            
+            % Invalid units
+            units = [1 1 -1];
+            
+            % Fake image
+            im = zeros(10, 10, 10);
+            
+            threwErr = false;
+            try
+                imWrite3D('fake.nii.gz', im, units);
+            catch ME
+                threwErr = true;
+            end
+            assertTrue(threwErr);
+        end
+        
+        % Test writing zero-valued units
+        function zeroUnitsTest(self)
+            
+            % Invalid units
+            units = [1 0 1];
+            
+            % Fake image
+            im = zeros(10, 10, 10);
+            
+            threwErr = false;
+            try
+                imWrite3D('fake.nii.gz', im, units);
             catch ME
                 threwErr = true;
             end
