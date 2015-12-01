@@ -2503,6 +2503,7 @@ int im_restride(const Image * const src, const int *const strides,
  * Return: SIFT3D_SUCCESS (0) on success, nonzero otherwise. */
 int im_make_isotropic(const Image *const src, Image *const dst) {
 
+        Image src_pad;
         Affine affine;
         Mat_rm A;
         int i, isotropic;
@@ -2537,6 +2538,7 @@ int im_make_isotropic(const Image *const src, Image *const dst) {
                 cleanup_tform(&affine);
                 return SIFT3D_FAILURE;
         }
+        init_im(&src_pad);
 
         // Create the transformation matrix mapping src to an isotropic space
         for (i = 0; i < IM_NDIMS; i++) {
@@ -2544,28 +2546,36 @@ int im_make_isotropic(const Image *const src, Image *const dst) {
                 SIFT3D_MAT_RM_GET(&A, i, i, double) = umin / u;
         }
 
-        // Set the affine transformation and apply it to src
+        // Pad the source image to the new dimensions
+        if (im_copy_dims(src, &src_pad))
+                goto im_make_isotropic_quit;
+        for (i = 0; i < IM_NDIMS; i++) {
+                src_pad.dims[i] = src->dims[i] / 
+                        SIFT3D_MAT_RM_GET(&A, i, i, double); 
+        }
+        if (im_pad(src, &src_pad))
+                goto im_make_isotropic_quit;
+
+        // Set the affine transformation and apply it to the padded source image
         if (Affine_set_mat(&A, &affine) ||
-                im_inv_transform(&affine, src, dst, LINEAR))
+                im_inv_transform(&affine, &src_pad, dst, LINEAR))
                 goto im_make_isotropic_quit;
 
         // Set the units of dst
         for (i = 0; i < IM_NDIMS; i++) {
-#if 1
                 SIFT3D_IM_GET_UNITS(dst)[i] = SIFT3D_IM_GET_UNITS(src)[i] * 
                         SIFT3D_MAT_RM_GET(&A, i, i, double);
-#else
-                SIFT3D_IM_GET_UNITS(dst)[i] = 1.0;
-#endif
         }
 
         // Clean up
+        im_free(&src_pad);
         cleanup_tform(&affine);
         cleanup_Mat_rm(&A);
 
         return SIFT3D_SUCCESS;
 
 im_make_isotropic_quit:
+        im_free(&src_pad);
         cleanup_tform(&affine);
         cleanup_Mat_rm(&A);
         return SIFT3D_FAILURE;
