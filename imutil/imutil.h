@@ -149,7 +149,7 @@ int im_read_back(Image *im, int blocking);
 
 int im_set_kernel_arg(cl_kernel kernel, int n, Image *im);
 
-int im_transpose(const Image *const src, const int dim1, const int dim2, 
+int im_permute(const Image *const src, const int dim1, const int dim2, 
 		 Image *const dst);
 
 int im_upsample_2x(Image *src, Image *dst);
@@ -162,8 +162,6 @@ int im_resize(Image *im);
 
 int im_concat(const Image *const src1, const Image *const src2, const int dim, 
 	      Image *const dst);
-
-int im_make_isotropic(const Image *const src, Image *const dst);
 
 float im_max_abs(const Image *const im);
 

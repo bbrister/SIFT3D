@@ -2217,7 +2217,8 @@ static double lanczos(double x, double a)
 }
 
 /* Horizontally convolves a separable filter with an image, 
- * on CPU. Currently only works in 3D
+ * on CPU. Currently only works in 3D. Note that this function takes into
+ * account the units of the input, sampling by linear interpolation.
  * 
  * Parameters: 
  * src - input image (initialized)
@@ -2230,7 +2231,6 @@ static int convolve_sep(const Image * const src,
 			Image * const dst, const Sep_FIR_filter * const f,
 			int dim)
 {
-
 	Image pad;
 	register int x, y, z, c, d, dst_xs, dst_ys, dst_zs;
 
@@ -2239,21 +2239,23 @@ static int convolve_sep(const Image * const src,
 	register const int ny = src->ny;
 	register const int nz = src->nz;
 	register const int nc = src->nc;
-	register const int x_start = half_width;
-	register const int y_start = half_width;
-	register const int z_start = half_width;
-	register const int x_end = nx - half_width - 1;
-	register const int y_end = ny - half_width - 1;
-	register const int z_end = nz - half_width - 1;
+        register const float ud_inv = 1.0f / SIFT3D_IM_GET_UNITS(src)[dim];
+        register const int half_width_ud = ceil(half_width * ud_inv); 
 	register const int dim_end = src->dims[dim] - 1;
+        int start[] = {0, 0, 0};
+        int end[] = {nx - 1, ny - 1, nz - 1};
+
+        // Compute starting and ending points for the convolution dimension
+        start[dim] += half_width_ud;
+        end[dim] -= half_width_ud;
 
 	//TODO: Convert this to convolve_x, which only convolves in x,
 	// then make a wrapper to restride, transpose, convolve x, and transpose 
 	// back
 
 	// Resize the output, with the default stride
-	memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));
-	dst->nc = src->nc;
+        if (im_copy_dims(src, dst))
+                return SIFT3D_FAILURE;
 	im_default_stride(dst);
 	if (im_resize(dst))
 		return SIFT3D_FAILURE;
@@ -2261,67 +2263,85 @@ static int convolve_sep(const Image * const src,
 	// Initialize the output to zeros
 	im_zero(dst);
 
+#define SAMP_AND_ACC(src, dst, tap, coords, c) \
+{ \
+        float frac; \
+\
+        const int idx_lo[] = {(coords)[0], (coords)[1], (coords)[2]}; \
+        int idx_hi[] = {idx_lo[0], idx_lo[1], idx_lo[2]}; \
+        /* Convert the physical coordinates to integer indices*/ \
+        idx_hi[dim] += 1; \
+        frac = (coords)[dim] - (float) idx_lo[dim]; \
+\
+        /* Sample with linear interpolation */ \
+        SIFT3D_IM_GET_VOX(dst, x, y, z, c) += (tap) * \
+                ((1.0f - frac) * \
+                SIFT3D_IM_GET_VOX(src, idx_lo[0], idx_lo[1], idx_lo[2], c) + \
+                frac * \
+                SIFT3D_IM_GET_VOX(src, idx_hi[0], idx_hi[1], idx_hi[2], c)); \
+}
+
 	// First pass: process the interior
-	SIFT3D_IM_LOOP_LIMITED_START(dst, x, y, z, x_start, x_end, y_start,
-				     y_end, z_start, z_end)
+	SIFT3D_IM_LOOP_LIMITED_START(dst, x, y, z, start[0], end[0], start[1],
+				     end[1], start[2], end[2])
 
-	int coords[IM_NDIMS] = { x, y, z };
+                float coords[] = { x, y, z };
 
-	for (c = 0; c < nc; c++) {
-		for (d = -half_width; d <= half_width; d++) {
+                for (c = 0; c < nc; c++) {
+                        for (d = -half_width; d <= half_width; d++) {
 
-			const float tap = f->kernel[d + half_width];
+                                const float tap = f->kernel[d + half_width];
 
-			// Adjust the sampling coordinates
-			coords[dim] -= d;
+                                // Adjust the sampling coordinates
+                                coords[dim] -= d * ud_inv;
 
-			// Sample
-			SIFT3D_IM_GET_VOX(dst, x, y, z, c) +=
-			    SIFT3D_IM_GET_VOX(src, coords[0], coords[1],
-					      coords[2], c) * tap;
+                                // Sample
+                                SAMP_AND_ACC(src, dst, tap, coords, c);
 
-			// Reset the sampling coordinates
-			coords[dim] += d;
-		}
-	}
+                                // Reset the sampling coordinates
+                                coords[dim] += d * ud_inv;
+                        }
+                }
 
 	SIFT3D_IM_LOOP_END
-	    // Second pass: process the boundaries
-	    SIFT3D_IM_LOOP_START(dst, x, y, z)
 
-	int coords[IM_NDIMS] = { x, y, z };
+        // Second pass: process the boundaries
+        SIFT3D_IM_LOOP_START(dst, x, y, z)
 
-	// Skip pixels we have already processed
-	if (x >= x_start && x <= x_end &&
-	    y >= y_start && y <= y_end && z >= z_start && z <= z_end)
-		continue;
+                int coords[IM_NDIMS] = { x, y, z };
 
-	// Process the boundary pixel
-	for (c = 0; c < nc; c++) {
-		for (d = -half_width; d <= half_width; d++) {
+                // Skip pixels we have already processed
+                if (coords[dim] >= start[dim] && coords[dim] <= end[dim]) 
+                        continue;
 
-			const float tap = f->kernel[d + half_width];
+                // Process the boundary pixel
+                for (c = 0; c < nc; c++) {
+                        for (d = -half_width; d <= half_width; d++) {
 
-			// Adjust the sampling coordinates
-			coords[dim] -= d;
+                                const float tap = f->kernel[d + half_width];
 
-			// Clamp coordinates to the edge
-			if (coords[dim] < 0) {
-				coords[dim] = 0;
-			} else if (coords[dim] > dim_end) {
-				coords[dim] = dim_end;
-			}
-			// Sample
-			SIFT3D_IM_GET_VOX(dst, x, y, z, c) +=
-			    SIFT3D_IM_GET_VOX(src, coords[0], coords[1],
-					      coords[2], c) * tap;
+                                // Adjust the sampling coordinates
+                                coords[dim] -= d * ud_inv;
 
-			// Reset the sampling coordinates
-			coords[dim] += d;
-		}
-	}
+                                // Clamp coordinates to the edge
+                                if (coords[dim] < 0) {
+                                        coords[dim] = 0;
+                                } else if (coords[dim] > dim_end) {
+                                        coords[dim] = dim_end;
+                                }
 
-	SIFT3D_IM_LOOP_END return SIFT3D_SUCCESS;
+                                // Sample
+                                SAMP_AND_ACC(src, dst, tap, coords, c);
+
+                                // Reset the sampling coordinates
+                                coords[dim] += d * ud_inv;
+                        }
+                }
+
+	SIFT3D_IM_LOOP_END 
+#undef SAMP_AND_ACC
+
+        return SIFT3D_SUCCESS;
 }
 
 /* Same as convolve_sep, but with OpenCL acceleration. This does NOT
@@ -2336,8 +2356,8 @@ static int convolve_sep_cl(const Image * const src, Image * const dst,
 	const size_t global_work_size[] = { src->nx, src->ny, src->nz };
 
 	// Resize the output, with the default stride
-	memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));
-	dst->nc = src->nc;
+        if (im_copy_dims(src, dst))
+                return SIFT3D_FAILURE;
 	im_default_stride(dst);
 	if (im_resize(dst))
 		return SIFT3D_FAILURE;
@@ -2346,12 +2366,6 @@ static int convolve_sep_cl(const Image * const src, Image * const dst,
 	if (dim != 3) {
 		printf("convolve_sep_cl: unsupported dimension: %d \n", dim);
 	return SIFT3D_FAILURE}
-	// Resize the output, with default stride
-	memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));
-	im->nc = src->nc;
-	im_default_stride(dst);
-	if (im_resize(dst))
-		return SIFT3D_FAILURE;
 
 	// Form the dimension offsets
 	dx = dy = dz = 0;
@@ -2406,18 +2420,19 @@ static int convolve_sep_sym(const Image * const src, Image * const dst,
 	return convolve_sep(src, dst, f, dim);
 }
 
-/* Transpose an image.
+/* Permute the dimensions of an image.
+ *
  * Arguments: 
  * src - input image (initialized)
  * dst - output image (initialized)
- * dim1 - input transpose dimension (x = 0, y = 1, z = 2)
- * dim2 - output transpose dimension (x = 0, y = 1, z = 2)
+ * dim1 - input permutation dimension (x = 0, y = 1, z = 2)
+ * dim2 - output permutation dimension (x = 0, y = 1, z = 2)
  * 
  * example:
- * transpose(src, dst, 0, 1) -- transpose x with y in src
+ * im_permute(src, dst, 0, 1) -- permute x with y in src
  *                              and save to dst
  */
-int im_transpose(const Image * const src, const int dim1, const int dim2,
+int im_permute(const Image * const src, const int dim1, const int dim2,
 		 Image * const dst)
 {
 
@@ -2429,7 +2444,7 @@ int im_transpose(const Image * const src, const int dim1, const int dim2,
 
 	// Verify inputs
 	if (dim1 < 0 || dim2 < 0 || dim1 > 3 || dim2 > 3) {
-		printf("im_transpose: invalid dimensions: dim1 %d dim2 %d \n",
+		printf("im_permute: invalid dimensions: dim1 %d dim2 %d \n",
 		       dim1, dim2);
 		return SIFT3D_FAILURE;
 	}
@@ -2437,6 +2452,12 @@ int im_transpose(const Image * const src, const int dim1, const int dim2,
 	if (dim1 == dim2) {
 		return im_copy_data(src, dst);
         }
+
+        // Permute the units
+        memcpy(SIFT3D_IM_GET_UNITS(dst), SIFT3D_IM_GET_UNITS(src), 
+                IM_NDIMS * sizeof(double));
+        SIFT3D_IM_GET_UNITS(dst)[dim1] = SIFT3D_IM_GET_UNITS(src)[dim2];
+        SIFT3D_IM_GET_UNITS(dst)[dim2] = SIFT3D_IM_GET_UNITS(src)[dim1];
 
 	// Resize the output
 	memcpy(dims, src->dims, IM_NDIMS * sizeof(int));
@@ -2460,7 +2481,9 @@ int im_transpose(const Image * const src, const int dim1, const int dim2,
 	SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
 	    SIFT3D_IM_GET_VOX(dst, x, y, z, c) =
 	    data[c + x * strides[0] + y * strides[1] + z * strides[2]];
-	SIFT3D_IM_LOOP_END_C return SIFT3D_SUCCESS;
+	SIFT3D_IM_LOOP_END_C 
+
+        return SIFT3D_SUCCESS;
 }
 
 /* Change an image's stride, preserving its data. 
@@ -2491,94 +2514,6 @@ int im_restride(const Image * const src, const int *const strides,
 	SIFT3D_IM_LOOP_END_C 
 
         return SIFT3D_SUCCESS;
-}
-
-/* Interpolate an image to an isotropic version of itself.
- *
- * Parameters:
- *  -src: The source image. Must be initialized.
- *  -dst: The destination image. The final voxel spacing is the minimum of the
- *      spacings in each dimension of src. 
- *
- * Return: SIFT3D_SUCCESS (0) on success, nonzero otherwise. */
-int im_make_isotropic(const Image *const src, Image *const dst) {
-
-        Image src_pad;
-        Affine affine;
-        Mat_rm A;
-        int i, isotropic;
-        double umin;
-
-        // Get the minimum voxel spacing of all the dimensions of src, which 
-        // will become the new voxel spacing
-        umin = DBL_MAX;
-        for (i = 0; i < IM_NDIMS; i++) {
-                umin = SIFT3D_MIN(umin, SIFT3D_IM_GET_UNITS(src)[i]);
-        } 
-
-        // Check if the image is isotropic
-        isotropic = SIFT3D_TRUE;
-        for (i = 0; i < IM_NDIMS; i++) {
-
-                if (umin == SIFT3D_IM_GET_UNITS(src)[i])
-                        continue;
-
-                isotropic = SIFT3D_FALSE;
-                break;
-        }
-
-        // If the image is isotropic, simply copy the data
-        if (isotropic)
-                return im_copy_data(src, dst);
-
-        // Initialize intermediates 
-        if (init_tform(&affine, AFFINE))
-                return SIFT3D_FAILURE;
-        if (init_Mat_rm(&A, IM_NDIMS, IM_NDIMS + 1, DOUBLE, SIFT3D_TRUE)) {
-                cleanup_tform(&affine);
-                return SIFT3D_FAILURE;
-        }
-        init_im(&src_pad);
-
-        // Create the transformation matrix mapping src to an isotropic space
-        for (i = 0; i < IM_NDIMS; i++) {
-                const double u = SIFT3D_IM_GET_UNITS(src)[i];
-                SIFT3D_MAT_RM_GET(&A, i, i, double) = umin / u;
-        }
-
-        // Pad the source image to the new dimensions
-        if (im_copy_dims(src, &src_pad))
-                goto im_make_isotropic_quit;
-        for (i = 0; i < IM_NDIMS; i++) {
-                src_pad.dims[i] = src->dims[i] / 
-                        SIFT3D_MAT_RM_GET(&A, i, i, double); 
-        }
-        if (im_pad(src, &src_pad))
-                goto im_make_isotropic_quit;
-
-        // Set the affine transformation and apply it to the padded source image
-        if (Affine_set_mat(&A, &affine) ||
-                im_inv_transform(&affine, &src_pad, dst, LINEAR))
-                goto im_make_isotropic_quit;
-
-        // Set the units of dst
-        for (i = 0; i < IM_NDIMS; i++) {
-                SIFT3D_IM_GET_UNITS(dst)[i] = SIFT3D_IM_GET_UNITS(src)[i] * 
-                        SIFT3D_MAT_RM_GET(&A, i, i, double);
-        }
-
-        // Clean up
-        im_free(&src_pad);
-        cleanup_tform(&affine);
-        cleanup_Mat_rm(&A);
-
-        return SIFT3D_SUCCESS;
-
-im_make_isotropic_quit:
-        im_free(&src_pad);
-        cleanup_tform(&affine);
-        cleanup_Mat_rm(&A);
-        return SIFT3D_FAILURE;
 }
 
 /* Initializes a tform to ensure memory safety. 
@@ -3521,7 +3456,7 @@ int apply_Sep_FIR_filter(const Image * const src, Image * const dst,
 #else
                 // Transpose so that the filter dimension is x
                 if (i != 0) {
-                        if (im_transpose(cur_src, 0, i, cur_dst))
+                        if (im_permute(cur_src, 0, i, cur_dst))
 				goto apply_sep_f_quit;
                         SWAP_BUFFERS
                 }
@@ -3532,7 +3467,7 @@ int apply_Sep_FIR_filter(const Image * const src, Image * const dst,
 
                 // Transpose back
                 if (i != 0) {
-			if (im_transpose(cur_src, 0, i, cur_dst))
+			if (im_permute(cur_src, 0, i, cur_dst))
 				goto apply_sep_f_quit;
                         SWAP_BUFFERS
 

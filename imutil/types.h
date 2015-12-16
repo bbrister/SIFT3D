@@ -343,9 +343,6 @@ typedef struct _SIFT3D {
 	// Image to process
 	Image im;
 
-        // Isotropic-to-input scaling factors
-        double factors[IM_NDIMS];
-
 	// Parameters
 	double peak_thresh; // Keypoint peak threshold
 	double corner_thresh; // Keypoint corner threshold

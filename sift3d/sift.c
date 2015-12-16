@@ -160,8 +160,6 @@ extern CL_data cl_data;
 
 /* Helper routines */
 static int init_geometry(SIFT3D *sift3d);
-static int make_isotropic_with_factors(const Image *const src, 
-        Image *const dst, double *const factors);
 static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im);
 static int set_scales_SIFT3D(SIFT3D *const sift3d, const double sigma0,
         const double sigma_n);
@@ -175,7 +173,6 @@ static int assign_eig_ori(SIFT3D *const sift3d, const Image *const im,
                           const Cvec *const vcenter,
                           const double sigma, Mat_rm *const R);
 static int assign_orientations(SIFT3D *sift3d, Keypoint_store *kp);
-static void kp_iso2input(const SIFT3D *const sift3d, Keypoint_store *const kp);
 static int Cvec_to_sbins(const Cvec * const vd, Svec * const bins);
 static void refine_Hist(Hist *hist);
 static int init_cl_SIFT3D(SIFT3D *sift3d);
@@ -927,34 +924,6 @@ parse_args_quit:
         return -1;
 }
 
-/* Helper routine to transform an image to make it isotropic, and compute
- * the input-to-isotropic scaling factors. 
- *
- * Parameters:
- * -src: see im_make_isotropic
- * -dst: see im_make_isotropic
- * -factors: an array of length IM_NDIMS, where the factors will be written. 
- *
- * Return: SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
-static int make_isotropic_with_factors(const Image *const src, 
-        Image *const dst, double *const factors) {
-
-        int i;
-
-        // Make an isotropic copy of the input image
-        if (im_make_isotropic(src, dst))
-                return SIFT3D_FAILURE;
-
-        // Save the input-to-isotropic scaling factors
-        for (i = 0; i < IM_NDIMS; i++) {
-                const double u_old = SIFT3D_IM_GET_UNITS(src)[i];
-                const double u_new = SIFT3D_IM_GET_UNITS(dst)[i];
-                factors[i] = u_old / u_new;
-        }
-
-        return SIFT3D_SUCCESS;
-}
-
 /* Helper routine to begin processing a new image. If the dimensions differ
  * from the last one, this function resizes the SIFT3D struct. */
 static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im) {
@@ -974,8 +943,8 @@ static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im) {
                 dims_old[i] = sift3d->im.dims[i];
         }
 
-        // Make an isotropic copy of the input image
-        if (make_isotropic_with_factors(im, &sift3d->im, sift3d->factors))
+        // Make a copy of the input image
+        if (im_copy_data(im, &sift3d->im))
                 return SIFT3D_FAILURE;
 
         // Resize the internal data, if necessary
@@ -1712,33 +1681,6 @@ static int assign_orientations(SIFT3D *sift3d,
         return resize_Keypoint_store(kp, num);
 }
 
-/* Convert the detected keypoints from isotropic space back to the input image
- * space. */
-static void kp_iso2input(const SIFT3D *const sift3d, Keypoint_store *const kp) {
-
-        double inv_factors[IM_NDIMS];
-        int i;
-
-        // Invert the scaling factors
-        for (i = 0; i < IM_NDIMS; i++) {
-               inv_factors[i] = 1.0 / sift3d->factors[i];
-        }
-
-        // Scale the keypoints
-        for (i = 0; i < kp->slab.num; i++) {
-
-                Keypoint *const key = kp->buf + i;
-
-                key->xd *= inv_factors[0];
-                key->yd *= inv_factors[1];
-                key->zd *= inv_factors[2];
-                key->xi = (int) key->xd;
-                key->yi = (int) key->yd;
-                key->zi = (int) key->zd;
-        }
-
-}
-
 /* Detect keypoint locations and orientations. You must initialize
  * the SIFT3D struct, image, and keypoint store with the appropriate
  * functions prior to calling this function. */
@@ -1776,9 +1718,6 @@ int SIFT3D_detect_keypoints(SIFT3D *const sift3d, const Image *const im,
 	// Assign orientations
 	if (assign_orientations(sift3d, kp))
 		return SIFT3D_FAILURE;
-
-        // Convert the keypoints back to the input image space
-        kp_iso2input(sift3d, kp);
 
 	return SIFT3D_SUCCESS;
 }
@@ -2104,34 +2043,6 @@ static int scale_Keypoint(const Keypoint *const src,
         return SIFT3D_SUCCESS;
 }
 
-/* Helper function to scale descriptor coordinates from isotropic space back to
- * the input space. 
- *
- * Parameters:
- *  -factors: see SIFT3D.factors 
- *  -desc: see SIFT3D_extract_descriptors */
-void desc_iso2input(const double *const factors, 
-        SIFT3D_Descriptor_store *const desc) {
-
-        double inv_factors[IM_NDIMS];
-        int i;
-
-        // Invert the scaling factors
-        for (i = 0; i < IM_NDIMS; i++) {
-               inv_factors[i] = 1.0 / factors[i];
-        }
-
-        // Scale the descriptors
-        for (i = 0; i < desc->num; i++) {
-
-                SIFT3D_Descriptor *const descriptor = desc->buf + i;
-
-                descriptor->xd *= inv_factors[0];
-                descriptor->yd *= inv_factors[1];
-                descriptor->zd *= inv_factors[2];
-        }
-}
-
 /* Helper function to smooth a "raw" input image, as if it were processed
  * via SIFT3D_detect_keypoints.
  *
@@ -2188,7 +2099,6 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d,
         const Keypoint_store *const kp, 
         SIFT3D_Descriptor_store *const desc) {
 
-        Keypoint_store kp_iso;
         int i;
 
         // Check if a Gaussian scale-space pyramid is available for processing
@@ -2199,37 +2109,11 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d,
                 return SIFT3D_FAILURE;
         }
 
-        // Initialize intermediates
-        init_Keypoint_store(&kp_iso);
-
-        // Allocate a temporary copy of the keypoints
-        if (resize_Keypoint_store(&kp_iso, kp->slab.num))
-                goto extract_descriptors_quit;
-
-        // Convert keypoints to isotropic coordinates
-        for (i = 0; i < kp->slab.num; i++) {
-
-                const Keypoint *const src = kp->buf + i;
-                Keypoint *const dst = kp_iso.buf + i;
-
-                if (scale_Keypoint(src, sift3d->factors, dst))
-                        goto extract_descriptors_quit;
-        }
-
         // Extract features
-        if (_SIFT3D_extract_descriptors(sift3d, &sift3d->gpyr, &kp_iso, desc))
-                goto extract_descriptors_quit;
+        if (_SIFT3D_extract_descriptors(sift3d, &sift3d->gpyr, kp, desc))
+                return SIFT3D_FAILURE;
 
-        // Convert descriptors back to original coordinates
-        desc_iso2input(sift3d->factors, desc);
-
-        // Clean up
-        cleanup_Keypoint_store(&kp_iso);
         return SIFT3D_SUCCESS;
-
-extract_descriptors_quit:
-        cleanup_Keypoint_store(&kp_iso);
-        return SIFT3D_FAILURE;
 }
 
 /* Extract SIFT3D descriptors from a list of keypoints and 
@@ -2250,10 +2134,8 @@ int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d,
         const Image *const im, const Keypoint_store *const kp, 
         SIFT3D_Descriptor_store *const desc) {
 
-        double factors[IM_NDIMS];
-        Keypoint_store kp_iso;
+        Keypoint_store kp_base;
         Pyramid pyr;
-        Image im_interp;
         Image *level;
         int i;
 
@@ -2267,9 +2149,8 @@ int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d,
         const double scale_factor = pow(2.0, -first_octave);
 
         // Initialize intermediates
-        init_im(&im_interp);
         init_Pyramid(&pyr);
-        init_Keypoint_store(&kp_iso);
+        init_Keypoint_store(&kp_base);
 
         // Check keypoint validity
         for (i = 0; i < kp->slab.num; i++) {
@@ -2291,24 +2172,19 @@ int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d,
                 goto extract_raw_descriptors_quit;
         }
 
-        // Interpolate the input image to make it isotropic
-        if (make_isotropic_with_factors(im, &im_interp, factors))
-                goto extract_raw_descriptors_quit;
-
         // Initialize the image pyramid
         set_scales_Pyramid(sigma0, sigma_n, &pyr);
-        if (resize_Pyramid(&im_interp, first_level, num_kp_levels, num_levels,
+        if (resize_Pyramid(im, first_level, num_kp_levels, num_levels,
                 first_octave, num_octaves, &pyr))
                 goto extract_raw_descriptors_quit;
 
         // Smooth the input image, storing the result in the pyramid
         level = SIFT3D_PYR_IM_GET(&pyr, first_octave, first_level); 
-        if (smooth_raw_input(sift3d, &im_interp, level))
+        if (smooth_raw_input(sift3d, im, level))
                 goto extract_raw_descriptors_quit;
 
-
         // Allocate a temporary copy of the keypoints
-        if (resize_Keypoint_store(&kp_iso, kp->slab.num))
+        if (resize_Keypoint_store(&kp_base, kp->slab.num))
                 goto extract_raw_descriptors_quit;
 
         // Convert keypoints to isotropic coordinates in the base scale and 
@@ -2319,14 +2195,14 @@ int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d,
                 int j;
 
                 const Keypoint *const src = kp->buf + i;
-                Keypoint *const dst = kp_iso.buf + i; 
+                Keypoint *const dst = kp_base.buf + i; 
 
                 const double octave_factor = 
                         pow(2.0, src->o - first_octave);
 
                 // Convert the factors to the base octave
                 for (j = 0; j < IM_NDIMS; j++) {
-                        base_factors[j] = factors[j] * octave_factor;
+                        base_factors[j] = octave_factor;
                 }
 
                 // Scale the keypoint
@@ -2340,23 +2216,18 @@ int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d,
         }
 
         // Extract the descriptors
-        if (_SIFT3D_extract_descriptors(sift3d, &pyr, &kp_iso, desc))
+        if (_SIFT3D_extract_descriptors(sift3d, &pyr, &kp_base, desc))
                 goto extract_raw_descriptors_quit;
 
-        // Convert descriptors back to original coordinates
-        desc_iso2input(factors, desc);
-
         // Clean up
-        im_free(&im_interp);
         cleanup_Pyramid(&pyr);
-        cleanup_Keypoint_store(&kp_iso);
+        cleanup_Keypoint_store(&kp_base);
 
         return SIFT3D_SUCCESS;
 
 extract_raw_descriptors_quit:
-        im_free(&im_interp);
         cleanup_Pyramid(&pyr);
-        cleanup_Keypoint_store(&kp_iso);
+        cleanup_Keypoint_store(&kp_base);
         return SIFT3D_FAILURE;
 }
 
