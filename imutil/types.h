@@ -186,9 +186,8 @@ typedef struct _Sep_FIR_filter {
 
 	cl_kernel cl_apply_unrolled;	// unrolled OpenCL program to apply filter
 	float *kernel;	// filter weights
-	int dim;		// dimensionality, e.g. 3 for MRI
-	int width;		// number of weights				
-	int half_width;	// floor(width / 2)
+	int dim;	// dimensionality, e.g. 3 for MRI
+	int width;	// number of weights				
 	int symmetric;	// enable symmetric optimizations: FALSE or TRUE
 
 } Sep_FIR_filter;

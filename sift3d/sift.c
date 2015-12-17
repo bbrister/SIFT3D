@@ -1044,6 +1044,7 @@ static int build_gpyr(SIFT3D *sift3d) {
 	const int s_end = SIFT3D_PYR_LAST_LEVEL(gpyr);
 	const int o_start = gpyr->first_octave;
 	const int o_end = SIFT3D_PYR_LAST_OCTAVE(gpyr);
+        const double unit = 1.0;
 
 	// Build the first image
 	cur = SIFT3D_PYR_IM_GET(gpyr, o_start, s_start - 1);
@@ -1054,7 +1055,7 @@ static int build_gpyr(SIFT3D *sift3d) {
 #endif
 
 	f = (Sep_FIR_filter *) &gss->first_gauss.f;
-	if (apply_Sep_FIR_filter(prev, cur, f))
+	if (apply_Sep_FIR_filter(prev, cur, f, unit))
 		return SIFT3D_FAILURE;
 
 	// Build the rest of the pyramid
@@ -1062,7 +1063,7 @@ static int build_gpyr(SIFT3D *sift3d) {
 			cur = SIFT3D_PYR_IM_GET(gpyr, o, s);
 			prev = SIFT3D_PYR_IM_GET(gpyr, o, s - 1);
 			f = &gss->gauss_octave[s].f;
-			if (apply_Sep_FIR_filter(prev, cur, f))
+			if (apply_Sep_FIR_filter(prev, cur, f, unit))
 				return SIFT3D_FAILURE;
 #ifdef SIFT3D_USE_OPENCL
 			if (im_read_back(cur, SIFT3D_FALSE))
@@ -2059,13 +2060,14 @@ static int smooth_raw_input(const SIFT3D *const sift3d, const Image *const src,
 
         const double sigma_n = sift3d->gpyr.sigma_n;
         const double sigma0 = sift3d->gpyr.sigma0;
+        const double unit = 1.0;
 
         // Initialize the smoothing filter        
         if (init_Gauss_incremental_filter(&gauss, sigma_n, sigma0, IM_NDIMS))
                 return SIFT3D_FAILURE;
 
         // Smooth the input
-        if (apply_Sep_FIR_filter(src, dst, &gauss.f))
+        if (apply_Sep_FIR_filter(src, dst, &gauss.f, unit))
                 goto smooth_raw_input_quit;
 
         // Clean up
@@ -2468,6 +2470,7 @@ static int extract_dense_descriptors_no_rotate(SIFT3D *const sift3d,
         Mesh * const mesh = &sift3d->mesh;
         const double sigma_win = sift3d->gpyr.sigma0 * desc_sig_fctr / 
                                  NHIST_PER_DIM;
+        const double unit = 1.0;
 
         // Initialize the intermediate image
         init_im(&temp);
@@ -2503,7 +2506,7 @@ static int extract_dense_descriptors_no_rotate(SIFT3D *const sift3d,
         SIFT3D_IM_LOOP_END
 
         // Filter the descriptors
-	if (apply_Sep_FIR_filter(&temp, desc, &gauss.f))
+	if (apply_Sep_FIR_filter(&temp, desc, &gauss.f, unit))
                 goto dense_extract_quit;
 
         // Clean up

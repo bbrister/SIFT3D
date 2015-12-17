@@ -209,12 +209,18 @@ static double tform_err_sq(void *tform, Mat_rm * src, Mat_rm * ref, int i,
 			   tform_type type);
 static int ransac(Mat_rm * src, Mat_rm * ref, Ransac * ran, const int dim,
 		  void *tform, tform_type type, int **cset, int *len);
-static int convolve_sep(const Image * const src, Image * const dst,
-			const Sep_FIR_filter * const f, const int dim);
-static int convolve_sep_cl(const Image * const src, Image * const dst,
-			   const Sep_FIR_filter * const f, const int dim);
-static int convolve_sep_sym(const Image * const src, Image * const dst,
-			    const Sep_FIR_filter * const f, const int dim);
+static int convolve_sep(const Image * const src,
+			Image * const dst, const Sep_FIR_filter * const f,
+			int dim, const double unit);
+static int convolve_sep_gen(const Image * const src,
+			Image * const dst, const Sep_FIR_filter * const f,
+			int dim, const double unit);
+static int convolve_sep_cl(const Image * const src,
+			Image * const dst, const Sep_FIR_filter * const f,
+			int dim, const double unit);
+static int convolve_sep_sym(const Image * const src,
+			Image * const dst, const Sep_FIR_filter * const f,
+			int dim, const double unit);
 static const char *get_file_name(const char *path);
 static const char *get_file_ext(const char *name);
 static int read_nii(const char *path, Image *const im);
@@ -2217,8 +2223,10 @@ static double lanczos(double x, double a)
 }
 
 /* Horizontally convolves a separable filter with an image, 
- * on CPU. Currently only works in 3D. Note that this function takes into
- * account the units of the input, sampling by linear interpolation.
+ * on CPU. Currently only works in 3D.
+ * 
+ * This function chooses among the best variant of convolve_sep* based on
+ * compilation options and filter parameters.
  * 
  * Parameters: 
  * src - input image (initialized)
@@ -2226,28 +2234,42 @@ static double lanczos(double x, double a)
     int x, y, z;
  * f - filter to be applied
  * dim - dimension in which to convolve
+ * unit - the spacing of the filter coefficients
  */
 static int convolve_sep(const Image * const src,
 			Image * const dst, const Sep_FIR_filter * const f,
-			int dim)
+			int dim, const double unit) {
+
+#ifdef SIFT3D_USE_OPENCL
+        return convolve_sep_cl(src, dst, f, dim, unit);
+#else
+	return f->symmetric ? 
+                convolve_sep_sym(src, dst, f, dim, unit) : 
+                convolve_sep_gen(src, dst, f, dim, unit);
+#endif
+}
+
+/* Convolve_sep for general filters */
+static int convolve_sep_gen(const Image * const src,
+			Image * const dst, const Sep_FIR_filter * const f,
+			int dim, const double unit)
 {
-	Image pad;
 	register int x, y, z, c, d, dst_xs, dst_ys, dst_zs;
 
-	register const int half_width = f->half_width;
+	register const int half_width = f->width / 2;
 	register const int nx = src->nx;
 	register const int ny = src->ny;
 	register const int nz = src->nz;
 	register const int nc = src->nc;
-        register const float ud_inv = 1.0f / SIFT3D_IM_GET_UNITS(src)[dim];
-        register const int half_width_ud = ceil(half_width * ud_inv); 
 	register const int dim_end = src->dims[dim] - 1;
+        register const float unit_factor =  unit /
+                (double) SIFT3D_IM_GET_UNITS(src)[dim];
         int start[] = {0, 0, 0};
         int end[] = {nx - 1, ny - 1, nz - 1};
 
         // Compute starting and ending points for the convolution dimension
-        start[dim] += half_width_ud;
-        end[dim] -= half_width_ud;
+        start[dim] += half_width;
+        end[dim] -= half_width;
 
 	//TODO: Convert this to convolve_x, which only convolves in x,
 	// then make a wrapper to restride, transpose, convolve x, and transpose 
@@ -2282,63 +2304,59 @@ static int convolve_sep(const Image * const src,
 }
 
 	// First pass: process the interior
-	SIFT3D_IM_LOOP_LIMITED_START(dst, x, y, z, start[0], end[0], start[1],
-				     end[1], start[2], end[2])
+	SIFT3D_IM_LOOP_LIMITED_START_C(dst, x, y, z, c, start[0], end[0], 
+                start[1], end[1], start[2], end[2])
 
                 float coords[] = { x, y, z };
 
-                for (c = 0; c < nc; c++) {
-                        for (d = -half_width; d <= half_width; d++) {
+                for (d = -half_width; d <= half_width; d++) {
 
-                                const float tap = f->kernel[d + half_width];
+                        const float tap = f->kernel[d + half_width];
 
-                                // Adjust the sampling coordinates
-                                coords[dim] -= d * ud_inv;
+                        // Adjust the sampling coordinates
+                        coords[dim] -= d * unit_factor;
 
-                                // Sample
-                                SAMP_AND_ACC(src, dst, tap, coords, c);
+                        // Sample
+                        SAMP_AND_ACC(src, dst, tap, coords, c);
 
-                                // Reset the sampling coordinates
-                                coords[dim] += d * ud_inv;
-                        }
+                        // Reset the sampling coordinates
+                        coords[dim] += d * unit_factor;
                 }
 
-	SIFT3D_IM_LOOP_END
+	SIFT3D_IM_LOOP_END_C
 
         // Second pass: process the boundaries
-        SIFT3D_IM_LOOP_START(dst, x, y, z)
+        SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
 
-                int coords[IM_NDIMS] = { x, y, z };
+                float coords[IM_NDIMS] = { x, y, z };
 
                 // Skip pixels we have already processed
                 if (coords[dim] >= start[dim] && coords[dim] <= end[dim]) 
                         continue;
 
                 // Process the boundary pixel
-                for (c = 0; c < nc; c++) {
-                        for (d = -half_width; d <= half_width; d++) {
+                for (d = -half_width; d <= half_width; d++) {
 
-                                const float tap = f->kernel[d + half_width];
+                        const float tap = f->kernel[d + half_width];
 
-                                // Adjust the sampling coordinates
-                                coords[dim] -= d * ud_inv;
+                        // Adjust the sampling coordinates
+                        coords[dim] -= d * unit_factor;
 
-                                // Clamp coordinates to the edge
-                                if (coords[dim] < 0) {
-                                        coords[dim] = 0;
-                                } else if (coords[dim] > dim_end) {
-                                        coords[dim] = dim_end;
-                                }
-
-                                // Sample
-                                SAMP_AND_ACC(src, dst, tap, coords, c);
-
-                                // Reset the sampling coordinates
-                                coords[dim] += d * ud_inv;
+                        // Clamp coordinates to the edge
+                        if (coords[dim] < 0) {
+                                coords[dim] = 0;
+                        } else if (coords[dim] > dim_end) {
+                                coords[dim] = dim_end;
                         }
+
+                        // Sample
+                        SAMP_AND_ACC(src, dst, tap, coords, c);
+
+                        // Reset the sampling coordinates
+                        coords[dim] += d * unit_factor;
                 }
 
-	SIFT3D_IM_LOOP_END 
+	SIFT3D_IM_LOOP_END_C 
 #undef SAMP_AND_ACC
 
         return SIFT3D_SUCCESS;
@@ -2347,7 +2365,8 @@ static int convolve_sep(const Image * const src,
 /* Same as convolve_sep, but with OpenCL acceleration. This does NOT
  * read back the results to C-accessible data. Use im_read_back for that. */
 static int convolve_sep_cl(const Image * const src, Image * const dst,
-			   const Sep_FIR_filter * const f, const int dim)
+			   const Sep_FIR_filter * const f, const int dim,
+                           const double unit)
 {
 #ifdef SIFT3D_USE_OPENCL
 	cl_kernel kernel;
@@ -2401,32 +2420,23 @@ static int convolve_sep_cl(const Image * const src, Image * const dst,
 #endif
 }
 
-/* Horizontally convolves a separable filter with an image,
- * on CPU. Currently only works in 3D.
- *
- * Parameters:
- * src - input image (initialized)
- * dst - output image (initialized)
- * f - filter to be applied
- * dim - dimension in which to convolve
- *
- * This version is for symmetric filters.
- */
+ /* Convolve_sep for symmetric filters. */
 static int convolve_sep_sym(const Image * const src, Image * const dst,
-			    const Sep_FIR_filter * const f, const int dim)
+			    const Sep_FIR_filter * const f, const int dim,
+                            const double unit)
 {
 
 	// TODO: Symmetry-specific function
-	return convolve_sep(src, dst, f, dim);
+	return convolve_sep_gen(src, dst, f, dim, unit);
 }
 
 /* Permute the dimensions of an image.
  *
  * Arguments: 
  * src - input image (initialized)
- * dst - output image (initialized)
  * dim1 - input permutation dimension (x = 0, y = 1, z = 2)
  * dim2 - output permutation dimension (x = 0, y = 1, z = 2)
+ * dst - output image (initialized)
  * 
  * example:
  * im_permute(src, dst, 0, 1) -- permute x with y in src
@@ -2448,6 +2458,7 @@ int im_permute(const Image * const src, const int dim1, const int dim2,
 		       dim1, dim2);
 		return SIFT3D_FAILURE;
 	}
+
 	// Check for the trivial case
 	if (dim1 == dim2) {
 		return im_copy_data(src, dst);
@@ -3402,31 +3413,34 @@ int det_symm_Mat_rm(Mat_rm * mat, void *det)
 	return SIFT3D_FAILURE;
 }
 
-/* Apply a separable filter in multiple dimensions. 
+/* Apply a separable filter in multiple dimensions. This function resamples the
+ * input to have the same units as f, then resamples the output to the
+ * original units.
  *
  * Parameters:
  *  -src: The input image.
  *  -dst: The filtered image.
  *  -f: The filter to apply.
+ *  -unit: The physical units of the filter kernel. Use -1.0 for the default,
+ *      which is the same units as src.
  *
  * Return: SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
 int apply_Sep_FIR_filter(const Image * const src, Image * const dst,
-			 Sep_FIR_filter * const f)
+			 Sep_FIR_filter * const f, const double unit)
 {
-
-	int (*filter_fun) (const Image * const, Image * const, 
-                const Sep_FIR_filter * const, const int);
 
 	Image temp;
 	Image *cur_src, *cur_dst;
 	int i;
 
-	// Choose a filtering function
-#ifdef SIFT3D_USE_OPENCL
-	filter_fun = convolve_sep_cl;
-#else
-	filter_fun = f->symmetric ? convolve_sep_sym : convolve_sep;
-#endif
+        const double unit_default = -1.0;
+
+        // Verify inputs
+        if (unit < 0 && unit != unit_default) {
+                fprintf(stderr, "apply_Sep_FIR_filter: invalid unit: %f, use "
+                        "%f for default \n", unit, unit_default);
+                return SIFT3D_FAILURE;
+        }
 
         // Resize the output
         if (im_copy_dims(src, dst))
@@ -3450,8 +3464,13 @@ int apply_Sep_FIR_filter(const Image * const src, Image * const dst,
 	cur_src = (Image *) src;
 	cur_dst = &temp;
 	for (i = 0; i < IM_NDIMS; i++) {
+
+                // Check for default parameters
+                const double unit_arg = unit == unit_default ?
+                        SIFT3D_IM_GET_UNITS(src)[i] : unit;
+
 #ifdef SIFT3D_USE_OPENCL
-                filter_fun(cur_src, cur_dst, f, i);
+                convolve_sep(cur_src, cur_dst, f, i, unit_arg);
 		SWAP_BUFFERS
 #else
                 // Transpose so that the filter dimension is x
@@ -3462,7 +3481,7 @@ int apply_Sep_FIR_filter(const Image * const src, Image * const dst,
                 }
 
 		// Apply the filter
-		filter_fun(cur_src, cur_dst, f, 0);
+		convolve_sep(cur_src, cur_dst, f, 0, unit_arg);
 		SWAP_BUFFERS
 
                 // Transpose back
@@ -3495,15 +3514,29 @@ apply_sep_f_quit:
 
 /* Initialize a separable FIR filter struct with the given parameters. If OpenCL
  * support is enabled and initialized, this creates a program to apply it with
- * separable filters. */
-int init_Sep_FIR_filter(Sep_FIR_filter * f, int dim, int half_width, int width,
-			float *kernel, int symmetric)
+ * separable filters.  
+ *
+ * Note that the kernel data will be copied, so the user can free it without 
+ * affecting f. */
+int init_Sep_FIR_filter(Sep_FIR_filter *const f, const int dim, const int width,
+			const float *const kernel, const int symmetric)
 {
+
+        const size_t kernel_size = width * sizeof(float);
+
+        // Save the data
 	f->dim = dim;
-	f->half_width = half_width;
 	f->width = width;
-	f->kernel = kernel;
 	f->symmetric = symmetric;
+
+        // Allocate the kernel memory
+        if ((f->kernel = (float *) malloc(kernel_size)) == NULL) {
+                fputs("init_Sep_FIT_filter: out of memory! \n", stderr);
+                return SIFT3D_FAILURE;
+        }
+
+        // Copy the kernel data
+        memcpy(f->kernel, kernel, kernel_size);
 
 #ifdef SIFT3D_USE_OPENCL
 	{
@@ -3553,7 +3586,7 @@ int init_Sep_FIR_filter(Sep_FIR_filter * f, int dim, int half_width, int width,
 }
 
 /* Free a Sep_FIR_Filter. */
-void cleanup_Sep_FIR_filter(Sep_FIR_filter * f)
+void cleanup_Sep_FIR_filter(Sep_FIR_filter *const f)
 {
 
 	if (f->kernel != NULL) {
@@ -3606,7 +3639,7 @@ int init_Gauss_filter(Gauss_filter * const gauss, const double sigma,
                 SIFT3D_MAX((int)ceil(sigma * SIFT3D_GAUSS_WIDTH_FCTR), 1) :
                 1;
 	width = 2 * half_width + 1;
-	if ((kernel = (float *)malloc(width * sizeof(float))) == NULL)
+	if ((kernel = (float *) malloc(width * sizeof(float))) == NULL)
 		return SIFT3D_FAILURE;
 
 	// Calculate coefficients
@@ -3634,10 +3667,20 @@ int init_Gauss_filter(Gauss_filter * const gauss, const double sigma,
 	// TODO: write and compile OpenCL program based on Sep_sym_FIR_filter
 #endif
 
-	// Save data
+	// Save the filter data 
 	gauss->sigma = sigma;
-	return init_Sep_FIR_filter(&gauss->f, dim, half_width, width, kernel,
-				   SIFT3D_TRUE);
+	if (init_Sep_FIR_filter(&gauss->f, dim, width, kernel,
+				   SIFT3D_TRUE))
+                goto init_Gauss_filter_quit;
+
+        // Clean up
+        free(kernel);
+
+        return SIFT3D_SUCCESS;
+
+init_Gauss_filter_quit:
+        free(kernel);
+        return SIFT3D_FAILURE;
 }
 
 /* Initialize a Gaussian filter to go from scale s_cur to s_next. */

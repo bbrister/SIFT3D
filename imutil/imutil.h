@@ -102,14 +102,6 @@ int write_tform(const char *path, const void *const tform);
 int mul_Mat_rm(const Mat_rm *const mat_in1, const Mat_rm *const mat_in2, 
         Mat_rm *const mat_out);
 
-int init_Sep_FIR_filter(Sep_FIR_filter *f, int dim, int half_width, int width, 
-						float *kernel, int symmetric);
-
-void cleanup_Sep_FIR_filter(Sep_FIR_filter *f);
-
-int apply_Sep_FIR_filter(const Image *const src, Image *const dst, 
-        Sep_FIR_filter *const f);
-
 int draw_grid(Image *grid, int nx, int ny, int nz, int spacing, 
 					   int line_width);
 
@@ -182,12 +174,15 @@ int init_Gauss_filter(Gauss_filter *const gauss, const double sigma,
                       const int dim);
 
 int init_Gauss_incremental_filter(Gauss_filter *const gauss, 
-                const double s_cur, const double s_next, const int dim);
+                const double s_cur, const double s_next, const int dim); 
 
-int init_Sep_FIR_filter(Sep_FIR_filter *f, int dim, int half_width, int width, 
-						float *kernel, int symmetric);
+int init_Sep_FIR_filter(Sep_FIR_filter *const f, const int dim, const int width,
+			const float *const kernel, const int symmetric);
 
-void cleanup_Sep_FIR_filter(Sep_FIR_filter *f);
+int apply_Sep_FIR_filter(const Image *const src, Image *const dst, 
+        Sep_FIR_filter *const f, const double unit);
+
+void cleanup_Sep_FIR_filter(Sep_FIR_filter *const f);
 
 void cleanup_Gauss_filter(Gauss_filter *gauss);
 
