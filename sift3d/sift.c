@@ -1541,6 +1541,7 @@ static int assign_eig_ori(SIFT3D *const sift3d, const Image *const im,
 	SIFT3D_MAT_RM_GET(&A, 2, 2, double) += (double) vd.z * vd.z * weight;
 
 	// Update the window gradient
+        SIFT3D_CVEC_SCALE(&vd, weight);
 	SIFT3D_CVEC_OP(&vd_win, &vd, +, &vd_win);
     IM_LOOP_SPHERE_END
 
