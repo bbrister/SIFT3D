@@ -580,7 +580,6 @@ int mx2kp(const mxArray *const mx, Keypoint_store *const kp) {
                 key->xi = (int) key->xd;
                 key->yi = (int) key->yd;
                 key->zi = (int) key->zd;
-                key->sd_rel = pow(2.0, -key->o) * key->sd;
         }
 
         return SIFT3D_SUCCESS;

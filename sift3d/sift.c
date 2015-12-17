@@ -454,7 +454,6 @@ int copy_Keypoint(const Keypoint *const src, Keypoint *const dst) {
         dst->yd = src->yd;
         dst->zd = src->zd;
         dst->sd = src->sd;
-        dst->sd_rel = src->sd_rel;
         dst->xi = src->xi;
         dst->yi = src->yi;
         dst->zi = src->zi;
@@ -1453,7 +1452,6 @@ refine_quit:
 		key->yd = yd;
 		key->zd = zd;
 		key->sd = sd;
-		key->sd_rel = sd * pow(2.0, -o);
 	}
 
         // Clean up
@@ -2231,7 +2229,6 @@ int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d,
                 // Assign the keypoint the base octave and scale level
                 dst->o = first_octave;
                 dst->s = first_level;
-                dst->sd_rel = dst->sd * scale_factor;
         }
 
         // Extract the descriptors
