@@ -66,7 +66,7 @@ const int kp_y = 1; // column of y-coordinate
 const int kp_z = 2; // column of z-coordinate
 const int kp_s = 3; // column of s-coordinate
 const int kp_ori = 4; // first column of the orientation matrix
-const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientaiton elements
+const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientation elements
 
 /* Internal return codes */
 #define REJECT 1
@@ -101,9 +101,17 @@ const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientaiton elements
  * the displacement from the window center. sqdisp is a float storing the
  * squared Euclidean distance from the window center.
  *
+ * Note that the sphere is defined in real-world coordinates, i.e. those
+ * with units (1, 1, 1). Thus, rad, sq_dist, and vdisp are defined in these
+ * coordinates as well. However, x, y, z, and vcenter are defined in image
+ * space.
+ *
  * Delimit with IM_LOOP_SPHERE_END. */
 #define IM_LOOP_SPHERE_START(im, x, y, z, vcenter, rad, vdisp, sq_dist) \
 { \
+        const float uxf = (float) (im)->ux; \
+        const float uyf = (float) (im)->uy; \
+        const float uzf = (float) (im)->uz; \
 	const int x_start = \
                 (int) SIFT3D_MAX((int) (vcenter)->x - (int) ((rad) + 0.5), 1); \
 	const int x_end   = \
@@ -118,14 +126,14 @@ const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientaiton elements
                 (int) SIFT3D_MIN((int) (vcenter)->z + (int) ((rad) + 0.5), im->nz - 2); \
 	SIFT3D_IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, y_start, \
                  y_end, z_start, z_end) \
-	    (vdisp)->x = ((float) x + 0.5f) - (vcenter)->x; \
-	    (vdisp)->y = ((float) y + 0.5f) - (vcenter)->y; \
-	    (vdisp)->z = ((float) z + 0.5f) - (vcenter)->z; \
+	    (vdisp)->x = (((float) x + 0.5f) - (vcenter)->x) * uxf; \
+	    (vdisp)->y = (((float) y + 0.5f) - (vcenter)->y) * uyf; \
+	    (vdisp)->z = (((float) z + 0.5f) - (vcenter)->z) * uzf; \
 	    (sq_dist) = SIFT3D_CVEC_L2_NORM_SQ(vdisp); \
 	    if ((sq_dist) > (rad) * (rad)) \
 		continue; \
 
-#define IM_LOOP_SPHERE_END } SIFT3D_IM_LOOP_END
+#define IM_LOOP_SPHERE_END SIFT3D_IM_LOOP_END }
 
 // Loop over all bins in a gradient histogram. If ICOS_HIST is defined, p
 // is not referenced
@@ -154,6 +162,14 @@ const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientaiton elements
 // SIFT3D_Descriptor_store struct
 #define DESC_MAT_GET_COL(hist_idx, a, p) \
         (((hist_idx) * HIST_NUMEL) + HIST_GET_IDX(a, p) + IM_NDIMS)
+
+// As SIFT3D_IM_GET_GRAD, but with physical units (1, 1, 1)
+#define IM_GET_GRAD_ISO(im, x, y, z, c, vd) { \
+        SIFT3D_IM_GET_GRAD(im, x, y, z, c, vd); \
+        (vd)->x *=  1.0 / (im)->ux; \
+        (vd)->y *= 1.0 / (im)->uy; \
+        (vd)->z *= 1.0 / (im)->uz; \
+}
 
 /* Global variables */
 extern CL_data cl_data;
@@ -1530,7 +1546,7 @@ static int assign_eig_ori(SIFT3D *const sift3d, const Image *const im,
 	weight = expf(-0.5 * sq_dist / (sigma * sigma));		
 
 	// Get the gradient	
-	SIFT3D_IM_GET_GRAD(im, x, y, z, 0, &vd);
+	IM_GET_GRAD_ISO(im, x, y, z, 0, &vd);
 
 	// Update the structure tensor
 	SIFT3D_MAT_RM_GET(&A, 0, 0, double) += (double) vd.x * vd.x * weight;
@@ -1656,7 +1672,7 @@ static int assign_orientations(SIFT3D *sift3d,
                         SIFT3D_PYR_IM_GET(&sift3d->gpyr, key->o, key->s);
                 Mat_rm *const R = &key->R;
                 const Cvec vcenter = {key->xd, key->yd, key->zd};
-                const double sigma = ori_sig_fctr * key->sd_rel;
+                const double sigma = ori_sig_fctr * key->sd;
 
 		// Compute dominant orientations
                 assert(R->u.data_float == key->r_data);
@@ -1924,7 +1940,7 @@ static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
 	int i, x, y, z, a, p;
 
 	// Compute basic parameters 
-        const float sigma = key->sd_rel * desc_sig_fctr;
+        const float sigma = key->sd * desc_sig_fctr;
 	const float win_radius = desc_rad_fctr * sigma;
 	const float desc_width = win_radius / sqrt(2);
 	const float desc_hw = desc_width / 2.0f;
@@ -1959,7 +1975,7 @@ static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
 			continue;
 
 		// Take the gradient
-		SIFT3D_IM_GET_GRAD(im, x, y, z, 0, &grad);
+		IM_GET_GRAD_ISO(im, x, y, z, 0, &grad);
 
 		// Apply a Gaussian window
 		weight = expf(-0.5f * sq_dist / (sigma * sigma));
@@ -2348,7 +2364,7 @@ static void extract_dense_descrip_rotate(SIFT3D *const sift3d,
 	IM_LOOP_SPHERE_START(im, x, y, z, vcenter, win_radius, &vim, sq_dist)
 
 		// Take the gradient and rotate
-		SIFT3D_IM_GET_GRAD(im, x, y, z, 0, &grad);
+		IM_GET_GRAD_ISO(im, x, y, z, 0, &grad);
 		SIFT3D_MUL_MAT_RM_CVEC(R, &grad, &grad_rot);
 
                 // Get the index of the intersecting face
@@ -2490,7 +2506,7 @@ static int extract_dense_descriptors_no_rotate(SIFT3D *const sift3d,
                 y_end, z_start, z_end)
 
                 // Take the gradient
-		SIFT3D_IM_GET_GRAD(in, x, y, z, 0, &grad);
+		IM_GET_GRAD_ISO(in, x, y, z, 0, &grad);
 
                 // Get the index of the intersecting face
                 if (icos_hist_bin(sift3d, &grad, &bary, &bin))
