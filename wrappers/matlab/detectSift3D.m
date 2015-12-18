@@ -37,7 +37,7 @@ if isempty(im)
     error('im is empty')
 end
 
-if (ndims(im) ~= 3)
+if ndims(im) ~= 3
     error(['im must have 3 dimensions, detected ' num2str(ndims(im))]);
 end
 

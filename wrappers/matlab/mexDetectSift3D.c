@@ -16,7 +16,6 @@
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
         const mxArray *mxIm, *mxUnits;
-        mwSize imNDims;
         Image im;
         Keypoint_store kp;
         const char *errName, *errMsg;
