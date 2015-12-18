@@ -2293,7 +2293,8 @@ static int convolve_sep_gen(const Image * const src,
 	register const int ny = src->ny;
 	register const int nz = src->nz;
 	register const int nc = src->nc;
-	register const int dim_end = src->dims[dim] - 1;
+        register const float conv_eps = FLT_EPSILON * 1E2f;
+	register const float dim_end = (float) src->dims[dim] - 1.0f;
         register const float unit_factor =  unit /
                 (double) SIFT3D_IM_GET_UNITS(src)[dim];
         int start[] = {0, 0, 0};
@@ -2301,7 +2302,7 @@ static int convolve_sep_gen(const Image * const src,
 
         // Compute starting and ending points for the convolution dimension
         start[dim] += half_width;
-        end[dim] -= half_width;
+        end[dim] -= half_width + 1;
 
 	//TODO: Convert this to convolve_x, which only convolves in x,
 	// then make a wrapper to restride, transpose, convolve x, and transpose 
@@ -2323,6 +2324,7 @@ static int convolve_sep_gen(const Image * const src,
 \
         const int idx_lo[] = {(coords)[0], (coords)[1], (coords)[2]}; \
         int idx_hi[] = {idx_lo[0], idx_lo[1], idx_lo[2]}; \
+\
         /* Convert the physical coordinates to integer indices*/ \
         idx_hi[dim] += 1; \
         frac = (coords)[dim] - (float) idx_lo[dim]; \
@@ -2377,8 +2379,8 @@ static int convolve_sep_gen(const Image * const src,
                         // Clamp coordinates to the edge
                         if (coords[dim] < 0) {
                                 coords[dim] = 0;
-                        } else if (coords[dim] > dim_end) {
-                                coords[dim] = dim_end;
+                        } else if (coords[dim] > dim_end - conv_eps) {
+                                coords[dim] = dim_end - conv_eps;
                         }
 
                         // Sample
@@ -2389,6 +2391,8 @@ static int convolve_sep_gen(const Image * const src,
                 }
 
 	SIFT3D_IM_LOOP_END_C 
+
+        // Final pass: process the last 
 #undef SAMP_AND_ACC
 
         return SIFT3D_SUCCESS;
