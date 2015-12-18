@@ -219,6 +219,24 @@ extern "C" {
 #define SIFT3D_MAT_RM_GET(mat, row, col, type) ((mat)->u.data_ ## type \
 	[SIFT3D_MAT_RM_GET_IDX(mat, row, col)])
 
+/* Execute the macro MACRO, with the first argument set to the type of mat. If
+ * there is an error, goto err_label. */
+#define SIFT3D_MAT_RM_TYPE_MACRO(mat, err_label, MACRO, ...) \
+        switch ((mat)->type) { \
+                case DOUBLE: \
+                        MACRO(double, ## __VA_ARGS__) \
+                        break; \
+                case FLOAT: \
+                        MACRO(float, ## __VA_ARGS__) \
+                        break; \
+                case INT: \
+                        MACRO(int, ## __VA_ARGS__) \
+                        break; \
+                default: \
+                        fprintf(stderr, "imutil: unknown matrix type"); \
+                        goto err_label; \
+        } \
+
 // Convert a vector from Cartesian to Spherical coordinates.
 #define SIFT3D_CVEC_TO_SVEC(cvec, svec) { \
 	(svec)->mag = sqrtf((cvec)->x * (cvec)->x + (cvec)->y * (cvec)->y + \
@@ -247,16 +265,18 @@ extern "C" {
 	(cvec)->z * (cvec)->z)
 
 // Scale a Cartesian coordinate vector by a constant factor
-#define SIFT3D_CVEC_SCALE(cvec, a) \
+#define SIFT3D_CVEC_SCALE(cvec, a) { \
     (cvec)->x = (cvec)->x * a; \
     (cvec)->y = (cvec)->y * a; \
-    (cvec)->z = (cvec)->z * a
+    (cvec)->z = (cvec)->z * a; \
+}
 
 // Operate element-wise on two Cartesian coordinate vectors, cc = ca op cb
-#define SIFT3D_CVEC_OP(ca, cb, op, cc) \
+#define SIFT3D_CVEC_OP(ca, cb, op, cc) { \
     (cc)->x = (ca)->x op (cb)->x; \
     (cc)->y = (ca)->y op (cb)->y; \
-    (cc)->z = (ca)->z op (cb)->z
+    (cc)->z = (ca)->z op (cb)->z; \
+}
 
 // Return the dot product of two Cartesian coordinate 
 // vectors
@@ -271,21 +291,29 @@ extern "C" {
 	(out)->z = (in1)->x * (in2)->y - (in1)->y * (in2)->x; \
 } 
 
+// Evaluates to true (nonzero) if im contains cvec, false otherwise
+#define SIFT3D_IM_CONTAINS_CVEC(im, cvec) ( \
+        (cvec)->x >= 0 || (cvec)->y >= 0 || (cvec)->z >= 0 || \
+        (cvec)->x < (float) (im)->nx || \
+        (cvec)->y < (float) (im)->ny || \
+        (cvec)->z < (float) (im)->nz \
+)
+
 /* Computes v_out = mat * v_in. Note that mat must be of FLOAT
  * type, since this is the only type available for vectors. 
  * Also note that mat must be (3 x 3). */
 #define SIFT3D_MUL_MAT_RM_CVEC(mat, v_in, v_out) { \
 	(v_out)->x = SIFT3D_MAT_RM_GET(mat, 0, 0, float) * (v_in)->x + \
 	    	     SIFT3D_MAT_RM_GET(mat, 0, 1, float) * (v_in)->y + \
-			     SIFT3D_MAT_RM_GET(mat, 0, 2, float) * (v_in)->z;	\
+                     SIFT3D_MAT_RM_GET(mat, 0, 2, float) * (v_in)->z; \
 	\
 	(v_out)->y = SIFT3D_MAT_RM_GET(mat, 1, 0, float) * (v_in)->x + \
-			     SIFT3D_MAT_RM_GET(mat, 1, 1, float) * (v_in)->y + \
-			     SIFT3D_MAT_RM_GET(mat, 1, 2, float) * (v_in)->z;	\
+                     SIFT3D_MAT_RM_GET(mat, 1, 1, float) * (v_in)->y + \
+                     SIFT3D_MAT_RM_GET(mat, 1, 2, float) * (v_in)->z; \
 	\
 	(v_out)->z = SIFT3D_MAT_RM_GET(mat, 2, 0, float) * (v_in)->x + \
-			     SIFT3D_MAT_RM_GET(mat, 2, 1, float) * (v_in)->y + \
-			     SIFT3D_MAT_RM_GET(mat, 2, 2, float) * (v_in)->z; \
+                     SIFT3D_MAT_RM_GET(mat, 2, 1, float) * (v_in)->y + \
+                     SIFT3D_MAT_RM_GET(mat, 2, 2, float) * (v_in)->z; \
 }
 
 #ifdef __cplusplus

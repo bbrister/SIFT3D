@@ -62,6 +62,9 @@ void print_opts_SIFT3D(void);
 int parse_args_SIFT3D(SIFT3D *const sift3d,
         const int argc, char **argv, const int check_err);
 
+int SIFT3D_assign_orientations(const SIFT3D *const sift3d, 
+        const Image *const im, Keypoint_store *const kp, double **const conf);
+
 int SIFT3D_detect_keypoints(SIFT3D *const sift3d, const Image *const im,
 			    Keypoint_store *const kp);
 

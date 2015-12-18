@@ -826,9 +826,7 @@ int resize_Mat_rm(Mat_rm *mat) {
             type_size = sizeof(int);
             break;
         default:
-#ifndef NDEBUG
             fputs("resize_Mat_rm: unknown type! \n", stderr);
-#endif
 		return SIFT3D_FAILURE;
 	}
 
@@ -857,7 +855,7 @@ int resize_Mat_rm(Mat_rm *mat) {
 }
 
 /* Set all elements to zero */
-int zero_Mat_rm(Mat_rm * mat)
+int zero_Mat_rm(Mat_rm *const mat)
 {
 
 	int i, j;
@@ -880,7 +878,41 @@ int zero_Mat_rm(Mat_rm * mat)
 	default:
 		return SIFT3D_FAILURE;
 	}
+#undef SET_ZERO
+
 	return SIFT3D_SUCCESS;
+}
+
+/* Set a matrix to identity. 
+ *
+ * Parameters:
+ *   n: The length of the square matrix. The output will have size [n x n].
+ *   mat: The matrix to be set.
+ */
+int identity_Mat_rm(const int n, Mat_rm *const mat) {
+
+        int i, j;
+
+        // Resize the matrix 
+        mat->num_rows = mat->num_cols = n;
+        if (resize_Mat_rm(mat))
+                return SIFT3D_FAILURE;
+
+        // Set to identity
+        zero_Mat_rm(mat);
+
+#define SET_IDENTITY(type) \
+        SIFT3D_MAT_RM_LOOP_START(mat, i, j) \
+                SIFT3D_MAT_RM_GET(mat, i, j, type) = (type) 1; \
+        SIFT3D_MAT_RM_LOOP_END
+
+        SIFT3D_MAT_RM_TYPE_MACRO(mat, identity_Mat_rm_quit, SET_IDENTITY);
+#undef SET_IDENTITY
+
+        return SIFT3D_TRUE;
+
+identity_Mat_rm_quit:
+        return SIFT3D_FAILURE;
 }
 
 /* De-allocate the memory for a Mat_rm struct, unless it was initialized in

@@ -70,8 +70,10 @@ int transpose_Mat_rm(const Mat_rm *const src, Mat_rm *const dst);
 
 int det_symm_Mat_rm(Mat_rm *mat, void *det);
 
-int zero_Mat_rm(Mat_rm *mat);
+int zero_Mat_rm(Mat_rm *const mat);
  
+int identity_Mat_rm(const int n, Mat_rm *const mat);
+
 void cleanup_Mat_rm(Mat_rm *mat);
 
 int init_tform(void *const tform, const tform_type type);

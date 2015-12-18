@@ -28,6 +28,9 @@
 //#define SIFT3D_MATCH_MAX_DIST 0.3 // Maximum distance between matching features 
 //#define CUBOID_EXTREMA // Search for extrema in a cuboid region
 
+/* Internal return codes */
+#define REJECT 1
+
 /* Default SIFT3D parameters. These may be overriden by 
  * the calling appropriate functions. */
 const int first_octave_default = 0; // Starting octave index
@@ -67,9 +70,6 @@ const int kp_z = 2; // column of z-coordinate
 const int kp_s = 3; // column of s-coordinate
 const int kp_ori = 4; // first column of the orientation matrix
 const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientation elements
-
-/* Internal return codes */
-#define REJECT 1
 
 /* Get the index of bin j from triangle i */
 #define MESH_GET_IDX(mesh, i, j) \
@@ -166,9 +166,9 @@ const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientation elements
 // As SIFT3D_IM_GET_GRAD, but with physical units (1, 1, 1)
 #define IM_GET_GRAD_ISO(im, x, y, z, c, vd) { \
         SIFT3D_IM_GET_GRAD(im, x, y, z, c, vd); \
-        (vd)->x *=  1.0 / (im)->ux; \
-        (vd)->y *= 1.0 / (im)->uy; \
-        (vd)->z *= 1.0 / (im)->uz; \
+        (vd)->x *=  1.0f / (float) (im)->ux; \
+        (vd)->y *= 1.0f / (float) (im)->uy; \
+        (vd)->z *= 1.0f / (float) (im)->uz; \
 }
 
 /* Global variables */
@@ -185,10 +185,13 @@ static int build_gpyr(SIFT3D *sift3d);
 static int build_dog(SIFT3D *dog);
 static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp);
 static int refine_keypoints(SIFT3D *sift3d, Keypoint_store *kp);
-static int assign_eig_ori(SIFT3D *const sift3d, const Image *const im, 
-                          const Cvec *const vcenter,
-                          const double sigma, Mat_rm *const R);
 static int assign_orientations(SIFT3D *sift3d, Keypoint_store *kp);
+static int assign_orientation_thresh(const Image *const im, 
+        const Cvec *const vcenter, const double sigma, const double thresh,
+        Mat_rm *const R);
+static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
+                          const double sigma, Mat_rm *const R, 
+                          double *const conf);
 static int Cvec_to_sbins(const Cvec * const vd, Svec * const bins);
 static void refine_Hist(Hist *hist);
 static int init_cl_SIFT3D(SIFT3D *sift3d);
@@ -198,6 +201,8 @@ static int scale_Keypoint(const Keypoint *const src,
         const double *const factors, Keypoint *const dst);
 static int smooth_raw_input(const SIFT3D *const sift3d, const Image *const src,
         Image *const dst);
+static int verify_keys(const Keypoint_store *const kp, const Image *const im);
+static int keypoint2base(const Keypoint *const src, Keypoint *const dst);
 static int _SIFT3D_extract_descriptors(SIFT3D *const sift3d, 
         const Pyramid *const gpyr, const Keypoint_store *const kp, 
         SIFT3D_Descriptor_store *const desc);
@@ -1515,25 +1520,120 @@ static void refine_Hist(Hist *hist) {
 
 }
 
-/* As above, but using the eigenvector method */
-static int assign_eig_ori(SIFT3D *const sift3d, const Image *const im, 
-                          const Cvec *const vcenter,
-                          const double sigma, Mat_rm *const R) {
+/* Assign rotation matrices to the keypoints. 
+ * 
+ * Note that this stage will modify kp, likely
+ * rejecting some keypoints as orientationally
+ * unstable. */
+static int assign_orientations(SIFT3D *sift3d, 
+			       Keypoint_store *kp) {
+
+	Keypoint *kp_pos;
+	size_t num;
+	int i; 
+
+	// Iterate over the keypoints 
+	kp_pos = kp->buf;
+	for (i = 0; i < kp->slab.num; i++) {
+
+		Keypoint *const key = kp->buf + i;
+		const Image *const level = 
+                        SIFT3D_PYR_IM_GET(&sift3d->gpyr, key->o, key->s);
+                Mat_rm *const R = &key->R;
+                const Cvec vcenter = {key->xd, key->yd, key->zd};
+                const double sigma = ori_sig_fctr * key->sd;
+
+		// Compute dominant orientations
+                assert(R->u.data_float == key->r_data);
+		switch (assign_orientation_thresh(level, &vcenter, sigma,
+                                       sift3d->corner_thresh, R)) {
+			case SIFT3D_SUCCESS:
+				// Continue processing this keypoint
+				break;
+			case REJECT:
+				// Skip this keypoint
+				continue;
+			default:
+				// Any other return value is an error
+				return SIFT3D_FAILURE;
+		}
+		
+		// Rebuild the Keypoint buffer in place
+                if (copy_Keypoint(key, kp_pos))
+                        return SIFT3D_FAILURE;
+                kp_pos++;
+	}
+
+	// Release unneeded keypoint memory
+	num = kp_pos - kp->buf;
+        return resize_Keypoint_store(kp, num);
+}
+
+/* Helper function to call assign_eig_ori, and reject keypoints with
+ * confidence below the parameter "thresh." All other parameters are the same.
+ * All return values are the same, except REJECT is returned if 
+ * conf < thresh. */
+static int assign_orientation_thresh(const Image *const im, 
+        const Cvec *const vcenter, const double sigma, const double thresh,
+        Mat_rm *const R) {
+
+        double conf;
+        int ret;
+
+        ret = assign_eig_ori(im, vcenter, sigma, R, &conf);
+
+        return ret == SIFT3D_SUCCESS ? 
+                (conf < thresh ? REJECT : SIFT3D_SUCCESS) : ret;
+}
+
+
+/* Assign an orientation to a point in an image.
+ *
+ * Parameters:
+ *   -im: The image data.
+ *   -vcenter: The center of the window, in image space.
+ *   -sigma: The scale parameter. The width of the window is a constant
+ *      multiple of this.
+ *   -R: The place to write the rotation matrix. This is 
+ *   -R
+ */
+static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
+                          const double sigma, Mat_rm *const R, 
+                          double *const conf) {
 
     Cvec v[2];
     Mat_rm A, L, Q;
     Cvec vd, vd_win, vdisp, vr;
-    double d, cos_ang;
+    double d, cos_ang, abs_cos_ang, corner_score;
     float weight, sq_dist, sgn;
     int i, x, y, z, m;
   
     const double win_radius = sigma * ori_rad_fctr; 
 
+    // Verify inputs
+    if (!SIFT3D_IM_CONTAINS_CVEC(im, vcenter)) {
+        fprintf(stderr, "assign_eig_ori: vcenter (%f, %f, %f) lies "
+                "outside the boundaries of im [%d x %d x %d] \n", 
+                vcenter->x, vcenter->y, vcenter->z, im->nx, im->ny, im->nz);
+        return SIFT3D_FAILURE;
+    }
+    if (sigma < 0) {
+        fprintf(stderr, "assign_eig_ori: invalid sigma: %f \n", sigma);
+        return SIFT3D_FAILURE;
+    }
+
     // Initialize the intermediates
-    if (init_Mat_rm(&A, 3, 3, DOUBLE, SIFT3D_TRUE) ||
-	init_Mat_rm(&L, 0, 0, DOUBLE, SIFT3D_TRUE) ||
+    if (init_Mat_rm(&A, 3, 3, DOUBLE, SIFT3D_TRUE))
+        return SIFT3D_FAILURE;
+    if (init_Mat_rm(&L, 0, 0, DOUBLE, SIFT3D_TRUE) ||
 	init_Mat_rm(&Q, 0, 0, DOUBLE, SIFT3D_TRUE))
 	goto eig_ori_fail;
+
+    // Resize the output
+    R->num_rows = R->num_cols = IM_NDIMS;
+    R->type = FLOAT;
+    if (resize_Mat_rm(R))
+        goto eig_ori_fail;
 
     // Form the structure tensor and window gradient
     vd_win.x = 0.0f;
@@ -1586,6 +1686,7 @@ static int assign_eig_ori(SIFT3D *const sift3d, const Image *const im,
     }
 
     // Assign signs to the first n - 1 vectors
+    corner_score = DBL_MAX;
     for (i = 0; i < m - 1; i++) {
 
 	const int eig_idx = m - i - 1;
@@ -1600,16 +1701,13 @@ static int assign_eig_ori(SIFT3D *const sift3d, const Image *const im,
 
         // Get the cosine of the angle between the eigenvector and the gradient
         cos_ang = d / (SIFT3D_CVEC_L2_NORM(&vr) * SIFT3D_CVEC_L2_NORM(&vd));
+        abs_cos_ang = fabs(cos_ang);
 
         // Reject points not meeting the corner score
-        if (fabs(cos_ang) < sift3d->corner_thresh) 
-                goto eig_ori_reject;
+        corner_score = SIFT3D_MIN(corner_score, abs_cos_ang);
 
 	// Get the sign of the derivative
-	if (d > 0.0)
-	    sgn = 1.0f;
-	else
-	    sgn = -1.0f;
+        sgn = d > 0.0 ? 1.0f : -1.0f;
 
 	// Enforce positive directional derivative
 	SIFT3D_CVEC_SCALE(&vr, sgn);
@@ -1631,70 +1729,124 @@ static int assign_eig_ori(SIFT3D *const sift3d, const Image *const im,
     SIFT3D_MAT_RM_GET(R, 1, 2, float) = (float) vr.y;
     SIFT3D_MAT_RM_GET(R, 2, 2, float) = (float) vr.z;
 
+    // Optionally write back the corner score
+    if (conf != NULL)
+        *conf = corner_score;
+
     cleanup_Mat_rm(&A);
     cleanup_Mat_rm(&Q);
     cleanup_Mat_rm(&L);
     return SIFT3D_SUCCESS; 
 
 eig_ori_reject:
+    if (conf != NULL)
+        *conf = 0.0;
     cleanup_Mat_rm(&A);
     cleanup_Mat_rm(&Q);
     cleanup_Mat_rm(&L);
     return REJECT;
 
 eig_ori_fail:
+    if (conf != NULL)
+        *conf = 0.0;
     cleanup_Mat_rm(&A);
     cleanup_Mat_rm(&Q);
     cleanup_Mat_rm(&L);
     return SIFT3D_FAILURE;
 }
 
-/* Assign rotation matrices to the keypoints. 
- * 
- * Note that this stage will modify kp, likely
- * rejecting some keypoints as orientationally
- * unstable. */
-static int assign_orientations(SIFT3D *sift3d, 
-			       Keypoint_store *kp) {
+/* Assign an orientation to a point in an image.
+ *
+ * Parameters:
+ *   -im: The image data.
+ *   -kp: A container holding the keypoints. On successful return, the matrices
+ *      "R" in these keypoints will be set to the assigned orientations.
+ *   -conf: If not NULL, this is a pointer to array where the confidence scores
+ *      are written. The scores are normally in the interval [0, 1], where 1 
+ *      is the most confident, 0 is the least. A higher score means the assigned
+ *      orientation is more likely to be robust. A negative score means the
+ *      orientation could not be assigned. 
+ *
+ * If not NULL, this function will re-allocate conf. As such, *conf must either
+ * be NULL or a pointer to a previously-allocated array.
+ *
+ * Return value: 
+ * SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise.
+ */
+int SIFT3D_assign_orientations(const SIFT3D *const sift3d, 
+        const Image *const im, Keypoint_store *const kp, double **const conf) {
 
-	Keypoint *kp_pos;
-	size_t num;
-	int i; 
+        Image im_smooth;
+        Keypoint key_base;
+        int i;
 
-	// Iterate over the keypoints 
-	kp_pos = kp->buf;
-	for (i = 0; i < kp->slab.num; i++) {
+        const int num = kp->slab.num;
 
-		Keypoint *const key = kp->buf + i;
-		const Image *const level = 
-                        SIFT3D_PYR_IM_GET(&sift3d->gpyr, key->o, key->s);
+        // Verify inputs 
+        if (verify_keys(kp, im))
+                return SIFT3D_FAILURE;
+
+        // Initialize intermediates
+        init_im(&im_smooth);
+        init_Keypoint(&key_base);
+
+        // Resize conf
+        if ((*conf = realloc(*conf, num * sizeof(double))) == NULL)
+                goto assign_orientations_quit;
+
+        // Smooth the input
+        if (smooth_raw_input(sift3d, im, &im_smooth))
+                goto assign_orientations_quit;
+
+        // Assign each orientation
+        for (i = 0; i < num; i++) {
+
+                Cvec vcenter;
+                int j;
+
+                Keypoint *const key = kp->buf + i;
+                double *const conf_ret = *conf + i;
                 Mat_rm *const R = &key->R;
-                const Cvec vcenter = {key->xd, key->yd, key->zd};
-                const double sigma = ori_sig_fctr * key->sd;
 
-		// Compute dominant orientations
-                assert(R->u.data_float == key->r_data);
-		switch (assign_eig_ori(sift3d, level, &vcenter, sigma, R)) {
-			case SIFT3D_SUCCESS:
-				// Continue processing this keypoint
-				break;
-			case REJECT:
-				// Skip this keypoint
-				continue;
-			default:
-				// Any other return value is an error
-				return SIFT3D_FAILURE;
-		}
-		
-		// Rebuild the Keypoint buffer in place
-                if (copy_Keypoint(key, kp_pos))
-                        return SIFT3D_FAILURE;
-                kp_pos++;
-	}
+                // Convert the keypoint to the base octave
+                if (keypoint2base(key, &key_base))
+                        goto assign_orientations_quit;
 
-	// Release unneeded keypoint memory
-	num = kp_pos - kp->buf;
-        return resize_Keypoint_store(kp, num);
+                // Convert the keypoint to a vector
+                vcenter.x = key_base.xd;
+                vcenter.y = key_base.yd;
+                vcenter.z = key_base.zd;
+
+                // Assign the orientation
+                switch (assign_eig_ori(im, &vcenter, key_base.sd, R, conf_ret))
+                {
+                        case SIFT3D_SUCCESS:
+                                break;
+                        case REJECT:
+                                // Set R to identity
+                                if (identity_Mat_rm(IM_NDIMS, R))
+                                        goto assign_orientations_quit;
+                                zero_Mat_rm(R);
+                                for (j = 0; j < IM_NDIMS; j++) {
+                                        SIFT3D_MAT_RM_GET(R, j, j, float) =
+                                                1.0;
+                                }
+                                *conf_ret = -1.0;
+                                break;
+                        default:
+                                // Stop processing if an error occurs
+                                goto assign_orientations_quit;
+                }
+        }
+
+        // Clean up
+        im_free(&im_smooth);
+
+        return SIFT3D_SUCCESS;
+
+assign_orientations_quit:
+        im_free(&im_smooth);
+        return SIFT3D_FAILURE;
 }
 
 /* Detect keypoint locations and orientations. You must initialize
@@ -2133,6 +2285,65 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d,
         return SIFT3D_SUCCESS;
 }
 
+/* Verify that keypoints kp are valid in image im. Returns SIFT3D_SUCCESS if
+ * valid, SIFT3D_FAILURE otherwise. */
+static int verify_keys(const Keypoint_store *const kp, const Image *const im) {
+
+        int i;
+
+        for (i = 0; i < kp->slab.num; i++) {
+
+                const Keypoint *key = kp->buf + i;
+
+                const double octave_factor = pow(2.0, key->o);
+
+                if (key->xd < 0 ||
+                        key->yd < 0 ||
+                        key->zd < 0 ||
+                        key->xd * octave_factor >= (double) im->nx || 
+                        key->yd * octave_factor >= (double) im->ny || 
+                        key->zd * octave_factor >= (double) im->nz) {
+                        fprintf(stderr, "verify_keys: keypoint %d (%f, %f, %f) "
+                                "octave %d exceeds image dimensions "
+                                "(%d, %d, %d) \n", i, key->xd, key->yd, key->zd,
+                                key->o, im->nx, im->ny, im->nz);
+                        return SIFT3D_FAILURE; 
+                }
+
+                if (key->sd <= 0) {
+                        fprintf(stderr, "verify_keys: keypoint %d has invalid "
+                                "scale %f \n", i, key->sd);
+                        return SIFT3D_FAILURE;
+                }
+        }
+
+        return SIFT3D_SUCCESS;
+}
+
+/* Convert the keypoint src to the equivalent one at octave 0, stored in dst. */
+static int keypoint2base(const Keypoint *const src, Keypoint *const dst) {
+
+        double base_factors[IM_NDIMS];
+        int j;
+
+        const double octave_factor = pow(2.0, src->o);
+
+        // Convert the factors to the base octave
+        for (j = 0; j < IM_NDIMS; j++) {
+                base_factors[j] = octave_factor;
+        }
+
+        // Scale the keypoint
+        if (scale_Keypoint(src, base_factors, dst))
+                return SIFT3D_FAILURE;
+
+        // Assign the keypoint the base octave and scale level
+        dst->o = 0;
+        dst->s = 0;
+
+        return SIFT3D_SUCCESS;
+}
+
 /* Extract SIFT3D descriptors from a list of keypoints and 
  * an image. To extract from a Gaussian scale-space pyramid, see
  * SIFT3D_extract_descriptors. 
@@ -2165,29 +2376,13 @@ int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d,
         const double sigma_n = sift3d->gpyr.sigma_n;
         const double scale_factor = pow(2.0, -first_octave);
 
+        // Verify inputs
+        if (verify_keys(kp, im))
+                return SIFT3D_FAILURE;
+
         // Initialize intermediates
         init_Pyramid(&pyr);
         init_Keypoint_store(&kp_base);
-
-        // Check keypoint validity
-        for (i = 0; i < kp->slab.num; i++) {
-
-                const Keypoint *key = kp->buf + i;
-
-                if (key->xd >= 0 &&
-                        key->yd >= 0 &&
-                        key->zd >= 0 &&
-                        key->xd < (double) im->nx && 
-                        key->yd < (double) im->ny && 
-                        key->zd < (double) im->nz)
-                        continue;
-
-                fprintf(stderr, "SIFT3D_extract_raw_descriptors: keypoint %d "
-                        "(%f, %f, %f) exceeds image dimensions (%d, %d, %d) "
-                        "\n", i, key->xd, key->yd, key->zd, im->nx, im->ny,     
-                        im->nz);
-                goto extract_raw_descriptors_quit;
-        }
 
         // Initialize the image pyramid
         set_scales_Pyramid(sigma0, sigma_n, &pyr);
@@ -2208,27 +2403,11 @@ int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d,
         // octave
         for (i = 0; i < kp->slab.num; i++) {
 
-                double base_factors[IM_NDIMS];
-                int j;
-
                 const Keypoint *const src = kp->buf + i;
                 Keypoint *const dst = kp_base.buf + i; 
 
-                const double octave_factor = 
-                        pow(2.0, src->o - first_octave);
-
-                // Convert the factors to the base octave
-                for (j = 0; j < IM_NDIMS; j++) {
-                        base_factors[j] = octave_factor;
-                }
-
-                // Scale the keypoint
-                if (scale_Keypoint(src, base_factors, dst))
+                if (keypoint2base(src, dst))
                         goto extract_raw_descriptors_quit;
-
-                // Assign the keypoint the base octave and scale level
-                dst->o = first_octave;
-                dst->s = first_level;
         }
 
         // Extract the descriptors
@@ -2592,7 +2771,8 @@ static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
                         desc_sig_fctr / NHIST_PER_DIM;
 
                 // Attempt to assign an orientation
-                switch(assign_eig_ori(sift3d, in, &vcenter, ori_sigma, &R)) {
+                switch (assign_orientation_thresh(in, &vcenter, ori_sigma,
+                                      sift3d->corner_thresh, &R)) {
                         case SIFT3D_SUCCESS:
                                 // Use the assigned orientation
                                 ori = &R;
