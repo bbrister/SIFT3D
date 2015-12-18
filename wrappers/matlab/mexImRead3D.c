@@ -19,9 +19,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         const char *path;
 
 /* Clean up and print an error */
-#define CLEAN_AND_QUIT(name, msg) { \
+#define CLEAN_AND_QUIT(name, msg, expected) { \
                 im_free(&im); \
-                err_msgu(name, msg); \
+                if (expected) { \
+                        err_msg(name, msg); \
+                } else { \
+                        err_msgu(name, msg); \
+                } \
         }
 
 	// Verify the number of inputs
@@ -41,7 +45,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         // Get the path string
         if ((path = mxArrayToString(mxPath)) == NULL)
                 CLEAN_AND_QUIT("main:getPath", "Failed to convert the input "
-                        "to a string");
+                        "to a string", SIFT3D_FALSE);
 
         // Load the image
         switch (im_read(path, &im)) {
@@ -58,18 +62,18 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                         break;
                 default:
                         CLEAN_AND_QUIT("main:unexpected", "Unexpected error "
-                                "reading the image");
+                                "reading the image", SIFT3D_TRUE);
         }
 
         // Convert the output image to a MATLAB array
         if ((plhs[0] = im2mx(&im)) == NULL)
                 CLEAN_AND_QUIT("main:im2mx", "Failed to convert image to an "
-                        "mxArray");
+                        "mxArray", SIFT3D_FALSE);
 
         // Convert the output units to a MATLAB array
         if ((plhs[1] = units2mx(&im)) == NULL)
                 CLEAN_AND_QUIT("main:im2mx", "Failed to convert units to an "
-                        "mxArray");
+                        "mxArray", SIFT3D_FALSE);
 
         // Clean up
         im_free(&im);

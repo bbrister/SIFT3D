@@ -61,7 +61,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         // Convert the keypoints
         if (mx2kp(mxKp, &kp))
                 CLEAN_AND_QUIT("main:convertKp", "Failed to convert keypoints",
-                        SIFT3D_FALSE);
+                        SIFT3D_TRUE);
 
         // Process the image and extract descriptors
         if (!mxIsEmpty(mxIm)) {
@@ -70,13 +70,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                 if (mx2imWithUnits(mxIm, mxUnits, &im))
                         CLEAN_AND_QUIT("main:convertIm", 
                                         "Failed to convert image", 
-                                        SIFT3D_FALSE);
+                                        SIFT3D_TRUE);
 
                 // Extract raw descriptors
                 if (mex_SIFT3D_extract_raw_descriptors(&im, &kp, &desc))
                         CLEAN_AND_QUIT("main:extractRaw", 
                                 "Failed to extract raw descriptors",
-                                SIFT3D_FALSE);
+                                SIFT3D_TRUE);
         } else {
 
                 // Attempt to retrieve the Gaussian pyramid

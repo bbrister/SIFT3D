@@ -19,9 +19,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         const char *path;
 
 /* Clean up and print an error */
-#define CLEAN_AND_QUIT(name, msg) { \
+#define CLEAN_AND_QUIT(name, msg, expected) { \
                 im_free(&im); \
-                err_msgu(name, msg); \
+                if (expected) { \
+                        err_msg(name, msg); \
+                } else { \
+                        err_msgu(name, msg); \
+                } \
         }
 
 	// Verify the number of inputs
@@ -43,25 +47,23 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         // Get the path string
         if ((path = mxArrayToString(mxPath)) == NULL)
                 CLEAN_AND_QUIT("main:getPath", "Failed to convert the input "
-                        "to a string");
+                        "to a string", SIFT3D_FALSE);
 
         // Convert the image to the internal format
         if (mx2imWithUnits(mxIm, mxUnits, &im))
                 CLEAN_AND_QUIT("main:mx2im", "Failed to convert the input "
-                        "image to the internal format");
+                        "image to the internal format", SIFT3D_TRUE);
 
         // Write the image
         switch (im_write(path, &im)) {
                 case SIFT3D_SUCCESS:
                         break;
                 case SIFT3D_UNSUPPORTED_FILE_TYPE:
-                        im_free(&im);
-                        err_msg("main:unsupportedType", "Unsupported file "
-                                "type");
-                        break;
+                        CLEAN_AND_QUIT("main:unsupportedType", "Unsupported file "
+                                "type", SIFT3D_TRUE);
                 default:
                         CLEAN_AND_QUIT("main:unexpected", "Unexpected error "
-                                "reading the image");
+                                "writing the image", SIFT3D_TRUE);
         }
 
         // Clean up

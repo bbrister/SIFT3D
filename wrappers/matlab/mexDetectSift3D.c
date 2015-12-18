@@ -21,19 +21,23 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         const char *errName, *errMsg;
 
 /* Clean up and print an error */
-#define CLEAN_AND_QUIT(name, msg) { \
+#define CLEAN_AND_QUIT(name, msg, expected) { \
                 im_free(&im); \
                 cleanup_Keypoint_store(&kp); \
-                err_msgu(name, msg); \
+                if (expected) { \
+                        err_msg(name, msg); \
+                } else { \
+                        err_msgu(name, msg); \
+                } \
         }
 
 	// Verify the number of inputs
 	if (nrhs != 2)
-                err_msgu("main:numInputs", "This function takes 2 inputs.");
+                err_msg("main:numInputs", "This function takes 2 inputs.");
 
         // Verify the number of outputs
         if (nlhs > 1) 
-                err_msgu("main:numOutputs", "This function takes 1 output.");
+                err_msg("main:numOutputs", "This function takes 1 output.");
 
         // Assign the inputs
         mxIm = prhs[0];
@@ -46,16 +50,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         // Copy the transposed image
         if (mx2imWithUnits(mxIm, mxUnits, &im))
                 CLEAN_AND_QUIT("main:copyIm", "Failed to convert the input "
-                        "image");
+                        "image", SIFT3D_TRUE);
 
         // Detect keypoints
 	if (mex_SIFT3D_detect_keypoints(&im, &kp))
-                CLEAN_AND_QUIT("main:detect", "Failed to detect keypoints");
+                CLEAN_AND_QUIT("main:detect", "Failed to detect keypoints", 
+                        SIFT3D_FALSE);
 
         // Convert the output to a MATLAB array of structs
         if ((plhs[0] = kp2mx(&kp)) == NULL)
                 CLEAN_AND_QUIT("main:convertToStructs", "Failed to convert "
-                        "keypoints to structs");
+                        "keypoints to structs", SIFT3D_FALSE);
 
         // Clean up
         im_free(&im);
