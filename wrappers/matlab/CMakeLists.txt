@@ -4,6 +4,11 @@
 # Build file for the Matlab wrapper toolbox.
 ################################################################################
 
+# Enumerate the Matlab scripts for testing and installation
+set (INSTALL_SCRIPTS setupSift3D.m imRead3D.m imWrite3D.m detectSift3D.m
+        extractSift3D.m orientation3D.m keypoint3D.m checkUnits3D.m)
+set (TEST_SCRIPTS Sift3DTest.m)
+
 # Build the mex utility library
 add_library (mexutil SHARED mexutil.c)
 target_include_directories (mexutil PUBLIC ${Matlab_INCLUDE_DIRS})
@@ -30,14 +35,22 @@ matlab_add_mex (NAME mexDetectSift3D
         LINK_TO mexutil ${Matlab_LIBRARIES}
 )
 
+matlab_add_mex(NAME mexOrientation3D
+        SRC mexOrientation3D.c
+        LINK_TO mexutil ${Matlab_LIBRARIES}
+)
+
 matlab_add_mex (NAME mexExtractSift3D
         SRC mexExtractSift3D.c
         LINK_TO mexutil ${Matlab_LIBRARIES}
 )
 
+# Enumerate the binary targets
+set (BINARIES mexutil mexImRead3D mexImWrite3D mexDetectSift3D 
+        mexOrientation3D mexExtractSift3D)
+
 # Configure the build destination
-set_target_properties (mexutil mexImRead3D mexImWrite3D mexDetectSift3D
-        mexExtractSift3D
+set_target_properties (${BINARIES}
         PROPERTIES 
         ARCHIVE_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
         LIBRARY_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
@@ -45,20 +58,17 @@ set_target_properties (mexutil mexImRead3D mexImWrite3D mexDetectSift3D
 )
 
 # Copy the scripts and test suite to the build tree
-file (COPY setupSift3D.m imRead3D.m imWrite3D.m detectSift3D.m extractSift3D.m
-        keypoint3D.m checkUnits3D.m Sift3DTest.m
+file (COPY ${INSTALL_SCRIPTS} ${TEST_SCRIPTS} 
         DESTINATION ${BUILD_TOOLBOX_DIR}
 )
 
 # Install the matlab scripts
-install (FILES setupSift3D.m imRead3D.m imWrite3D.m detectSift3D.m 
-        extractSift3D.m keypoint3D.m checkUnits3D.m
+install (FILES ${INSTALL_SCRIPTS} 
         DESTINATION ${INSTALL_TOOLBOX_DIR}
 )
 
 # Install the libraries and mex files
-install (TARGETS mexutil mexImRead3D mexImWrite3D mexDetectSift3D 
-        mexExtractSift3D
+install (TARGETS ${BINARIES}
         RUNTIME DESTINATION ${INSTALL_TOOLBOX_DIR}
         LIBRARY DESTINATION ${INSTALL_TOOLBOX_DIR}
         ARCHIVE DESTINATION ${INSTALL_TOOLBOX_DIR}

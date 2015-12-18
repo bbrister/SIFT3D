@@ -27,7 +27,7 @@ function keys = keypoint(coords, scale, ori)
 %   keys = keypoint3D(coords, scale, ori);
 %
 % See also:
-%   detectSift3D, extractSift3D, setupSift3D
+%   orientation3D, extractSift3D, setupSift3D
 
 % Default parameters
 n = 3;

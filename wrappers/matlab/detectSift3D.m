@@ -1,22 +1,25 @@
 function keys = detectSift3D(im, units)
-%detectSift3D(im) Detect Sift3D keypoints in an image.
+%detectSift3D(im, units) Detect Sift3D keypoints in an image.
 %  Arguments:
 %    im - An [MxNxP] array, where voxels are indexed in (x, y, z) order.
 %    units - (Optional) See imRead3D. If units are specified, the detected
 %       keypoints are isotropic even when im is not.
 %
 %  Return values:
-%    keys - A [Qx1] array of keypoint structs. See keypoint.m for the struct
-%      definition.
+%    keys - A [Qx1] array of keypoint structs. See keypoint.m for the 
+%      struct definition.
 %
 %  Keypoint coordinates are defined in the space of their pyramid level.
 %  To convert them to the input image space, use the following 
 %  transformation:
 %      key.coords * pow(2, -key.octave)
 %
-%  Example:
+%  Examples:
 %      im = rand(50, 50, 50);
 %      keys = detectSift3D(im);
+%
+%      [im, units] = imRead3D('someFile.dcm');
+%      keys = detectSift3D(im, units);
 %
 %  See also:
 %    extractSift3D, imRead3D, imWrite3D, keypoint3D, setupSift3D

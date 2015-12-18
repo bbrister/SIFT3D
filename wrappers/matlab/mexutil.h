@@ -47,8 +47,13 @@ int mx2kp(const mxArray *const mx, Keypoint_store *const);
 
 mxArray *desc2mx(const SIFT3D_Descriptor_store *const desc);
 
+mxArray *array2mx(const double *const array, const size_t len);
+
 int mex_SIFT3D_detect_keypoints(const Image *const im, 
         Keypoint_store *const kp);
+
+int mex_SIFT3D_assign_orientations(const Image *const im, 
+        Keypoint_store *const kp, double **const conf);
 
 int mex_SIFT3D_extract_descriptors(const Keypoint_store *const kp, 
         SIFT3D_Descriptor_store *const desc);

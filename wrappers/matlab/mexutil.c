@@ -22,24 +22,6 @@
 #include "mex.h"
 #include "matrix.h"
 
-/* Execute the macro MACRO, with the first argument set to the type of mat. If
- * there is an error, goto err_label. */
-#define SIFT3D_MAT_TYPE_MACRO(mat, err_label, MACRO, ...) \
-        switch ((mat)->type) { \
-                case DOUBLE: \
-                        MACRO(double, ## __VA_ARGS__) \
-                        break; \
-                case FLOAT: \
-                        MACRO(float, ## __VA_ARGS__) \
-                        break; \
-                case INT: \
-                        MACRO(int, ## __VA_ARGS__) \
-                        break; \
-                default: \
-                        fprintf(stderr, "imutil: unknown matrix type"); \
-                        goto err_label; \
-        } \
-
 /* The number of dimensions in mxArrays representing images */
 #define MX_IM_NDIMS (IM_NDIMS + 1) 
 
@@ -324,7 +306,7 @@ mxArray *mat2mx(const Mat_rm *const mat) {
         SIFT3D_MAT_RM_LOOP_END
 
         // Transpose and copy the data 
-        SIFT3D_MAT_TYPE_MACRO(mat, mat2mx_quit, TRANSPOSE_AND_COPY);
+        SIFT3D_MAT_RM_TYPE_MACRO(mat, mat2mx_quit, TRANSPOSE_AND_COPY);
 
 #undef TRANSPOSE_AND_COPY
 
@@ -373,7 +355,7 @@ int mx2mat(const mxArray *const mx, Mat_rm *const mat) {
         SIFT3D_MAT_RM_LOOP_END
 
         // Copy the transposed data
-        SIFT3D_MAT_TYPE_MACRO(mat, mx2mat_quit, COPY_DATA);
+        SIFT3D_MAT_RM_TYPE_MACRO(mat, mx2mat_quit, COPY_DATA);
 
 #undef COPY_DATA
 
@@ -618,15 +600,49 @@ desc2mx_quit:
         return NULL;
 } 
 
+/* Convert an array of doubles to an mxArray. 
+ *
+ * Parameters:
+ *   array: The array.
+ *   num: The number of elements.
+ *
+ * Returns a pointer to the mxArray, or NULL on failure. */
+mxArray *array2mx(const double *const array, const size_t len) {
+
+        mxArray *mx;
+        double *mxData; 
+        size_t i;
+
+        const mwSize dims[] = {len}; 
+        const int ndim = 1; 
+
+        // Create the mxArray
+        if ((mx = mxCreateNumericArray(ndim, dims, mxDOUBLE_CLASS, 
+                mxREAL)) == NULL)
+                return NULL;
+
+        // Get a pointer to the array's data
+        if ((mxData = mxGetData(mx)) == NULL)
+                return NULL;
+
+        // Copy the data
+        for (i = 0; i < len; i++) {
+                mxData[i] = array[i];
+        }
+
+        return mx;
+}
+
 /* Wrapper for SIFT3D_detect_keypoints. */
 int mex_SIFT3D_detect_keypoints(const Image *const im, 
         Keypoint_store *const kp) {
+        return SIFT3D_detect_keypoints(&sift3d, im, kp);
+}
 
-        // Detect keypoints
-        if (SIFT3D_detect_keypoints(&sift3d, im, kp))
-                return SIFT3D_FAILURE;
-
-        return SIFT3D_SUCCESS;
+/* Wrapper for SIFT3D_assign_orientations. */
+int mex_SIFT3D_assign_orientations(const Image *const im, 
+        Keypoint_store *const kp, double **const conf) {
+        return SIFT3D_assign_orientations(&sift3d, im, kp, conf);
 }
 
 /* Wrapper for SIFT3D_extract_descriptors. */

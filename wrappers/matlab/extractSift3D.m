@@ -1,5 +1,5 @@
 function [desc, coords] = extractSift3D(keys, im, units)
-%extractSift3D(keys, im) Extract Sift3D descriptors from keypoints.
+%extractSift3D(keys, im, units) Extract Sift3D descriptors from keypoints.
 %  Arguments:
 %    keys - An array of n keypoint structs. See keypoint.m for the
 %      format.
@@ -16,13 +16,25 @@ function [desc, coords] = extractSift3D(keys, im, units)
 %    coords - An [n x 3] array of descriptor coordinates, defined in the
 %      space of the input image (see the description of the "im" argument).
 %
-%  Example:
+%  Examples:
+%    % Extract without units
 %    im = rand(50, 50, 50);
 %    keys = detectSift3D(im);
 %    [desc, coords] = extractSift3D(keys);
 %
+%    % Extract with units
+%    [im, units] = imRead3D('someFile.dcm');
+%    keys = detectSift3D(im, units);
+%    [desc, coords] = extractSift3D(keys);
+%
+%    % Extract from manually-defined keypoints
+%    [im, units] = imRead3D('someFile.dcm');
+%    keys = keypoint3D([0 0 0]);
+%    keys = orientation3D(keys, im, units);
+%    [desc, coords] = extractSift3D(keys);
+%
 %  See also:
-%    detectSift3D, imRead3D, imWrite3D, keypoint3D, setupSift3D
+%    detectSift3D, imRead3D, keypoint3D, orientation3D, setupSift3D
 %
 % Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
 
