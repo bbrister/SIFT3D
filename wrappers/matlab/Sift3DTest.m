@@ -67,60 +67,62 @@ classdef Sift3DTest < TestCase
         % Test keypoint detection against the CLI version
         function detectCliTest(self)
             
-            if (self.fullTest && ~ispc)
-                
-                % Output file name
-                kpCliName = 'kpCli.csv';
-                
-                % Detect keypoints using the command line interface
-                status = runCmd([self.kpCmd ' --keys ' kpCliName ' ' ...
-                    self.im1Name]);
-                assertEqual(status, 0);
-                
-                % Load the CLI keypoints
-                kpCli = csvread(kpCliName);
-                
-                % Load the image data
-                [im1, units1] = imRead3D(self.im1Name);
-                
-                % Detect keypoints using matlab
-                keys = detectSift3D(im1, units1);
-                
-                % Check the dimensions
-                assertEqual(size(kpCli, 1), length(keys));
-                assertEqual(size(kpCli, 2), numel(keys(1).coords) + ...
-                    numel(keys(1).scale) + numel(keys(1).ori));
-                
-                % Compare the two
-                for i = 1 : length(keys)
-                    
-                    mKey = keys(i);
-                    cliKey = kpCli(i, :);
-                    
-                    % Check the coordinates
-                    assertElementsAlmostEqual(mKey.coords, cliKey(1:3), ...
-                        'absolute', self.tolText);
-                    
-                    % Check the scale
-                    assertElementsAlmostEqual(mKey.scale, cliKey(4), ...
-                        'absolute', self.tolText);
-                    
-                    % Check the orientation
-                    assertElementsAlmostEqual(mKey.ori, ...
-                        reshape(cliKey(5:end), size(mKey.ori))', ...
-                        'absolute', self.tolText);
-                end
-                
-                % Clean up
-                delete(kpCliName);
-                
+            if ~self.fullTest || ispc
+                return
             end
+                
+            % Output file name
+            kpCliName = 'kpCli.csv';
+            
+            % Detect keypoints using the command line interface
+            status = runCmd([self.kpCmd ' --keys ' kpCliName ' ' ...
+                self.im1Name]);
+            assertEqual(status, 0);
+            
+            % Load the CLI keypoints
+            kpCli = csvread(kpCliName);
+            
+            % Load the image data
+            [im1, units1] = imRead3D(self.im1Name);
+            
+            % Detect keypoints using matlab
+            keys = detectSift3D(im1, units1);
+            
+            % Check the dimensions
+            assertEqual(size(kpCli, 1), length(keys));
+            assertEqual(size(kpCli, 2), numel(keys(1).coords) + ...
+                numel(keys(1).scale) + numel(keys(1).ori));
+            
+            % Compare the two
+            for i = 1 : length(keys)
+                
+                mKey = keys(i);
+                cliKey = kpCli(i, :);
+                
+                % Check the coordinates
+                assertElementsAlmostEqual(mKey.coords, cliKey(1:3), ...
+                    'absolute', self.tolText);
+                
+                % Check the scale
+                assertElementsAlmostEqual(mKey.scale, cliKey(4), ...
+                    'absolute', self.tolText);
+                
+                % Check the orientation
+                assertElementsAlmostEqual(mKey.ori, ...
+                    reshape(cliKey(5:end), size(mKey.ori))', ...
+                    'absolute', self.tolText);
+            end
+            
+            % Clean up
+            delete(kpCliName);
         end
         
         % Test descriptor extraction against the CLI version
         function extractCliTest(self)
             
-            if (self.fullTest && ~ispc)
+            if ~self.fullTest || ispc
+                return
+            end
                 
                 % Output file name
                 descCliName = 'descCli.csv';
@@ -161,36 +163,106 @@ classdef Sift3DTest < TestCase
                 
                 % Clean up
                 delete(descCliName);
-                
-            end
             
         end
         
         % Test that "raw" image descriptors are close to those extracted
         % from a Gaussian scale-space pyramid
-        function rawTest(self)
+        function rawDescriptorTest(self)
             
-            if (self.fullTest)
+            if ~self.fullTest
+                return
+            end
                 
-                % Load the image data
-                [im1, units1] = imRead3D(self.im1Name);
-                
-                % Detect keypoints
-                keys = detectSift3D(im1, units1);
-                
-                % Extract descriptors using the pyramid
-                [descPyr, coordsPyr] = extractSift3D(keys);
-                
-                % Extract raw descriptors
-                [descRaw, coordsRaw] = extractSift3D(keys, im1, units1);
-                
-                % Check the results
-                assertElementsAlmostEqual(coordsPyr, coordsRaw);
-                assertElementsAlmostEqual(descPyr, descRaw, 'absolute', ...
-                    0.2);
-                
+            % Load the image data
+            [im1, units1] = imRead3D(self.im1Name);
+            
+            % Detect keypoints
+            keys = detectSift3D(im1, units1);
+            
+            % Extract descriptors using the pyramid
+            [descPyr, coordsPyr] = extractSift3D(keys);
+            
+            % Extract raw descriptors
+            [descRaw, coordsRaw] = extractSift3D(keys, im1, units1);
+            
+            % Check the results
+            assertElementsAlmostEqual(coordsPyr, coordsRaw);
+            assertElementsAlmostEqual(descPyr, descRaw, 'absolute', 0.2);
+            
+        end
+        
+        % Test that "raw" keypoint orientations are close to those
+        % extracted from a Gaussian scale-space pyramid
+        function rawOrientationTest(self)
+           if ~self.fullTest
+              return 
+           end
+           
+           % Load the image data
+           [im, units] = imRead3D(self.im1Name);
+           
+           % Detect keypoints
+           keys = detectSift3D(im, units);
+           
+           % Assign orientations to those same keypoints
+           keysRaw = orientation3D(keys, im, units);
+           
+           % Check the dimensions
+           assertEqual(size(keys), size(keysRaw));
+           
+           % Create a basis vector
+           u = zeros(length(keys(1).ori), 1);
+           u(1) = 1;
+           
+           % Check the results
+           ang = zeros(length(keys), 1);
+           for i = 1 : length(keys)
+               key = keys(i);
+               keyRaw = keysRaw(i);
+               
+               % Rotate the basis vector
+               uRotKey = key.ori * u;
+               uRotKeyRaw = keyRaw.ori * u;
+               
+               % Compute the angle between the rotated vectors
+               ang(i) = acos(abs(dot(uRotKey, uRotKeyRaw)));
+           end
+           
+           % Test the median angle
+           assertElementsAlmostEqual(median(ang), 0, 'absolute', pi / 8);
+        end
+        
+        % Test that detected keypoints are valid
+        function detectValidTest(self)
+            if ~self.fullTest
+                return
             end
             
+            % Load the image data
+            [im, units] = imRead3D(self.im1Name);
+            
+            % Extract keypoints
+            keys = detectSift3D(im, units);
+            
+            % Check the keypoints
+            for i = 1 : length(keys)
+                
+                key = keys(i);
+            
+                % Check containment in the original image
+                baseCoords = key.coords * pow2(-key.octave);
+                assertTrue(all(baseCoords >= 0));
+                assertTrue(all(baseCoords < size(im)));
+                
+                % Check orthogonality of the rotation matrix
+                assertElementsAlmostEqual(key.ori * key.ori', ...
+                    eye(length(key.ori)), 'absolute', 1E-3);
+                
+                % Check determinant of the rotation matrix
+                assertElementsAlmostEqual(det(key.ori), 1, 'absolute', ...
+                    1E-3);
+            end
         end
         
         % Test reading and writing a NIFTI image
