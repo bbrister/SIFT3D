@@ -12,7 +12,7 @@ function keys = detectSift3D(im, units)
 %  Keypoint coordinates are defined in the space of their pyramid level.
 %  To convert them to the input image space, use the following 
 %  transformation:
-%      key.coords * pow(2, -key.octave)
+%      key.coords * pow2(-key.octave)
 %
 %  Examples:
 %      im = rand(50, 50, 50);
