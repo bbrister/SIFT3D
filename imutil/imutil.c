@@ -909,7 +909,7 @@ int identity_Mat_rm(const int n, Mat_rm *const mat) {
         SIFT3D_MAT_RM_TYPE_MACRO(mat, identity_Mat_rm_quit, SET_IDENTITY);
 #undef SET_IDENTITY
 
-        return SIFT3D_TRUE;
+        return SIFT3D_SUCCESS;
 
 identity_Mat_rm_quit:
         return SIFT3D_FAILURE;
