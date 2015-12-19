@@ -1818,7 +1818,8 @@ int SIFT3D_assign_orientations(const SIFT3D *const sift3d,
                 vcenter.z = key_base.zd;
 
                 // Assign the orientation
-                switch (assign_eig_ori(im, &vcenter, key_base.sd, R, conf_ret))
+                switch (assign_eig_ori(&im_smooth, &vcenter, key_base.sd, R, 
+                                       conf_ret))
                 {
                         case SIFT3D_SUCCESS:
                                 break;
