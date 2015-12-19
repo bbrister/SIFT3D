@@ -283,7 +283,8 @@ static int init_geometry(SIFT3D *sift3d) {
 			    
 	// Initialize triangle memory
         init_Mesh(mesh);
-	if ((mesh->tri = (Tri *) malloc(ICOS_NFACES * sizeof(Tri))) == NULL)
+	if ((mesh->tri = (Tri *) realloc(mesh->tri, 
+                ICOS_NFACES * sizeof(Tri))) == NULL)
 		return SIFT3D_FAILURE;
  
 	// Populate the triangle struct for each face
@@ -3134,7 +3135,7 @@ static int _SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
         }
 
 	// Resize the matches array 
-	if ((*matches = (int *) realloc(*matches, num * sizeof(float))) 
+	if ((*matches = (int *) realloc(*matches, num * sizeof(int))) 
                 == NULL) {
 	    fprintf(stderr, "_SIFT3D_nn_match: out of memory! \n");
 	    return SIFT3D_FAILURE;

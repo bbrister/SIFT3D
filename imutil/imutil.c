@@ -4806,10 +4806,11 @@ int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
 	// Initialize data structures
 	cset = cset_best = NULL;
 	len_best = 0;
-
 	if ((tform_cur = malloc(tform_size)) == NULL ||
-	    init_tform(tform_cur, type))
-		goto FIND_TFORM_FAIL;
+	    init_tform(tform_cur, type) ||
+	    init_Mat_rm(&src_cset, len_best, IM_NDIMS, DOUBLE, SIFT3D_FALSE) ||
+	    init_Mat_rm(&ref_cset, len_best, IM_NDIMS, DOUBLE, SIFT3D_FALSE))
+		goto find_tform_quit;
 
 	// initialize type-specific variables
 	switch (type) {
@@ -4820,7 +4821,7 @@ int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
 	default:
 		puts("find_tform_ransac: unsupported transformation "
 		     "type \n");
-		return SIFT3D_FAILURE;
+		goto find_tform_quit;
 	}
 
 	min_num_inliers = (int)SIFT3D_MAX(ceil(ran->min_inliers * num_pts),
@@ -4828,7 +4829,7 @@ int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
 
 	if (num_pts < num_terms) {
 		printf("Not enough matched points \n");
-		goto FIND_TFORM_FAIL;
+		goto find_tform_quit;
 	}
 	// Ransac iterations
 	for (i = 0; i < num_iter; i++) {
@@ -4838,14 +4839,14 @@ int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
 		} while (ret == SIFT3D_SINGULAR);
 
 		if (ret == SIFT3D_FAILURE)
-			goto FIND_TFORM_FAIL;
+			goto find_tform_quit;
 
 		if (len > len_best) {
 			len_best = len;
 			if ((cset_best = (int *)realloc(cset_best,
 							len * sizeof(int))) ==
 			    NULL || copy_tform(tform_cur, tform))
-				goto FIND_TFORM_FAIL;
+				goto find_tform_quit;
 			memcpy(cset_best, cset, len * sizeof(int));
 		}
 	}
@@ -4853,14 +4854,15 @@ int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
 	// Check if the minimum number of inliers was found
 	if (len_best < min_num_inliers) {
 		puts("find_tform_ransac: No good model was found! \n");
-		goto FIND_TFORM_FAIL;
+		goto find_tform_quit;
 	}
-	// Initialize the concensus set matrices
-	if (init_Mat_rm(&src_cset, len_best, IM_NDIMS, DOUBLE, SIFT3D_FALSE) ||
-	    init_Mat_rm(&ref_cset, len_best, IM_NDIMS, DOUBLE, SIFT3D_FALSE))
-		goto FIND_TFORM_FAIL;
 
-	// extract the concensus set
+	// Resize the concensus set matrices
+        src_cset.num_rows = ref_cset.num_rows = len_best;
+        if (resize_Mat_rm(&src_cset) || resize_Mat_rm(&ref_cset))
+                goto find_tform_quit;
+
+	// Extract the concensus set
 	SIFT3D_MAT_RM_LOOP_START(&src_cset, i, j)
 
 	const int idx = cset_best[i];
@@ -4877,7 +4879,7 @@ int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
 	case SIFT3D_SUCCESS:
 		// Copy the refined transformation to the output
 		if (copy_tform(tform_cur, tform))
-			goto FIND_TFORM_FAIL;
+			goto find_tform_quit;
 		break;
 	case SIFT3D_SINGULAR:
 		// Stick with the old transformation 
@@ -4887,18 +4889,20 @@ int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
 #endif
 		break;
 	default:
-		goto FIND_TFORM_FAIL;
+		goto find_tform_quit;
 	}
 #endif
 
 	free(cset);
 	free(cset_best);
 	cleanup_tform(tform_cur);
+        cleanup_Mat_rm(&ref_cset);
+        cleanup_Mat_rm(&src_cset);
 	if (tform_cur != NULL)
 		free(tform_cur);
 	return SIFT3D_SUCCESS;
 
- FIND_TFORM_FAIL:
+find_tform_quit:
 	if (cset != NULL)
 		free(cset);
 	if (cset_best != NULL)
@@ -4906,6 +4910,8 @@ int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
 	cleanup_tform(tform_cur);
 	if (tform_cur != NULL)
 		free(tform_cur);
+        cleanup_Mat_rm(&ref_cset);
+        cleanup_Mat_rm(&src_cset);
 	return SIFT3D_FAILURE;
 }
 
