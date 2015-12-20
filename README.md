@@ -2,7 +2,9 @@
 
 Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
 
-Analogue of the scale-invariant feature transform (SIFT) for three-dimensional images. Includes an image processing and linear algebra library with feature matching and RANSAC regression. Also includes IO functions supporting a variety of image formats.
+SIFT3D is an analogue of the scale-invariant feature transform (SIFT) for three-dimensional images. It leverages volumetric data and real-world units to detect keypoints and extract a robust description of their content. It can also perform 3D image registration by matching SIFT3D features and fitting geometric transformations with the RANSAC algorithm. All of this is implemented in a cross-platform C library, with wrappers for Matlab.
+
+SIFT3D includes imutil, a utility library for image processing and linear algebra. This library performs file IO in a variety of medical imaging formats, including DICOM and NIFTI.
 
 ## Contents
 
@@ -39,18 +41,17 @@ SIFT3D exports a CMake package to the install directories. Here is an example of
         target_link_libraries (helloWorld PUBLIC ${SIFT3D_LIBRARIES}) # Link to the SIFT3D libraries
         target_include_directories (helloWorld PUBLIC ${SIFT3D_INCLUDE_DIRS}) # Find the SIFT3D headers
 
-### Manually linking to SIFT3D libraries
+### Linking to SIFT3D libraries without CMake
 
-Here is an example of compiling a C program by explicitly specifying the libraries and include directories:
+The header files and libraries are installed to "sift3d" subdirectories in your installation tree. On most systems, you will need to add these subdirectories to your include and linker search paths. You will also need to link to the dependencies listed below.
 
-```
-gcc helloWorld.c -o helloWorld -I/usr/local/include/sift3d -L/usr/local/lib/sift3d -lreg -lsift3d -limutil -llapack -lblas -lz -lnifticdf -lniftiio -lznz -lm
-```
-
-Linkage dependencies are as follows:
-- libimutil - requires linking to zlib, nifticlib, LAPACK and BLAS
+- libimutil - requires linking to nifticlib, DCMTK, LAPACK, BLAS, and zlib
 - libsift3d - requires linking to imutil
 - libreg - requires linking to sift3d and imutil
+
+Information about the dependencies can be found in the installation instructions.
+
+*Note: On Windows systems, some of the dependencies are statically linked to the SIFT3D libraries. In this case, it suffices to link to the DLLs in the "bin" subdirectory of your installation.*
 
 ## Contact
 
