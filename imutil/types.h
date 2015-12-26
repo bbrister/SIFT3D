@@ -202,11 +202,10 @@ typedef struct _Gauss_filter {
 /* Holds Gaussian Scale-Space filters */
 typedef struct _GSS_filters {
 
-	Gauss_filter first_gauss;		// Used on the very first blur
-	Gauss_filter *gauss_octave;		// Array of kernels for one octave
-	int num_filters;			// Number of filters for one octave
-	int first_level;
-	int last_level;
+	Gauss_filter first_gauss;	// Used on the very first blur
+	Gauss_filter *gauss_octave;	// Array of kernels for one octave
+	int num_filters;		// Number of filters for one octave
+	int first_level;                // Index of the first scale level
 
 } GSS_filters;
 

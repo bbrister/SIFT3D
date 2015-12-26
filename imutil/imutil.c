@@ -3799,21 +3799,21 @@ int make_gss(GSS_filters * const gss, const Pyramid * const pyr)
 void cleanup_GSS_filters(GSS_filters * const gss)
 {
 
-	int s;
+	int i;
 
-	const int first_level = gss->first_level;
-	const int last_level = gss->last_level;
+	const int num_filters = gss->num_filters;
 
 	// We are done if gss has no filters
-	if (gss->num_filters < 1)
+	if (num_filters < 1)
 		return;
 
 	// Free the first filter
 	cleanup_Gauss_filter(&gss->first_gauss);
 
 	// Free the octave filters
-	for (s = first_level; s < last_level; s++) {
-		cleanup_Gauss_filter(SIFT3D_GAUSS_GET(gss, s));
+	for (i = 0; i < num_filters; i++) {
+		Gauss_filter *const g = gss->gauss_octave + i;
+		cleanup_Gauss_filter(g);
 	}
 
 	// Free the octave filter buffer
