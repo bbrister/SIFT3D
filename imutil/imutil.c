@@ -801,7 +801,7 @@ int print_Mat_rm(const Mat_rm * const mat)
  * -size
  * -u.data_* (Change is not guaranteed)
  */
-int resize_Mat_rm(Mat_rm *mat) {
+int resize_Mat_rm(Mat_rm *const mat) {
 
     size_t type_size, total_size;
 
@@ -1530,7 +1530,7 @@ int write_Mat_rm(const char *path, const Mat_rm * const mat)
 /* Shortcut to initialize an image for first-time use.
  * Allocates memory, and assumes the default stride. This
  * function calls init_im and initializes all values to 0. */
-int init_im_with_dims(Image * im, const int nx, const int ny, const int nz,
+int init_im_with_dims(Image *const im, const int nx, const int ny, const int nz,
         const int nc)
 {
 
@@ -1546,9 +1546,9 @@ int init_im_with_dims(Image * im, const int nx, const int ny, const int nz,
 	if (im_resize(im))
 		return SIFT3D_FAILURE;
 
-	SIFT3D_IM_LOOP_START_C(im, x, y, z, c)
-	    SIFT3D_IM_GET_VOX(im, x, y, z, c) = 0.0f;
-	SIFT3D_IM_LOOP_END_C return SIFT3D_SUCCESS;
+	im_zero(im);
+
+	return SIFT3D_SUCCESS;
 }
 
 /* Calculate the strides of an image object in the default
@@ -1630,7 +1630,7 @@ int im_pad(const Image * const im, Image * const pad)
  * All of this initialization can also be done with
  * init_im_with_dims(), which calls this function.
  */
-int im_resize(Image * im)
+int im_resize(Image *const im)
 {
 
 	int i;
@@ -3668,13 +3668,14 @@ int init_Gauss_filter(Gauss_filter * const gauss, const double sigma,
 	float *kernel;
 	double x;
 	float acc;
-	int i, width, half_width;
+	int i;
 
-	// Compute dimensions and initialize kernel
-	half_width = sigma > 0 ? 
+	const int half_width = sigma > 0 ? 
                 SIFT3D_MAX((int)ceil(sigma * SIFT3D_GAUSS_WIDTH_FCTR), 1) :
                 1;
-	width = 2 * half_width + 1;
+	const int width = 2 * half_width + 1;
+
+	// Initialize intermediates 
 	if ((kernel = (float *) malloc(width * sizeof(float))) == NULL)
 		return SIFT3D_FAILURE;
 
@@ -3698,10 +3699,6 @@ int init_Gauss_filter(Gauss_filter * const gauss, const double sigma,
 	for (i = 0; i < width; i++) {
 		kernel[i] /= acc;
 	}
-
-#ifdef SIFT3D_USE_OPENCL
-	// TODO: write and compile OpenCL program based on Sep_sym_FIR_filter
-#endif
 
 	// Save the filter data 
 	gauss->sigma = sigma;
@@ -3839,8 +3836,8 @@ void init_Pyramid(Pyramid * const pyr)
         pyr->sigma0 = pyr->sigma_n = 0.0;
 }
 
-/* Initialize scale-space pyramid according to the size of 
- * base image im.
+/* Resize a scale-space pyramid according to the size of base image im.
+ *
  * Parameters:
  *  -im: An image with the desired dimensions and units at octave 0
  *  -first_level: The index of the first pyramid level per octave
@@ -3866,9 +3863,10 @@ int resize_Pyramid(const Image *const im, const int first_level,
         double units[IM_NDIMS];
         int dims[IM_NDIMS];
 	double factor;
-	int i, o, s, nx, ny, nz, num_total_levels;
+	int i, o, s;
 
         const int old_num_total_levels = pyr->num_levels * pyr->num_octaves;
+	const int num_total_levels = num_levels * num_octaves;
         const double ux = im->ux;
         const double uy = im->uy;
         const double uz = im->uz;
@@ -3880,37 +3878,36 @@ int resize_Pyramid(const Image *const im, const int first_level,
                 return SIFT3D_FAILURE;
         }
 
-        // Store the parameters
+        // Clean up old levels which are no longer needed 
+        for (i = num_total_levels; i < old_num_total_levels; i++) {
+                Image *const level = pyr->levels + i;
+                im_free(level);
+        }
+
+        // Store the new parameters
         pyr->first_level = first_level;
         pyr->num_kp_levels = num_kp_levels;
         pyr->first_octave = first_octave;
         pyr->num_octaves = num_octaves;
         pyr->num_levels = num_levels;
 
-        // Do nothing if the pyramid has no levels
+        // Do nothing more if the new pyramid has no levels
         if (num_octaves == 0 || num_levels == 0)
                 return SIFT3D_SUCCESS;
 
 	// Resize the outer array
-	num_total_levels = pyr->num_levels * num_octaves;
-        if ((pyr->levels = malloc(num_total_levels *
-                  sizeof(Image))) == NULL)
+        if ((pyr->levels = realloc(pyr->levels, 
+		num_total_levels * sizeof(Image))) == NULL)
                 return SIFT3D_FAILURE;
 
-        // Initalize all new levels
+        // Initalize new levels
         for (i = old_num_total_levels; i < num_total_levels; i++) {
                 Image *const level = pyr->levels + i;
                 init_im(level);
         }
 
-        // Clean up old levels which are no longer used
-        for (i = num_total_levels; i < old_num_total_levels; i++) {
-                Image *const level = pyr->levels + i;
-                im_free(level);
-        }
-
 	// Calculate base image dimensions and units
-	factor = pow(2, -first_octave);
+	factor = pow(2.0, -first_octave);
         for (i = 0; i < IM_NDIMS; i++) {
                 dims[i] = (int) ((double) im->dims[i] * factor);
                 units[i] = SIFT3D_IM_GET_UNITS(im)[i] * factor;
@@ -3952,7 +3949,8 @@ int resize_Pyramid(const Image *const im, const int first_level,
  * Parameters:
  *  -sigma0: The scale parameter of level 0, octave 0
  *  -sigma_n: The nominal scale parameter of images being transfomed into
- *      this pyramid struct. */
+ *      this pyramid struct. 
+ *  -Pyr: The Pyramid to be modified. */
 void set_scales_Pyramid(const double sigma0, const double sigma_n, 
         Pyramid *const pyr) {
 
@@ -3995,13 +3993,15 @@ int copy_Pyramid(const Pyramid * const src, Pyramid * const dst)
 	// Copy the levels
 	SIFT3D_PYR_LOOP_START(dst, o, s)
 
-	const Image *const src_level = SIFT3D_PYR_IM_GET(src, o, s);
-	Image *const dst_level = SIFT3D_PYR_IM_GET(dst, o, s);
+		const Image *const src_level = SIFT3D_PYR_IM_GET(src, o, s);
+		Image *const dst_level = SIFT3D_PYR_IM_GET(dst, o, s);
 
-	if (im_copy_data(src_level, dst_level))
-		return SIFT3D_FAILURE;
+		if (im_copy_data(src_level, dst_level))
+			return SIFT3D_FAILURE;
 
-	SIFT3D_PYR_LOOP_END return SIFT3D_SUCCESS;
+	SIFT3D_PYR_LOOP_END 
+
+	return SIFT3D_SUCCESS;
 }
 
 /* Release all memory associated with a Pyramid. pyr cannot be used again,
@@ -4018,9 +4018,10 @@ void cleanup_Pyramid(Pyramid * const pyr)
 
 	// Free the levels
 	SIFT3D_PYR_LOOP_START(pyr, o, s)
-	Image *const level = SIFT3D_PYR_IM_GET(pyr, o, s);
-	im_free(level);
-SIFT3D_PYR_LOOP_END}
+		Image *const level = SIFT3D_PYR_IM_GET(pyr, o, s);
+		im_free(level);
+	SIFT3D_PYR_LOOP_END
+}
 
 /* Initialize a Slab for first use */
 void init_Slab(Slab *const slab) {
@@ -4108,6 +4109,7 @@ int mkpath(const char *path, mode_t mode)
 		*sp = '\0';
 	} else {
 		/* If there is no '/', we have nothing to do */
+		free(copypath);
 		return SIFT3D_SUCCESS;
 	}
 
@@ -4124,6 +4126,7 @@ int mkpath(const char *path, mode_t mode)
 	}
 	if (status == 0)
 		status = do_mkdir(copypath, mode);
+
 	free(copypath);
 	return (status);
 }

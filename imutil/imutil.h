@@ -58,7 +58,7 @@ int copy_Mat_rm(const Mat_rm *const src, Mat_rm *const dst);
 
 int print_Mat_rm(const Mat_rm *const mat);
 
-int resize_Mat_rm(Mat_rm *mat); 
+int resize_Mat_rm(Mat_rm *const mat); 
 
 int eigen_Mat_rm(Mat_rm *A, Mat_rm *Q, Mat_rm *L);
 
@@ -121,7 +121,7 @@ int im_write(const char *path, const Image *const im);
 
 int write_Mat_rm(const char *path, const Mat_rm *const mat);
 
-int init_im_with_dims(Image *im, const int nx, const int ny, const int nz,
+int init_im_with_dims(Image *const im, const int nx, const int ny, const int nz,
                         const int nc);
 
 int im_load_cl(Image *im, int blocking);
@@ -152,7 +152,7 @@ int im_pad(const Image *const im, Image *const pad);
 
 void im_default_stride(Image *const im);
 
-int im_resize(Image *im);
+int im_resize(Image *const im);
 
 int im_concat(const Image *const src1, const Image *const src2, const int dim, 
 	      Image *const dst);
