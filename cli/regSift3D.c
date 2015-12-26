@@ -112,8 +112,6 @@ int main(int argc, char *argv[]) {
         };
 
         const char str_affine[] = "affine";
-        SIFT3D_Descriptor_store *const desc_src = &reg.desc_src;
-        SIFT3D_Descriptor_store *const desc_ref = &reg.desc_ref;
 
         // Parse the GNU standard options
         switch (parse_gnu(argc, argv)) {
@@ -282,7 +280,6 @@ int main(int argc, char *argv[]) {
         if (match_path != NULL) {
 
                 Mat_rm matches;
-                int i, j;
 
                 // Initialize intermediates
                 init_Mat_rm(&matches, 0, 0, DOUBLE, SIFT3D_FALSE);

@@ -261,6 +261,7 @@ void check_cl_error(int err, const char *msg)
 
 /* Returns SIFT3D_SUCCESS if the specified format is supported for this context,
  * or SIFT3D_FAILURE if it is not. */
+SIFT3D_IGNORE_UNUSED
 static int check_cl_image_support(cl_context context, cl_mem_flags mem_flags,
 				  cl_image_format image_format,
 				  cl_mem_object_type image_type)
@@ -470,6 +471,7 @@ int init_cl(CL_data * user_cl_data, const char *platform_name,
 
 /* Compile a program from the given source strings, writing the program handle into
  * the specified pointer. */
+SIFT3D_IGNORE_UNUSED
 static int compile_cl_program_from_source(cl_program * program,
 					  cl_context context,
 					  cl_device_id * devices,
@@ -1164,8 +1166,6 @@ im_format im_get_format(const char *path) {
 int im_read(const char *path, Image *const im) {
 
         struct stat st;
-        const char *ext;
-        im_format format;
         int ret;
 
         // Ensure the file exists
@@ -1437,18 +1437,15 @@ static const char *get_file_name(const char *path) {
 static const char *get_file_ext(const char *name)
 {
 
-        const char *filename, *dot;
+        const char *dot;
 
-        // Get the file name
-        dot = get_file_name(name);
+        // Get the file name component
+        name = get_file_name(name);
 
         // Get the last dot
 	dot = strrchr(name, '.');
 
-	if (dot == NULL || dot == name)
-		return "";
-
-	return dot + 1;
+	return dot == NULL || dot == name ? "" : dot + 1;
 }
 
 /* Write a matrix to a .csv or .csv.gz file. */
@@ -1458,7 +1455,6 @@ int write_Mat_rm(const char *path, const Mat_rm * const mat)
 	FILE *file;
 	gzFile gz;
 	const char *ext;
-	long int pos;
 	int i, j, compress;
 
 	const char *mode = "w";
@@ -1529,8 +1525,6 @@ int write_Mat_rm(const char *path, const Mat_rm * const mat)
 int init_im_with_dims(Image *const im, const int nx, const int ny, const int nz,
         const int nc)
 {
-
-	int x, y, z, c;
 
 	init_im(im);
 	im->nx = nx;
@@ -2231,11 +2225,12 @@ static double resample_lanczos2(const Image * const im, const double x,
 	val = 0.0;
 	SIFT3D_IM_LOOP_LIMITED_START(in, xs, ys, zs, x_start, x_end, y_start,
 				     y_end, z_start, z_end)
-	    // Evalutate the kernel
+
+        // Evalutate the kernel
 	const double xw = fabs((double)xs - x) + DBL_EPSILON;
 	const double yw = fabs((double)ys - y) + DBL_EPSILON;
 	const double zw = fabs((double)zs - z) + DBL_EPSILON;
-	const double kernel = lanczos(xs, a) * lanczos(ys, a) * lanczos(zs, a);
+	const double kernel = lanczos(xw, a) * lanczos(yw, a) * lanczos(zw, a);
 
 	// Accumulate
 	val += kernel * SIFT3D_IM_GET_VOX(im, xs, ys, zs, c);
@@ -2282,13 +2277,12 @@ static int convolve_sep_gen(const Image * const src,
 			Image * const dst, const Sep_FIR_filter * const f,
 			int dim, const double unit)
 {
-	register int x, y, z, c, d, dst_xs, dst_ys, dst_zs;
+	register int x, y, z, c, d;
 
 	register const int half_width = f->width / 2;
 	register const int nx = src->nx;
 	register const int ny = src->ny;
 	register const int nz = src->nz;
-	register const int nc = src->nc;
         register const float conv_eps = FLT_EPSILON * 1E2f;
 	register const float dim_end = (float) src->dims[dim] - 1.0f;
         register const float unit_factor =  unit /
@@ -2358,7 +2352,7 @@ static int convolve_sep_gen(const Image * const src,
         // Second pass: process the boundaries
         SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
 
-                float coords[IM_NDIMS] = { x, y, z };
+                float coords[] = { x, y, z };
 
                 // Skip pixels we have already processed
                 if (coords[dim] >= start[dim] && coords[dim] <= end[dim]) 
@@ -2396,6 +2390,7 @@ static int convolve_sep_gen(const Image * const src,
 
 /* Same as convolve_sep, but with OpenCL acceleration. This does NOT
  * read back the results to C-accessible data. Use im_read_back for that. */
+SIFT3D_IGNORE_UNUSED
 static int convolve_sep_cl(const Image * const src, Image * const dst,
 			   const Sep_FIR_filter * const f, const int dim,
                            const double unit)
@@ -2863,7 +2858,7 @@ static int write_Affine(const char *path, const void *const tform)
 /* Write a thin-plate spline transformation to a file. */
 static int write_Tps(const char *path, const void *const tform)
 {
-
+SIFT3D_IGNORE_UNUSED
 	const Tps *const tps = tform;
 
 	fputs("write_Tps: this function has not yet been implemented.", stderr);
@@ -3863,9 +3858,6 @@ int resize_Pyramid(const Image *const im, const int first_level,
 
         const int old_num_total_levels = pyr->num_levels * pyr->num_octaves;
 	const int num_total_levels = num_levels * num_octaves;
-        const double ux = im->ux;
-        const double uy = im->uy;
-        const double uz = im->uz;
 
         // Verify inputs
         if (num_levels < num_kp_levels) {
@@ -4068,6 +4060,7 @@ void err_exit(const char *str)
 
 /* Read a whole ASCII file into a string. Returns NULL
  * on error. */
+SIFT3D_IGNORE_UNUSED
 static char *read_file(const char *path)
 {
 
@@ -4399,6 +4392,7 @@ static void cleanup_List(List * list)
 }
 
 //make the system matrix for spline
+SIFT3D_IGNORE_UNUSED
 static int make_spline_matrix(Mat_rm * src, Mat_rm * src_in, Mat_rm * sp_src,
 			      int K_terms, int *r, int dim)
 {
@@ -4526,6 +4520,7 @@ static int make_affine_matrix(Mat_rm * pts_in, Mat_rm * mat_out, const int dim)
 }
 
 //extract the control matrix from tform struct (only valid for spline)
+SIFT3D_IGNORE_UNUSED
 static Mat_rm *extract_ctrl_pts(void *tform, tform_type type)
 {
 	Mat_rm *T;

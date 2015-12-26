@@ -606,8 +606,6 @@ int set_sigma0_SIFT3D(SIFT3D *const sift3d,
 /* Initialize a SIFT3D struct with the default parameters. */
 int init_SIFT3D(SIFT3D *sift3d) {
 
-	int num_dog_levels, num_gpyr_levels;
-
         Pyramid *const dog = &sift3d->dog;
         Pyramid *const gpyr = &sift3d->gpyr;
         GSS_filters *const gss = &sift3d->gss;
@@ -949,7 +947,6 @@ static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im) {
         int dims_old[IM_NDIMS];
         int i;
 
-        Image *const im_new = &sift3d->im;
 	const float *const data_old = sift3d->im.data;
         const Pyramid *const gpyr = &sift3d->gpyr;
         const int first_octave = sift3d->gpyr.first_octave;
@@ -1461,7 +1458,7 @@ refine_quit:
 
 	return SIFT3D_SUCCESS;
 
-refine_error:
+refine_error: SIFT3D_IGNORE_UNUSED
         // Clean up and return an error
         cleanup_Mat_rm(&B);
         cleanup_Mat_rm(&X);
@@ -1471,6 +1468,7 @@ refine_error:
 }
 
 /* Bin a Cartesian gradient into Spherical gradient bins */
+SIFT3D_IGNORE_UNUSED
 static int Cvec_to_sbins(const Cvec * const vd, Svec * const bins) {
 
 	// Convert to spherical coordinates
@@ -2258,8 +2256,6 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d,
         const Keypoint_store *const kp, 
         SIFT3D_Descriptor_store *const desc) {
 
-        int i;
-
         // Check if a Gaussian scale-space pyramid is available for processing
         if (!SIFT3D_have_gpyr(sift3d)) {
                 fputs("SIFT3D_extract_descriptors: no Gaussian pyramid is "
@@ -2364,7 +2360,6 @@ int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d,
         const int num_octaves = 1;
         const double sigma0 = sift3d->gpyr.sigma0;
         const double sigma_n = sift3d->gpyr.sigma_n;
-        const double scale_factor = pow(2.0, -first_octave);
 
         // Verify inputs
         if (verify_keys(kp, im))
@@ -2515,12 +2510,11 @@ static void extract_dense_descrip_rotate(SIFT3D *const sift3d,
 
 	Cvec grad, grad_rot, bary, vim;
 	float sq_dist, mag, weight;
+SIFT3D_IGNORE_UNUSED
 	int a, p, x, y, z, bin;
 
         const Mesh *const mesh = &sift3d->mesh;
 	const float win_radius = desc_rad_fctr * sigma;
-	const float desc_width = win_radius / sqrt(2);
-	const float desc_hw = desc_width / 2.0f;
 
 	// Zero the descriptor
         hist_zero(hist);
@@ -2639,8 +2633,7 @@ static int extract_dense_descriptors_no_rotate(SIFT3D *const sift3d,
         Image temp; 
         Gauss_filter gauss;
 	Cvec grad, bary;
-	float sq_dist, mag, weight;
-        int i, x, y, z, bin, vert;
+        int x, y, z, bin;
 
         const int x_start = 1;
         const int y_start = 1;
@@ -2732,7 +2725,7 @@ static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
         Hist hist;
         Mat_rm R, Id;
         Mat_rm *ori;
-        int i, x, y, z, c;
+        int i, x, y, z;
 
         // Initialize the identity matrix
         if (init_Mat_rm(&Id, 3, 3, FLOAT, SIFT3D_TRUE)) {
@@ -3438,10 +3431,7 @@ write_kp_quit:
 int write_SIFT3D_Descriptor_store(const char *path, 
         const SIFT3D_Descriptor_store *const desc) {
 
-        const int num_rows = desc->num;
-
         Mat_rm mat;
-        int i, j;
 
         // Initialize the matrix
         if (init_Mat_rm(&mat, 0, 0, FLOAT, SIFT3D_FALSE))
