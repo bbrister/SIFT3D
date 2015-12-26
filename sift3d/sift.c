@@ -2401,8 +2401,7 @@ int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d,
         if (resize_Keypoint_store(&kp_base, kp->slab.num))
                 goto extract_raw_descriptors_quit;
 
-        // Convert keypoints to isotropic coordinates in the base scale and 
-        // octave
+        // Convert keypoints to the base scale and octave
         for (i = 0; i < kp->slab.num; i++) {
 
                 const Keypoint *const src = kp->buf + i;

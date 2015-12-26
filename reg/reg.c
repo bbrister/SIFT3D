@@ -132,8 +132,14 @@ int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const ref) {
         return SIFT3D_SUCCESS;
 }
 
-/* Run the registration procedure. If tform is NULL, only performs
- * feature matching. */
+/* Run the registration procedure. 
+ *
+ * Parameters: 
+ *   reg: The struct holding registration state.
+ *   tform: The output transformation. If NULL, this function only performs
+ *     feature matching.
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
 int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
 
         Ransac *const ran = &reg->ran;
@@ -144,10 +150,22 @@ int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
         SIFT3D_Descriptor_store *const desc_src = &reg->desc_src;
         SIFT3D_Descriptor_store *const desc_ref = &reg->desc_ref;
 
+	// Verify inputs
+	if (desc_src->num <= 0) {
+		fprintf(stderr, "register_SIFT3D: no source image descriptors "
+			"are available \n");
+		return SIFT3D_FAILURE;
+	}
+	if (desc_ref->num <= 0) {
+		fprintf(stderr, "register_SIFT3D: no reference image "
+			"descriptors are available \n");
+		return SIFT3D_FAILURE;
+	}
+
 	// Match features
 	if (SIFT3D_nn_match_fb(desc_src, desc_ref, nn_thresh, matches)) {
 		fprintf(stderr, "register_SIFT3D: failed to match "
-                                "keypoints \n");
+                                "descriptors \n");
                 return SIFT3D_FAILURE;
         }
 
