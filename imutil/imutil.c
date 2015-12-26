@@ -797,7 +797,6 @@ int print_Mat_rm(const Mat_rm * const mat)
  * -u.data_* (NULL for first use, non-null for resize)
  *
  * The following fields will be modified:
- * -numel
  * -size
  * -u.data_* (Change is not guaranteed)
  */
@@ -810,9 +809,6 @@ int resize_Mat_rm(Mat_rm *const mat) {
     double **const data = &mat->u.data_double;
     const size_t numel = num_rows * num_cols;
     const data_type type = mat->type;
-
-    // Update numel
-    mat->numel = numel;
 
     // Get the size of the underyling datatype
     switch (type) {

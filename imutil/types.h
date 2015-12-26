@@ -149,10 +149,9 @@ typedef struct _Mat_rm {
 		float  *data_float;
 		int *data_int;
 	} u;
-	size_t numel;		// Number of elements
 	size_t size;		// Size of the buffer, in bytes
-	int num_cols;           // Number of rows
-	int num_rows;           // Number of columns	
+	int num_cols;           // Number of columns 
+	int num_rows;           // Number of rows	
         int static_mem;         // Flag for statically-allocated memory
 	data_type type;         // DOUBLE, FLOAT, or INT
 
