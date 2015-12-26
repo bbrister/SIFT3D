@@ -910,7 +910,7 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         // Write the data
         status = dataset->putAndInsertUint8Array(DCM_PixelData, pixelData, 
                 numPixels);
-        delete pixelData;
+        delete[] pixelData;
         if (status.bad()) {
                 std::cerr << "write_dcm_cpp: Failed to set the pixel data " <<
                         std::endl;
