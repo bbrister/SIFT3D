@@ -460,9 +460,6 @@ int copy_Keypoint(const Keypoint *const src, Keypoint *const dst) {
         dst->yd = src->yd;
         dst->zd = src->zd;
         dst->sd = src->sd;
-        dst->xi = src->xi;
-        dst->yi = src->yi;
-        dst->zi = src->zi;
         dst->o = src->o;
         dst->s = src->s;
 
@@ -1034,9 +1031,9 @@ static int resize_SIFT3D(SIFT3D *const sift3d, const int first_octave,
 	}
 
 	// Resize the pyramid
-	if (resize_Pyramid(&sift3d->im, first_level, num_kp_levels,
+	if (resize_Pyramid(im, first_level, num_kp_levels,
                 num_gpyr_levels, first_octave, arg_num_octaves, gpyr) ||
-	        resize_Pyramid(&sift3d->im, first_level, num_kp_levels, 
+	        resize_Pyramid(im, first_level, num_kp_levels, 
                 num_dog_levels, first_octave, arg_num_octaves, dog))
 		return SIFT3D_FAILURE;
 
@@ -1264,10 +1261,9 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
                                         return SIFT3D_FAILURE;
                                 key->o = o;
                                 key->s = s;
-                                key->xi = x;
-                                key->yi = y;
-                                key->zi = z;
-
+				key->xd = (double) x + 0.5;
+				key->yd = (double) y + 0.5;
+				key->zd = (double) z + 0.5;
                         }
 		SIFT3D_IM_LOOP_END
 	SIFT3D_PYR_LOOP_END
@@ -1318,9 +1314,9 @@ SIFT3D_IGNORE_UNUSED
 		const double smax = next->s;
 	
 		// Initialize mutable data	
-		x = key->xi;
-		y = key->yi;
-		z = key->zi;
+		x = (int) key->xd;
+		y = (int) key->yd;
+		z = (int) key->zd;
 		xd = (double) x + 0.5;
 		yd = (double) y + 0.5;
 		zd = (double) z + 0.5;
@@ -1451,9 +1447,6 @@ refine_quit:
 #undef PARABOLA
 #endif
 		// Save the keypoint
-		key->xi = x;
-		key->yi = y;
-		key->zi = z;
 		key->xd = xd;
 		key->yd = yd;
 		key->zd = zd;
@@ -2204,11 +2197,6 @@ static int scale_Keypoint(const Keypoint *const src,
         dst->xd *= factors[0];
         dst->yd *= factors[1];
         dst->zd *= factors[2];
-
-        // Derive the integer coordinates
-        dst->xi = (int) dst->xd;
-        dst->yi = (int) dst->yd;
-        dst->zi = (int) dst->zd;
 
         return SIFT3D_SUCCESS;
 }

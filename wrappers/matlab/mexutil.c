@@ -557,11 +557,6 @@ int mx2kp(const mxArray *const mx, Keypoint_store *const kp) {
                 // Copy the orientation matrix
                 if (mx2mat(mxOri, &key->R))
                         return SIFT3D_FAILURE;
-
-                // Compute the remaining fields 
-                key->xi = (int) key->xd;
-                key->yi = (int) key->yd;
-                key->zi = (int) key->zd;
         }
 
         return SIFT3D_SUCCESS;

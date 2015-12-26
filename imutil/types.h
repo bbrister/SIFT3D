@@ -270,7 +270,7 @@ typedef struct _Keypoint {
 	Mat_rm R;				// Rotation matrix into Keypoint space
 	double xd, yd, zd;			// sub-pixel x, y, z
 	double  sd;				// absolute scale
-	int xi, yi, zi, o, s;			// [x, y, z], [o, s]
+	int o, s;			        // pyramid indices 
 
 } Keypoint;
 
