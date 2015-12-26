@@ -1470,9 +1470,13 @@ int write_Mat_rm(const char *path, const Mat_rm * const mat)
 	compress = strcmp(ext, ext_gz) == 0;
 
 	// Open the file
-	if ((compress && (gz = gzopen(path, mode)) == NULL) ||
-	    (file = fopen(path, mode)) == NULL)
-		goto write_mat_quit;
+	if (compress) {
+		if ((gz = gzopen(path, mode)) == Z_NULL)
+			return SIFT3D_FAILURE;
+	} else {
+		if ((file = fopen(path, mode)) == NULL)
+			return SIFT3D_FAILURE;
+	}
 
 #define WRITE_MAT(mat, format, type) \
     SIFT3D_MAT_RM_LOOP_START(mat, i, j) \
@@ -1482,8 +1486,8 @@ int write_Mat_rm(const char *path, const Mat_rm * const mat)
                                 type)); \
                         gzputc(gz, delim); \
                 } else { \
-                fprintf(file, format, SIFT3D_MAT_RM_GET(mat, i, j, \
-                 type)); \
+                	fprintf(file, format, SIFT3D_MAT_RM_GET(mat, i, j, \
+                 		type)); \
                         fputc(delim, file); \
                 } \
     SIFT3D_MAT_RM_LOOP_END
@@ -1491,31 +1495,37 @@ int write_Mat_rm(const char *path, const Mat_rm * const mat)
 	// Write the matrix
 	switch (mat->type) {
 	case DOUBLE:
-		WRITE_MAT(mat, "%f", double) break;
+		WRITE_MAT(mat, "%f", double); 
+		break;
 	case FLOAT:
-		WRITE_MAT(mat, "%f", float) break;
+		WRITE_MAT(mat, "%f", float); 
+		break;
 	case INT:
-		WRITE_MAT(mat, "%d", int) break;
+		WRITE_MAT(mat, "%d", int); 
+		break;
 	default:
 		goto write_mat_quit;
 	}
 #undef WRITE_MAT
 
-	// Check for errors
-	if (!compress && ferror(file))
-		goto write_mat_quit;
-
-	// Finish writing the matrix
-	if (compress && gzclose(gz) != Z_OK) {
-		goto write_mat_quit;
+	// Check for errors and finish writing the matrix
+	if (compress) {
+		if (gzclose(gz) != Z_OK)
+			goto write_mat_quit;
 	} else {
+		if (ferror(file))
+			goto write_mat_quit;
 		fclose(file);
 	}
 
 	return SIFT3D_SUCCESS;
 
  write_mat_quit:
-	fclose(file);
+	if (compress) {
+		gzclose(gz);
+	} else {
+		fclose(file);
+	}
 	return SIFT3D_FAILURE;
 }
 
@@ -1776,43 +1786,59 @@ int im_concat(const Image * const src1, const Image * const src2, const int dim,
 }
 
 /* Upsample an image by a factor of 2 in each dimension.
- * This function resizes dst. */
-int im_upsample_2x(Image * src, Image * dst)
+ * This function resizes dst and modifies its units. */
+int im_upsample_2x(const Image *const src, Image *const dst)
 {
 
-	int x, y, z, c, sx, sy, sz;
+	double units[IM_NDIMS];
+	int dims[IM_NDIMS];
+	int i, x, y, z, c, sx, sy, sz;
 
+	const int nc = src->nc;
 	const int w = 2;
-	const float weight = 1.0f / fabs((double)(w * w * w));
+	const float weight = (float) (1.0 / pow((double) w, IM_NDIMS));
 
-	// Initialize dst
-	dst->nx = src->nx * 2;
-	dst->ny = src->ny * 2;
-	dst->nz = src->nz * 2;
-	dst->nc = src->nc;
+	// Resize the output 
+	for (i = 0; i < IM_NDIMS; i++) {
+		dims[i] = src->dims[i] * 2;	
+		units[i] = SIFT3D_IM_GET_UNITS(src)[i] / 2.0;
+	}
+	memcpy(dst->dims, dims, IM_NDIMS * sizeof(int));
+	memcpy(SIFT3D_IM_GET_UNITS(dst), units, IM_NDIMS * sizeof(float));
+	dst->nc = nc;
 	im_default_stride(dst);
 	if (im_resize(dst))
 		return SIFT3D_FAILURE;
 
+	// TODO: 3-pass (separable) upsample might be faster
+
 	// Upsample
-	SIFT3D_IM_LOOP_START(dst, x, y, z)
-	const int sx_start = x >> 1;
-	const int sy_start = y >> 1;
-	const int sz_start = z >> 1;
+	SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
 
-	const int sx_end = sx_start + w - 1;
-	const int sy_end = sy_start + w - 1;
-	const int sz_end = sz_start + w - 1;
+		const int sx_start = x >> 1;
+		const int sy_start = y >> 1;
+		const int sz_start = z >> 1;
 
-	SIFT3D_IM_GET_VOX(dst, x, y, z, c) = 0;
-	SIFT3D_IM_LOOP_LIMITED_START_C(dst, sx, sy, sz, c, sx_start,
-				       sx_end, sy_start, sy_end, sz_start,
-				       sz_end)
+		const int sx_end = sx_start + w - 1;
+		const int sy_end = sy_start + w - 1;
+		const int sz_end = sz_start + w - 1;
 
-	    SIFT3D_IM_GET_VOX(dst, x, y, z, c) +=
-	    SIFT3D_IM_GET_VOX(src, sx, sy, sz, c) * weight;
+		SIFT3D_IM_GET_VOX(dst, x, y, z, c) = 0;
 
-	SIFT3D_IM_LOOP_END_C SIFT3D_IM_LOOP_END return SIFT3D_SUCCESS;
+		SIFT3D_IM_LOOP_LIMITED_START(dst, sx, sy, sz, sx_start,
+					       sx_end, sy_start, sy_end,
+					       sz_start, sz_end)
+
+			SIFT3D_IM_GET_VOX(dst, x, y, z, c) += 
+				SIFT3D_IM_GET_VOX(src, sx, sy, sz, c);
+
+		SIFT3D_IM_LOOP_END 
+
+		SIFT3D_IM_GET_VOX(dst, x, y, z, c) *= weight;	
+
+	SIFT3D_IM_LOOP_END_C
+
+	return SIFT3D_SUCCESS;
 }
 
 /* Downsample an image by a factor of 2 in each dimension.
@@ -1832,17 +1858,18 @@ int im_downsample_2x(const Image *const src, Image *const dst)
 	if (im_resize(dst))
 		return SIFT3D_FAILURE;
 
-	// TODO: 3-pass downsample might be faster
-
 	// Downsample
 	SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
-	const int src_x = x << 1;
-	const int src_y = y << 1;
-	const int src_z = z << 1;
 
-	SIFT3D_IM_GET_VOX(dst, x, y, z, c) =
-	    SIFT3D_IM_GET_VOX(src, src_x, src_y, src_z, c);
-	SIFT3D_IM_LOOP_END_C return SIFT3D_SUCCESS;
+		const int src_x = x << 1;
+		const int src_y = y << 1;
+		const int src_z = z << 1;
+
+		SIFT3D_IM_GET_VOX(dst, x, y, z, c) =
+		    SIFT3D_IM_GET_VOX(src, src_x, src_y, src_z, c);
+	SIFT3D_IM_LOOP_END_C 
+
+	return SIFT3D_SUCCESS;
 }
 
 /* Same as im_downsample_2x, but with OpenCL acceleration. This function DOES NOT

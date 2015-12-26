@@ -146,7 +146,7 @@ int im_set_kernel_arg(cl_kernel kernel, int n, Image *im);
 int im_permute(const Image *const src, const int dim1, const int dim2, 
 		 Image *const dst);
 
-int im_upsample_2x(Image *src, Image *dst);
+int im_upsample_2x(const Image *const src, Image *const dst);
 
 int im_pad(const Image *const im, Image *const pad);
 
