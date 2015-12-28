@@ -25,6 +25,8 @@ extern "C" {
 #define PLATFORM_NAME_NVIDIA "NVIDIA CUDA"
 
 /* Externally-visible routines */
+void *SIFT3D_safe_realloc(void *ptr, size_t size);
+
 void clFinish_all();
 
 void check_cl_error(int err, const char *msg);
@@ -170,7 +172,7 @@ void im_Hessian(Image *im, int x, int y, int z, Mat_rm *H);
 int im_inv_transform(void *const tform, const Image *const in, 
         Image *const out, const interp_type interp);
 
-void init_im(Image *im);
+void init_im(Image *const im);
 
 int init_Gauss_filter(Gauss_filter *const gauss, const double sigma, 
                       const int dim);

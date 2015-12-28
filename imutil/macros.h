@@ -188,9 +188,15 @@ extern "C" {
 \
 	if (size_new != (slab)->buf_size) { \
 \
-		if (((slab)->buf = realloc((slab)->buf, size_new)) == \
-                        NULL) \
+		/* Re-initialize if the new size is 0 */ \
+		if (size_new == 0) { \
+			cleanup_Slab(slab); \
+			init_Slab(slab); \
+		/* Else allocate new memory */ \
+		} else if (((slab)->buf = SIFT3D_safe_realloc((slab)->buf, \
+			size_new)) == NULL) { \
 			return SIFT3D_FAILURE; \
+		} \
 		(slab)->buf_size = size_new; \
 	} \
 	(slab)->num = (num_new); \

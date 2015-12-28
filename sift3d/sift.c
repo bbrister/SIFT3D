@@ -283,7 +283,7 @@ static int init_geometry(SIFT3D *sift3d) {
 			    
 	// Initialize triangle memory
         init_Mesh(mesh);
-	if ((mesh->tri = (Tri *) realloc(mesh->tri, 
+	if ((mesh->tri = (Tri *) SIFT3D_safe_realloc(mesh->tri, 
                 ICOS_NFACES * sizeof(Tri))) == NULL)
 		return SIFT3D_FAILURE;
  
@@ -680,6 +680,9 @@ int copy_SIFT3D(const SIFT3D *const src, SIFT3D *const dst) {
 /* Free all memory associated with a SIFT3D struct. sift3d cannot be reused
  * unless it is reinitialized. */
 void cleanup_SIFT3D(SIFT3D *const sift3d) {
+
+	// Clean up the image copy
+	im_free(&sift3d->im);
 
         // Clean up the pyramids
         cleanup_Pyramid(&sift3d->gpyr);
@@ -1148,7 +1151,7 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 	// Verify the inputs
 	if (dog->num_levels < 3) {
 		printf("detect_extrema: Requires at least 3 levels per octave, "
-			   "proivded only %d", dog->num_levels);
+			   "provided only %d \n", dog->num_levels);
 		return SIFT3D_FAILURE;
 	}
 
@@ -1782,8 +1785,8 @@ int SIFT3D_assign_orientations(const SIFT3D *const sift3d,
         init_im(&im_smooth);
         init_Keypoint(&key_base);
 
-        // Resize conf
-        if ((*conf = realloc(*conf, num * sizeof(double))) == NULL)
+        // Resize conf (num cannot be zero)
+        if ((*conf = SIFT3D_safe_realloc(*conf, num * sizeof(double))) == NULL)
                 goto assign_orientations_quit;
 
         // Smooth the input
@@ -2256,6 +2259,10 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d,
         const Keypoint_store *const kp, 
         SIFT3D_Descriptor_store *const desc) {
 
+	// Verify inputs
+	if (verify_keys(kp, &sift3d->im))
+		return SIFT3D_FAILURE;
+
         // Check if a Gaussian scale-space pyramid is available for processing
         if (!SIFT3D_have_gpyr(sift3d)) {
                 fputs("SIFT3D_extract_descriptors: no Gaussian pyramid is "
@@ -2277,7 +2284,17 @@ static int verify_keys(const Keypoint_store *const kp, const Image *const im) {
 
         int i;
 
-        for (i = 0; i < kp->slab.num; i++) {
+	const int num = kp->slab.num;
+
+	// Check the number of keypoints
+	if (num < 1) {
+		fprintf(stderr, "verify_keys: invalid number of keypoints: "
+				"%d \n", num);
+		return SIFT3D_FAILURE;
+	}
+
+	// Check each keypoint
+        for (i = 0; i < num; i++) {
 
                 const Keypoint *key = kp->buf + i;
 
@@ -2429,15 +2446,17 @@ static int _SIFT3D_extract_descriptors(SIFT3D *const sift3d,
 	const Image *const first_level = 
                 SIFT3D_PYR_IM_GET(gpyr, gpyr->first_octave, gpyr->first_level);
 
+	const int num = kp->slab.num;
+
 	// Initialize the metadata 
 	desc->nx = first_level->nx;	
 	desc->ny = first_level->ny;	
 	desc->nz = first_level->nz;	
 
-	// Resize the descriptor store
-	desc->num = kp->slab.num;
-	if ((desc->buf = (SIFT3D_Descriptor *) realloc(desc->buf, desc->num * 
-				sizeof(SIFT3D_Descriptor))) == NULL)
+	// Resize the descriptor store (num cannot be zero)
+	desc->num = num;
+	if ((desc->buf = (SIFT3D_Descriptor *) SIFT3D_safe_realloc(desc->buf, 
+		num * sizeof(SIFT3D_Descriptor))) == NULL)
                 return SIFT3D_FAILURE;
 
         // Extract the descriptors
@@ -2897,10 +2916,10 @@ int Mat_rm_to_SIFT3D_Descriptor_store(const Mat_rm *const mat,
 		return SIFT3D_FAILURE;
 	}
 
-	// Resize the descriptor store
+	// Resize the descriptor store (num cannot be zero)
 	store->num = num_rows;
-	if ((store->buf = (SIFT3D_Descriptor *) realloc(store->buf, store->num * 
-				sizeof(SIFT3D_Descriptor))) == NULL)
+	if ((store->buf = (SIFT3D_Descriptor *) SIFT3D_safe_realloc(store->buf, 
+		num_rows * sizeof(SIFT3D_Descriptor))) == NULL)
 		return SIFT3D_FAILURE;
 
 	// Copy the data
@@ -3094,6 +3113,11 @@ static int _SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
 #endif
 
         // Verify inputs
+	if (num < 1) {
+		fprintf(stderr, "_SIFT3D_nn_match: invalid number of "
+			"descriptors in d1: %d \n", num);
+		return SIFT3D_FAILURE;
+	}
         if (have_dist && dist == NULL) {
                 fputs("_SIFT3D_nn_match: have_dist is true but dist is NULL\n",
                         stderr);
@@ -3114,9 +3138,9 @@ static int _SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
                 }
         }
 
-	// Resize the matches array 
-	if ((*matches = (int *) realloc(*matches, num * sizeof(int))) 
-                == NULL) {
+	// Resize the matches array (num cannot be zero)
+	if ((*matches = (int *) SIFT3D_safe_realloc(*matches, 
+		num * sizeof(int))) == NULL) {
 	    fprintf(stderr, "_SIFT3D_nn_match: out of memory! \n");
 	    return SIFT3D_FAILURE;
 	}

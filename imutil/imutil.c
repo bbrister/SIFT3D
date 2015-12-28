@@ -192,6 +192,8 @@ static int compile_cl_program_from_source(cl_program * program,
 					  cl_device_id * devices,
 					  int num_devices, char **src,
 					  int num_str);
+static void init_mem_im(Image *const im);
+static void init_mem_Pyramid(Pyramid *const pyr);
 static int init_List(List ** list, const int num);
 static int List_get(List * list, const int idx, List ** el);
 static void List_remove(List ** list, List * el);
@@ -229,6 +231,24 @@ static int write_nii(const char *path, const Image *const im);
 /* Unfinished public routines */
 int init_Tps(Tps * tps, int dim, int terms);
 int resize_Tps(Tps * tps, int num_pts, int dim);
+
+/* As realloc, but frees the underlying pointer and returns NULL on error, or
+ * if size is 0 and ptr is non-NULL. */
+void *SIFT3D_safe_realloc(void *ptr, size_t size) {
+
+	void *ret;
+
+	// Call realloc and handle failures
+	if (size == 0 || (ret = realloc(ptr, size)) == NULL) {
+		if (ptr != NULL) {
+			free(ptr);
+		}
+		return NULL;
+	}
+
+	return ret;
+
+}
 
 /* Finish all OpenCL command queues. */
 void clFinish_all()
@@ -801,6 +821,8 @@ int print_Mat_rm(const Mat_rm * const mat)
  * The following fields will be modified:
  * -size
  * -u.data_* (Change is not guaranteed)
+ * 
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise.
  */
 int resize_Mat_rm(Mat_rm *const mat) {
 
@@ -834,6 +856,7 @@ int resize_Mat_rm(Mat_rm *const mat) {
     // Do nothing if the size has not changed
     if (total_size == mat->size)
         return SIFT3D_SUCCESS;
+    mat->size = total_size;
 
     // Check for static reallocation
     if (mat->static_mem) {
@@ -842,13 +865,18 @@ int resize_Mat_rm(Mat_rm *const mat) {
         return SIFT3D_FAILURE;
     }
 
+    // Reset if the new size is 0 
+    if (total_size == 0) {
+	cleanup_Mat_rm(mat);
+	return init_Mat_rm(mat, num_rows, num_cols, type, SIFT3D_FALSE);
+    }
+
     // Re-allocate the memory
-    if ((*data = (double *) realloc(*data, total_size)) == NULL) {
+    if ((*data = (double *) SIFT3D_safe_realloc(*data, total_size)) == NULL) {
         mat->size = 0;
         return SIFT3D_FAILURE;
     }
 
-    mat->size = total_size;
     return SIFT3D_SUCCESS;
 }
 
@@ -1629,6 +1657,8 @@ int im_pad(const Image * const im, Image * const pad)
  *
  * All of this initialization can also be done with
  * init_im_with_dims(), which calls this function.
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise.
  */
 int im_resize(Image *const im)
 {
@@ -1651,7 +1681,7 @@ int im_resize(Image *const im)
 		return SIFT3D_FAILURE;
 	}
 	if (im->nc < 1) {
-		fprintf(stderr, "im_resize: invalid number of channels: %d",
+		fprintf(stderr, "im_resize: invalid number of channels: %d \n",
 			im->nc);
 		return SIFT3D_FAILURE;
 	}
@@ -1659,9 +1689,20 @@ int im_resize(Image *const im)
         // Do nothing if the size has not changed
         if (im->size == size)
                 return SIFT3D_SUCCESS;
-
 	im->size = size;
-	im->data = realloc(im->data, im->size * sizeof(float));
+
+	// Reset if size is zero
+	if (size == 0) {
+
+		// Reset the image
+		im_free(im);
+		init_mem_im(im);
+		
+		return SIFT3D_SUCCESS;
+	}
+
+	// Allocate new memory
+	im->data = SIFT3D_safe_realloc(im->data, size * sizeof(float));
 
 #ifdef SIFT3D_USE_OPENCL
 	{
@@ -3652,11 +3693,18 @@ void cleanup_Sep_FIR_filter(Sep_FIR_filter *const f)
 #endif
 }
 
-/* Initialize the values of im so that it can be used by the
- * resize function. Does not allocate memory. */
-void init_im(Image * im)
+/* Internal helper function to initialize the memory of im, without
+ * changing any other parameters. */
+static void init_mem_im(Image *const im) 
 {
 	im->data = NULL;
+}
+
+/* Initialize the values of im so that it can be used by the
+ * resize function. Does not allocate memory. */
+void init_im(Image *const im)
+{
+	init_mem_im(im);
 	im->dims = &im->nx;
 	im->strides = &im->x_stride;
 	im->cl_valid = SIFT3D_FALSE;
@@ -3760,7 +3808,7 @@ void cleanup_Gauss_filter(Gauss_filter * gauss)
 	cleanup_Sep_FIR_filter(&gauss->f);
 }
 
-/* Initialize a GSS filteres stuct. This must be called before gss can be
+/* Initialize a GSS filters stuct. This must be called before gss can be
  * used in any other functions. */
 void init_GSS_filters(GSS_filters * const gss)
 {
@@ -3782,6 +3830,13 @@ int make_gss(GSS_filters * const gss, const Pyramid * const pyr)
 	const int first_level = pyr->first_level;
 	const int last_level = SIFT3D_PYR_LAST_LEVEL(pyr);
 
+	// Verify inputs
+	if (num_filters < 1) {
+		fprintf(stderr, "make_gss: pyr has only %d levels, must have "
+				"at least 2", pyr->num_levels);
+		return SIFT3D_FAILURE;
+	}
+
 	// Free all previous data, if any
 	cleanup_GSS_filters(gss);
 	init_GSS_filters(gss);
@@ -3790,11 +3845,10 @@ int make_gss(GSS_filters * const gss, const Pyramid * const pyr)
 	gss->num_filters = num_filters;
 	gss->first_level = first_level;
 
-	// Allocate the filter array
-	if ((gss->gauss_octave = (Gauss_filter *) realloc(gss->gauss_octave,
-							  num_filters *
-							  sizeof(Gauss_filter)))
-	    == NULL)
+	// Allocate the filter array (num_filters cannot be zero)
+	if ((gss->gauss_octave = (Gauss_filter *) 
+		SIFT3D_safe_realloc(gss->gauss_octave, 
+		num_filters * sizeof(Gauss_filter))) == NULL)
 		return SIFT3D_FAILURE;
 
 	// Make the filter for the very first blur
@@ -3842,11 +3896,17 @@ void cleanup_GSS_filters(GSS_filters * const gss)
 	free(gss->gauss_octave);
 }
 
+/* Internal helper function to initialize the memory of a Pyramid struct
+ * without changing any other parameters. */
+static void init_mem_Pyramid(Pyramid *const pyr) {
+	pyr->levels = NULL;
+}
+
 /* Initialize a Pyramid for use. Must be called before a Pyramid can be used
  * in any other functions. */
 void init_Pyramid(Pyramid * const pyr)
 {
-	pyr->levels = NULL;
+	init_mem_Pyramid(pyr);
         pyr->first_level = 0;
 	pyr->num_levels = pyr->num_kp_levels = 0;
 	pyr->first_octave = 0;
@@ -3869,10 +3929,7 @@ void init_Pyramid(Pyramid * const pyr)
  *  -sigma_n: The nominal scale of the image im.
  *  -pyr: The Pyramid to be resized.
  *
- * Note: For realtime implementations, this function 
- *       can be used to quickly resize an existing 
- *       pyramid. 
- */
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
 int resize_Pyramid(const Image *const im, const int first_level, 
         const unsigned int num_kp_levels, const unsigned int num_levels,
         const int first_octave, const unsigned int num_octaves, 
@@ -3883,6 +3940,8 @@ int resize_Pyramid(const Image *const im, const int first_level,
 	double factor;
 	int i, o, s;
 
+	const double sigma0 = pyr->sigma0;
+	const double sigma_n = pyr->sigma_n;
         const int old_num_total_levels = pyr->num_levels * pyr->num_octaves;
 	const int num_total_levels = num_levels * num_octaves;
 
@@ -3893,11 +3952,11 @@ int resize_Pyramid(const Image *const im, const int first_level,
                 return SIFT3D_FAILURE;
         }
 
-        // Clean up old levels which are no longer needed 
-        for (i = num_total_levels; i < old_num_total_levels; i++) {
-                Image *const level = pyr->levels + i;
-                im_free(level);
-        }
+        // Reset the memory if the new pyramid has no levels
+        if (num_total_levels == 0) {
+		cleanup_Pyramid(pyr);
+		init_mem_Pyramid(pyr);
+	}
 
         // Store the new parameters
         pyr->first_level = first_level;
@@ -3906,12 +3965,18 @@ int resize_Pyramid(const Image *const im, const int first_level,
         pyr->num_octaves = num_octaves;
         pyr->num_levels = num_levels;
 
-        // Do nothing more if the new pyramid has no levels
-        if (num_octaves == 0 || num_levels == 0)
-                return SIFT3D_SUCCESS;
+	// We have nothing more to do if there are no levels
+	if (num_total_levels == 0)
+		return SIFT3D_SUCCESS;
+
+        // Clean up old levels which are no longer needed 
+        for (i = num_total_levels; i < old_num_total_levels; i++) {
+                Image *const level = pyr->levels + i;
+                im_free(level);
+        }
 
 	// Resize the outer array
-        if ((pyr->levels = realloc(pyr->levels, 
+        if ((pyr->levels = SIFT3D_safe_realloc(pyr->levels,
 		num_total_levels * sizeof(Image))) == NULL)
                 return SIFT3D_FAILURE;
 
@@ -4027,8 +4092,7 @@ void cleanup_Pyramid(Pyramid * const pyr)
 	int o, s;
 
 	// We are done if there are no levels
-	if (pyr->levels == NULL || pyr->num_octaves <= 0 ||
-	    pyr->num_levels <= 0)
+	if (pyr->levels == NULL)
 		return;
 
 	// Free the levels
@@ -4036,6 +4100,9 @@ void cleanup_Pyramid(Pyramid * const pyr)
 		Image *const level = SIFT3D_PYR_IM_GET(pyr, o, s);
 		im_free(level);
 	SIFT3D_PYR_LOOP_END
+
+	// Free the pyramid level buffer
+	free(pyr->levels);
 }
 
 /* Initialize a Slab for first use */
@@ -4759,8 +4826,9 @@ static int ransac(Mat_rm * src, Mat_rm * ref, Ransac * ran, const int dim,
 		if (err_sq > err_thresh_sq)
 			continue;
 
-		// Add to the consensus set
-		if ((*cset = realloc(*cset, ++cset_len * sizeof(int))) == NULL)
+		// Add to the consensus set (++cset_len cannot be zero)
+		if ((*cset = SIFT3D_safe_realloc(*cset, 
+			++cset_len * sizeof(int))) == NULL)
 			goto RANSAC_FAIL;
 
 		(*cset)[cset_len - 1] = i;
@@ -4864,9 +4932,9 @@ int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
 
 		if (len > len_best) {
 			len_best = len;
-			if ((cset_best = (int *)realloc(cset_best,
-							len * sizeof(int))) ==
-			    NULL || copy_tform(tform_cur, tform))
+			if ((cset_best = (int *)SIFT3D_safe_realloc(cset_best,
+				len * sizeof(int))) == NULL || 
+				copy_tform(tform_cur, tform))
 				goto find_tform_quit;
 			memcpy(cset_best, cset, len * sizeof(int));
 		}
