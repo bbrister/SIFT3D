@@ -25,6 +25,7 @@
 #define LINES 'f'
 #define THRESH 'g'
 #define TYPE 'h' 
+#define RESAMPLE 'l'
 
 /* The help message */
 const char help_msg[] = 
@@ -59,6 +60,10 @@ const char help_msg[] =
         "       ratio, in the interval (0, 1]. (default: %f) \n"
         " --type [value] - Type of transformation to be applied. \n"
         "       Supported arguments: \"affine\" (default: affine) \n"
+	" --resample - Internally resample the images to have the same \n"
+	"	physical resolution. This is slow. Use it when the images \n"
+	"	have very different resolutions, for example registering 5mm \n"
+	"	to 1mm slices. \n"
         "\n";
 
 /* External parameters */
@@ -97,7 +102,7 @@ int main(int argc, char *argv[]) {
                 *concat_path, *keys_path, *lines_path;
         tform_type type;
         double thresh;
-        int num_args, c, have_match, have_tform;
+        int num_args, c, have_match, have_tform, resample;
 
         const struct option longopts[] = {
                 {"matches", required_argument, NULL, MATCHES},
@@ -108,6 +113,7 @@ int main(int argc, char *argv[]) {
                 {"lines", required_argument, NULL, LINES},
                 {"thresh", required_argument, NULL, THRESH},
                 {"type", required_argument, NULL, TYPE},
+		{"resample", no_argument, NULL, RESAMPLE},
                 {0, 0, 0, 0}
         };
 
@@ -149,7 +155,7 @@ int main(int argc, char *argv[]) {
 
         // Parse the remaining options 
         opterr = 1;
-        have_match = have_tform = SIFT3D_FALSE;
+        have_match = have_tform = resample = SIFT3D_FALSE;
         match_path = tform_path = warped_path = concat_path = keys_path =
                 lines_path = NULL;
         while ((c = getopt_long(argc, argv, "", longopts, NULL)) != -1) {
@@ -199,6 +205,9 @@ int main(int argc, char *argv[]) {
                                         return 1;
                                 }
                                 break;
+			case RESAMPLE:
+				resample = SIFT3D_TRUE;
+				break;
                         case '?':
                         default:
                                 return 1;
@@ -253,22 +262,34 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
 
-        // Set the images
-        if (set_src_Reg_SIFT3D(&reg, &src)) {
-                err_msgu("Failed to set the source image.");
-                return 1;
-        }
-        if (set_ref_Reg_SIFT3D(&reg, &ref)) {
-                err_msgu("Failed to set the reference image.");
-                return 1;
-        }
+	// Process the images	
+	tform_arg = have_tform ? tform : NULL;
+	if (resample) {
+		// Optionally register with resampling
+		if (register_SIFT3D_resample(&reg, &src, &ref, LINEAR,
+			tform_arg)) {
+			err_msgu("Failed to register the images with "
+				 "resampling. \n");
+			return 1;
+		}
+	} else {
 
-        // Match the features, optionally registering the images 
-        tform_arg = have_tform ? tform : NULL;
-        if (register_SIFT3D(&reg, tform_arg)) {
-                err_msgu("Failed to register the images.");
-                return 1;
-        }
+		// Set the images
+		if (set_src_Reg_SIFT3D(&reg, &src)) {
+			err_msgu("Failed to set the source image.");
+			return 1;
+		}
+		if (set_ref_Reg_SIFT3D(&reg, &ref)) {
+			err_msgu("Failed to set the reference image.");
+			return 1;
+		}
+
+		// Match the features, optionally registering the images 
+		if (register_SIFT3D(&reg, tform_arg)) {
+			err_msgu("Failed to register the images.");
+			return 1;
+		}
+	}
 
         // Convert the matches to matrices
         if (get_matches_Reg_SIFT3D(&reg, &match_src, &match_ref)) {

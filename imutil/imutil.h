@@ -172,6 +172,9 @@ void im_Hessian(Image *im, int x, int y, int z, Mat_rm *H);
 int im_inv_transform(void *const tform, const Image *const in, 
         Image *const out, const interp_type interp);
 
+int im_resample(const Image *const src, const double *const units, 
+	const interp_type interp, Image *const dst);
+
 void init_im(Image *const im);
 
 int init_Gauss_filter(Gauss_filter *const gauss, const double sigma, 

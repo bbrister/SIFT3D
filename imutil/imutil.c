@@ -2301,6 +2301,68 @@ static double lanczos(double x, double a)
 	return a * sin(pi_x) * sin(pi_x / a) / (pi_x * pi_x);
 }
 
+/* Resample an image to different units.
+ *
+ * Parameters:
+ *   src: The input image.
+ *   units: The new units. 
+ *   interp: The type of interpolation to use.
+ *   dst: The output image. 
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
+int im_resample(const Image *const src, const double *const units, 
+	const interp_type interp, Image *const dst) {
+
+	Affine aff;
+	Mat_rm A;
+	double factors[IM_NDIMS];
+	int i;
+
+	// Initialize intermediates
+	if (init_Mat_rm(&A, IM_NDIMS, IM_NDIMS + 1, DOUBLE, SIFT3D_TRUE) ||
+		init_Affine(&aff, IM_NDIMS))
+		return SIFT3D_FAILURE;
+
+	// Compute the scaling factors
+	for (i = 0; i < IM_NDIMS; i++) {
+		factors[i] = SIFT3D_IM_GET_UNITS(src)[i] / units[i];
+	}
+
+	// Set the transformation matrix
+	for (i = 0; i < IM_NDIMS; i++) {
+		SIFT3D_MAT_RM_GET(&A, i, i, double) = 1.0 / factors[i];
+	}
+	if (Affine_set_mat(&A, &aff))
+		goto im_resample_quit;
+
+	// Set the output dimensions
+	dst->nc = src->nc;
+	for (i = 0; i < IM_NDIMS; i++) {
+		dst->dims[i] = (int) ceil((double) src->dims[i] * factors[i]);
+	}
+
+	// Resize the output
+	memcpy(SIFT3D_IM_GET_UNITS(dst), units, IM_NDIMS * sizeof(double));
+	im_default_stride(dst);	
+	if (im_resize(dst))
+		goto im_resample_quit;
+
+	// Apply the transformation
+	if (im_inv_transform(&aff, src, dst, interp))
+		goto im_resample_quit;
+
+	// Clean up
+	cleanup_tform(&aff);
+	cleanup_Mat_rm(&A);
+
+	return SIFT3D_SUCCESS;
+
+im_resample_quit:
+	cleanup_tform(&aff);
+	cleanup_Mat_rm(&A);
+	return SIFT3D_FAILURE;
+}
+
 /* Horizontally convolves a separable filter with an image, 
  * on CPU. Currently only works in 3D.
  * 

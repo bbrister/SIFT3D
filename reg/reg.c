@@ -9,11 +9,16 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include "reg.h"
 #include "types.h"
 #include "macros.h"
 #include "sift.h"
 #include "imutil.h"
+
+/* Internal helper routines */
+static void scale_SIFT3D(const double *const factors, 
+	Keypoint_store *const kp, SIFT3D_Descriptor_store *const d);
 
 /* Initialize a Reg_SIFT3D struct with the default parameters. This must be
  * called before the struct can be used. */
@@ -81,14 +86,14 @@ int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const src) {
 
         // Detect keypoints
 	if (SIFT3D_detect_keypoints(sift3d, src, kp_src)) {
-		fprintf(stderr, "register_SIFT3D: failed to detect source "
+		fprintf(stderr, "set_src_Reg_SIFT3D: failed to detect source "
                         "keypoints\n");
                 return SIFT3D_FAILURE;
         }
 
         // Extract descriptors
 	if (SIFT3D_extract_descriptors(sift3d, kp_src, desc_src)) {
-                fprintf(stderr, "register_SIFT3D: failed to extract source "
+                fprintf(stderr, "set_ref_Reg_SIFT3D: failed to extract source "
                                 "descriptors \n");
                 return SIFT3D_FAILURE;
         }
@@ -105,15 +110,15 @@ int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const ref) {
 
         // Detect keypoints
         if (SIFT3D_detect_keypoints(sift3d, ref, kp_ref)) {
-		fprintf(stderr, "register_SIFT3D: failed to detect reference "
-                        "keypoints\n");
+		fprintf(stderr, "set_ref_Reg_SIFT3D: failed to detect "
+			"reference keypoints\n");
                 return SIFT3D_FAILURE;
         }
 
         // Extract descriptors
 	if (SIFT3D_extract_descriptors(sift3d, kp_ref, desc_ref)) {
-		fprintf(stderr, "register_SIFT3D: failed to extract reference "
-                        "descriptors\n");
+		fprintf(stderr, "set_ref_Reg_SIFT3D: failed to extract "
+			"reference descriptors\n");
                 return SIFT3D_FAILURE;
         }
 
@@ -174,6 +179,140 @@ int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
                 return SIFT3D_FAILURE;
 
 	return SIFT3D_SUCCESS;
+}
+
+/* Helper function to scale the keypoints and descriptors by the given 
+ * factors */
+static void scale_SIFT3D(const double *const factors, 
+	Keypoint_store *const kp, SIFT3D_Descriptor_store *const d) {
+
+	double det, scale_factor;
+	int i, j, k;
+
+	// Compute the determinant of the scaling transformation
+	det = 1.0;
+	for (i = 0; i < IM_NDIMS; i++) {
+		det *= factors[i];	
+	}
+
+	// Compute the scale parameter factor from the determinant
+	scale_factor = pow(det, -1.0 / (double) IM_NDIMS);
+	
+	// Scale the keypoints
+	for (k = 0; k < kp->slab.num; k++) {
+
+		Keypoint *const key = kp->buf + k;
+		Mat_rm *const R = &key->R;
+
+		// Scale the coordinates
+		key->xd *= factors[0];
+		key->yd *= factors[1];
+		key->zd *= factors[2];
+
+		// Adjust the scale parameter
+		key->sd *= scale_factor;
+
+		// Adjust the orientation matrix
+		SIFT3D_MAT_RM_LOOP_START(R, i, j)
+			SIFT3D_MAT_RM_GET(R, i, j, float) *= 
+				(float) (factors[j] / det);
+		SIFT3D_MAT_RM_LOOP_END
+	}
+
+	// Scale the descriptors
+	for (i = 0; i < d->num; i++) {
+
+		SIFT3D_Descriptor *const desc = d->buf + i;
+
+		// Scale the coordinates
+		desc->xd *= factors[0];
+		desc->yd *= factors[1];
+		desc->zd *= factors[2];
+
+		// Adjust the scale parameter
+		desc->sd *= scale_factor;
+	}
+}
+
+/* Like register_SIFT3D, but resamples the input images to have the same
+ * physical resolution before extracting features. Use this when registering 
+ * images with very different resolutions. The results are converted to the
+ * original resolution.
+ *
+ * Parameters:
+ *   reg: See register_SIFT3D.
+ *   src: The source, or moving image.
+ *   ref: The reference, or fixed image.
+ *   interp: The type of interpolation to use.
+ *   tform: See register_SIFT3D. 
+ *
+ * Note that some fields of the returned keypoints, such as scale and
+ * orientation, will not make sense in the new coordinate system.
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
+int register_SIFT3D_resample(Reg_SIFT3D *const reg, const Image *const src,
+	const Image *const ref, const interp_type interp, void *const tform) {
+
+	double units_min[IM_NDIMS], factors_src[IM_NDIMS], 
+		factors_ref[IM_NDIMS];
+	Image src_interp, ref_interp;
+	int i;
+
+	// Check for the trivial case, when src and dst have the same units
+	if (!memcmp(SIFT3D_IM_GET_UNITS(src), SIFT3D_IM_GET_UNITS(ref), 
+		IM_NDIMS * sizeof(double))) {
+		return set_src_Reg_SIFT3D(reg, src) ||
+			set_ref_Reg_SIFT3D(reg, ref) ||
+			register_SIFT3D(reg, tform) ? 
+			SIFT3D_FAILURE : SIFT3D_SUCCESS;
+	}
+
+	// Initalize intermediates
+	init_im(&src_interp);
+	init_im(&ref_interp);
+
+	// Compute the new units and scaling factors
+	for (i = 0; i < IM_NDIMS; i++) {
+		const double unit_src = SIFT3D_IM_GET_UNITS(src)[i];
+		const double unit_ref = SIFT3D_IM_GET_UNITS(ref)[i];
+
+		// Compute the minimum units between the two images
+		units_min[i] = SIFT3D_MIN(unit_src, unit_ref);
+
+		// Compute the scaling factors between the interpolated
+		// images and the originals
+		factors_src[i] = units_min[i] / unit_src;
+		factors_ref[i] = units_min[i] / unit_ref;
+	}
+
+	// Resample the images
+	if (im_resample(src, units_min, interp, &src_interp) ||
+		im_resample(ref, units_min, interp, &ref_interp))
+		goto register_interp_quit;
+
+	// Extract features from the interpolated images
+	if (set_src_Reg_SIFT3D(reg, &src_interp) ||
+		set_ref_Reg_SIFT3D(reg, &ref_interp))
+		goto register_interp_quit;
+
+	// Convert the keypoints and descriptors to the original units
+	scale_SIFT3D(factors_src, &reg->kp_src, &reg->desc_src);
+	scale_SIFT3D(factors_ref, &reg->kp_ref, &reg->desc_ref);
+
+	// Register the images
+	if (register_SIFT3D(reg, tform))
+		goto register_interp_quit;
+
+	// Clean up
+	im_free(&src_interp);	
+	im_free(&ref_interp);	
+
+	return SIFT3D_SUCCESS;
+
+register_interp_quit:
+	im_free(&src_interp);	
+	im_free(&ref_interp);	
+	return SIFT3D_FAILURE;
 }
 
 /* Write the coordinates of matching keypoints to the matrices match_src
