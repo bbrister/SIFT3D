@@ -24,7 +24,6 @@ typedef struct _Reg_SIFT3D {
 
         SIFT3D sift3d;
         Ransac ran;
-        Image src, ref;
         Keypoint_store kp_src, kp_ref;
         SIFT3D_Descriptor_store desc_src, desc_ref;
         Mat_rm match_src, match_ref;
@@ -44,9 +43,9 @@ int set_nn_thresh_Reg_SIFT3D(Reg_SIFT3D *const reg, const double nn_thresh);
 
 void set_SIFT3D_Reg_SIFT3D(Reg_SIFT3D *const reg, const SIFT3D *const sift3d);
 
-int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const src);
+int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const src);
 
-int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const ref);
+int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const ref);
 
 int get_matches_Reg_SIFT3D(const Reg_SIFT3D *const reg, Mat_rm *const match_src,
         Mat_rm *const match_ref);

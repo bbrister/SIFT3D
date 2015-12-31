@@ -27,8 +27,6 @@ int init_Reg_SIFT3D(Reg_SIFT3D *const reg) {
 	init_SIFT3D_Descriptor_store(&reg->desc_ref);
 	init_Ransac(&reg->ran);
         init_SIFT3D(&reg->sift3d);
-        init_im(&reg->src);
-        init_im(&reg->ref);
 	if (init_Mat_rm(&reg->match_src, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 		init_Mat_rm(&reg->match_ref, 0, 0, DOUBLE, SIFT3D_FALSE)) {
                 fprintf(stderr, "register_SIFT3D: unexpected error \n");
@@ -50,8 +48,6 @@ void cleanup_Reg_SIFT3D(Reg_SIFT3D *const reg) {
         cleanup_SIFT3D_Descriptor_store(&reg->desc_src);
         cleanup_SIFT3D_Descriptor_store(&reg->desc_ref);
         cleanup_SIFT3D(&reg->sift3d); 
-        im_free(&reg->src);
-        im_free(&reg->ref);
         cleanup_Mat_rm(&reg->match_src);
         cleanup_Mat_rm(&reg->match_ref);
 }
@@ -77,18 +73,14 @@ void set_SIFT3D_Reg_SIFT3D(Reg_SIFT3D *const reg, const SIFT3D *const sift3d) {
 
 /* Set the source image. This makes a deep copy of the data, so you are free
  * to modify src after calling this function. */
-int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const src) {
+int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const src) {
 
         SIFT3D *const sift3d = &reg->sift3d;
         Keypoint_store *const kp_src = &reg->kp_src;
         SIFT3D_Descriptor_store *const desc_src = &reg->desc_src;
 
-        // Copy the data
-        if (im_copy_data(src, &reg->src))
-                return SIFT3D_FAILURE;
-
         // Detect keypoints
-	if (SIFT3D_detect_keypoints(sift3d, &reg->src, kp_src)) {
+	if (SIFT3D_detect_keypoints(sift3d, src, kp_src)) {
 		fprintf(stderr, "register_SIFT3D: failed to detect source "
                         "keypoints\n");
                 return SIFT3D_FAILURE;
@@ -105,18 +97,14 @@ int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const src) {
 }
 
 /* The same as set_source_Reg_SIFT3D, but sets the reference image. */
-int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, Image *const ref) {
+int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const ref) {
 
         SIFT3D *const sift3d = &reg->sift3d;
         Keypoint_store *const kp_ref = &reg->kp_ref;
         SIFT3D_Descriptor_store *const desc_ref = &reg->desc_ref;
 
-        // Copy the data
-        if (im_copy_data(ref, &reg->ref))
-                return SIFT3D_FAILURE;
-
         // Detect keypoints
-        if (SIFT3D_detect_keypoints(sift3d, &reg->ref, kp_ref)) {
+        if (SIFT3D_detect_keypoints(sift3d, ref, kp_ref)) {
 		fprintf(stderr, "register_SIFT3D: failed to detect reference "
                         "keypoints\n");
                 return SIFT3D_FAILURE;
