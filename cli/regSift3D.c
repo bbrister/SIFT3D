@@ -27,6 +27,9 @@
 #define TYPE 'h' 
 #define RESAMPLE 'l'
 
+/* Message buffer size */
+#define BUF_SIZE 1024
+
 /* The help message */
 const char help_msg[] = 
         "Usage: regSift3D [source.nii] [reference.nii] \n"
@@ -196,9 +199,9 @@ int main(int argc, char *argv[]) {
                                         type = AFFINE;
                                 } else {
 
-                                        char msg[1024];
+                                        char msg[BUF_SIZE];
 
-                                        sprintf(msg,    
+                                        snprintf(msg, BUF_SIZE,
                                                 "Unrecognized transformation "
                                                 "type: %s\n", optarg);
                                         err_msg(msg);
@@ -245,19 +248,19 @@ int main(int argc, char *argv[]) {
         // Read the images
         if (im_read(src_path, &src)) {
 
-                char msg[1024];
+                char msg[BUF_SIZE];
 
-                sprintf(msg, "Failed to read the source image \"%s\"", 
-                        src_path);
+                snprintf(msg, BUF_SIZE, "Failed to read the source image "
+			"\"%s\"", src_path);
                 err_msg(msg);
                 return 1;
         }
         if (im_read(ref_path, &ref)) {
 
-                char msg[1024];
+                char msg[BUF_SIZE];
 
-                sprintf(msg, "Failed to read the reference image \"%s\"",
-                        ref_path);
+                snprintf(msg, BUF_SIZE, "Failed to read the reference image "
+			"\"%s\"", ref_path);
                 err_msg(msg);
                 return 1;
         }
@@ -313,10 +316,10 @@ int main(int argc, char *argv[]) {
 
                 if (write_Mat_rm(match_path, &matches)) {
 
-                        char msg[1024];
+                        char msg[BUF_SIZE];
 
-                        sprintf(msg, "Failed to write the matches \"%s\"", 
-                                match_path);
+                        snprintf(msg, BUF_SIZE, "Failed to write the matches "
+				"\"%s\"", match_path);
                         err_msg(msg);
                         return 1;
                 }
@@ -326,10 +329,10 @@ int main(int argc, char *argv[]) {
         }
         if (tform_path != NULL && write_tform(tform_path, tform)) {
 
-                char msg[1024];
+                char msg[BUF_SIZE];
 
-                sprintf(msg, "Failed to write the transformation parameters "
-                        "\"%s\"", tform_path);
+                snprintf(msg, BUF_SIZE, "Failed to write the transformation "
+			"parameters \"%s\"", tform_path);
                 err_msg(msg);
                 return 1;
         }
@@ -351,10 +354,10 @@ int main(int argc, char *argv[]) {
                 // Write the warped image
                 if (im_write(warped_path, &warped)) {
 
-                        char msg[1024];
+                        char msg[BUF_SIZE];
 
-                        sprintf(msg, "Failed to write the warped image \"%s\"",
-                                warped_path);
+                        snprintf(msg, BUF_SIZE, "Failed to write the warped "
+				"image \"%s\"", warped_path);
                         err_msg(msg);
                         return 1;
                 }
@@ -404,10 +407,10 @@ int main(int argc, char *argv[]) {
                 // Optionally write a concatenated image
                 if (concat_path != NULL && im_write(concat_path, &concat)) {
 
-                        char msg[1024];
+                        char msg[BUF_SIZE];
 
-                        sprintf(msg, "Failed to write the concatenated image "
-                                "\"%s\"", concat_path);
+                        snprintf(msg, BUF_SIZE, "Failed to write the "
+				"concatenated image \"%s\"", concat_path);
                         err_msg(msg);
                         return 1;
                 }
@@ -415,10 +418,10 @@ int main(int argc, char *argv[]) {
                 // Optionally write the keypoints
                 if (keys_path != NULL && im_write(keys_path, &keys)) {
 
-                        char msg[1024];
+                        char msg[BUF_SIZE];
 
-                        sprintf(msg, "Failed to write the keypoint image "
-                                "\"%s\"", concat_path);
+                        snprintf(msg, BUF_SIZE, "Failed to write the keypoint "
+				"image \"%s\"", concat_path);
                         err_msg(msg);
                         return 1;
                 }
@@ -426,10 +429,10 @@ int main(int argc, char *argv[]) {
                 // Optionally write the matches
                 if (lines_path != NULL && im_write(lines_path, &lines)) {
 
-                        char msg[1024];
+                        char msg[BUF_SIZE];
 
-                        sprintf(msg, "Failed to write the line image "
-                                "\"%s\"", concat_path);
+                        snprintf(msg, BUF_SIZE, "Failed to write the line "
+				"image \"%s\"", concat_path);
                         err_msg(msg);
                         return 1;
                 }

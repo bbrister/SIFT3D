@@ -100,7 +100,8 @@ int main(int argc, char **argv) {
                 
                 char msg[BUF_SIZE];
 
-                sprintf(msg, "Failed to read input image \"%s\".", in_path);
+                snprintf(msg, BUF_SIZE, "Failed to read input image \"%s\".",
+			in_path);
                 err_msg(msg);
                 return 1;
         }
@@ -118,8 +119,8 @@ int main(int argc, char **argv) {
 
                 char msg[BUF_SIZE];
 
-                sprintf(msg, "Ouput filename cannot exceed %d characters.", 
-                        BUF_SIZE);
+                snprintf(msg, BUF_SIZE, "Ouput filename cannot exceed %d "
+			"characters.", BUF_SIZE);
                 err_msg(msg);
                 return 1;
         }
@@ -142,7 +143,7 @@ int main(int argc, char **argv) {
 
                 /* Form the output file name */
                 out_name[0] = '\0';
-                sprintf(chan_str, "%d", c);
+                snprintf(chan_str, BUF_SIZE, "%d", c);
                 strncat(out_name, out_path, marker_pos);
                 strcat(out_name, chan_str);
                 strcat(out_name, marker + 1);
@@ -152,8 +153,8 @@ int main(int argc, char **argv) {
 
                         char msg[BUF_SIZE];
 
-                        sprintf(msg, "Failed to write output image \"%s\".", 
-                                out_name);
+                        snprintf(msg, BUF_SIZE, "Failed to write output image "
+				"\"%s\".", out_name);
                         err_msg(msg);
                         return 1;
                 }

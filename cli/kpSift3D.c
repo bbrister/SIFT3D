@@ -18,6 +18,9 @@
 #define DESC 'b'
 #define DRAW 'c'
 
+/* Message buffer size */
+#define BUF_SIZE 1024
+
 /* Help message */
 const char help_msg[] = 
         "Usage: kpSift3D [image.nii] \n"
@@ -152,10 +155,10 @@ int main(int argc, char *argv[]) {
         // Optionally write the keypoints 
         if (keys_path != NULL && write_Keypoint_store(keys_path, &kp)) {
 
-                char msg[1024];
+                char msg[BUF_SIZE];
 
-                sprintf(msg, "Failed to write the keypoints to \"%s\"", 
-                        keys_path);
+                snprintf(msg, BUF_SIZE, "Failed to write the keypoints to "
+			"\"%s\"", keys_path);
                 err_msg(msg);
                 return 1;
         }
@@ -172,10 +175,10 @@ int main(int argc, char *argv[]) {
                 // Write the descriptors
                 if (write_SIFT3D_Descriptor_store(desc_path, &desc)) {
 
-                        char msg[1024];
+                        char msg[BUF_SIZE];
 
-                        sprintf(msg, "Failed to write the descriptors to "
-                                "\"%s\"", desc_path);
+                        snprintf(msg, BUF_SIZE, "Failed to write the "
+				"descriptors to \"%s\"", desc_path);
                         err_msg(msg);
                         return 1;
                 }
@@ -208,10 +211,10 @@ int main(int argc, char *argv[]) {
                 // Write the output
                 if (im_write(draw_path, &draw)) {
                         
-                        char msg[1024];
+                        char msg[BUF_SIZE];
 
-                        sprintf(msg, "Failed to draw the keypoints to \"%s\"",
-                                draw_path);
+                        snprintf(msg, BUF_SIZE, "Failed to draw the keypoints "
+				"to \"%s\"", draw_path);
                         err_msg(msg);
                         return 1;
                 }
