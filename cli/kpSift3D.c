@@ -37,7 +37,7 @@ const char help_msg[] =
         "       Supported file formats: .csv, .csv.gz \n"
         " --draw [filename] \n"
         "       Draws the keypoints in image space. \n"
-        "       Supported file formats: .nii, .nii.gz \n"
+        "       Supported file formats: .dcm, .nii, .nii.gz, directory \n"
         "At least one of the output options must be specified. \n"
         "\n";
 
