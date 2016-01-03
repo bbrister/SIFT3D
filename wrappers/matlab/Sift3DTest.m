@@ -710,7 +710,7 @@ end
 % directories
 ldPathVar = 'LD_LIBRARY_PATH';
 oldLdPath = getenv(ldPathVar);
-newLdPath = regexprep(oldLdPath, '[^:]*MATLAB[^:]*:*', '');
+newLdPath = regexprep(oldLdPath, '[^:]*MATLAB[^:]*:*', '', 'ignorecase');
 setenv(ldPathVar, newLdPath);
 
 % Run the command
