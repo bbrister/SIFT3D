@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
 		// Optionally register with resampling
 		if (register_SIFT3D_resample(&reg, &src, &ref, LINEAR,
 			tform_arg)) {
-			err_msgu("Failed to register the images with "
+			err_msg("Failed to register the images with "
 				 "resampling. \n");
 			return 1;
 		}
@@ -279,17 +279,17 @@ int main(int argc, char *argv[]) {
 
 		// Set the images
 		if (set_src_Reg_SIFT3D(&reg, &src)) {
-			err_msgu("Failed to set the source image.");
+			err_msg("Failed to set the source image.");
 			return 1;
 		}
 		if (set_ref_Reg_SIFT3D(&reg, &ref)) {
-			err_msgu("Failed to set the reference image.");
+			err_msg("Failed to set the reference image.");
 			return 1;
 		}
 
 		// Match the features, optionally registering the images 
 		if (register_SIFT3D(&reg, tform_arg)) {
-			err_msgu("Failed to register the images.");
+			err_msg("Failed to register the images.");
 			return 1;
 		}
 	}
