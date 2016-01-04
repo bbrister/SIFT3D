@@ -1,7 +1,7 @@
 /* -----------------------------------------------------------------------------
  * mexutil.c
  * -----------------------------------------------------------------------------
- * Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+ * Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
  * -----------------------------------------------------------------------------
  * Mex utility library for SIFT3D.
  * -----------------------------------------------------------------------------
@@ -16,6 +16,7 @@
 #include "macros.h"
 #include "imutil.h"
 #include "sift.h"
+#include "reg.h"
 #include "mexutil.h"
 
 /* Matlab headers */
@@ -42,7 +43,7 @@ const mwSize kpNDims = 1;
 const int kpNFields = sizeof(fieldNames) / sizeof(char *);
 
 /* Global state */
-SIFT3D sift3d;
+Reg_SIFT3D reg;
 
 /* Error message tag */
 const char *tag = "sift3D";
@@ -53,13 +54,13 @@ static void fini(void) __attribute__((destructor));
 
 /* Library initialization */
 static void init(void) {
-        if (init_SIFT3D(&sift3d))
+        if (init_Reg_SIFT3D(&reg))
                 err_msgu("main:initSift", "Failed to initialize SIFT3D");
 }
 
 /* Library cleanup */
 static void fini(void) {
-        cleanup_SIFT3D(&sift3d);
+        cleanup_Reg_SIFT3D(&reg);
 }
 
 /* Print an error message. */
@@ -631,28 +632,50 @@ mxArray *array2mx(const double *const array, const size_t len) {
 /* Wrapper for SIFT3D_detect_keypoints. */
 int mex_SIFT3D_detect_keypoints(const Image *const im, 
         Keypoint_store *const kp) {
-        return SIFT3D_detect_keypoints(&sift3d, im, kp);
+        return SIFT3D_detect_keypoints(&reg.sift3d, im, kp);
 }
 
 /* Wrapper for SIFT3D_assign_orientations. */
 int mex_SIFT3D_assign_orientations(const Image *const im, 
         Keypoint_store *const kp, double **const conf) {
-        return SIFT3D_assign_orientations(&sift3d, im, kp, conf);
+        return SIFT3D_assign_orientations(&reg.sift3d, im, kp, conf);
 }
 
 /* Wrapper for SIFT3D_extract_descriptors. */
 int mex_SIFT3D_extract_descriptors(const Keypoint_store *const kp, 
         SIFT3D_Descriptor_store *const desc) {
-        return SIFT3D_extract_descriptors(&sift3d, kp, desc);
+        return SIFT3D_extract_descriptors(&reg.sift3d, kp, desc);
 }
 
 /* Wrapper for SIFT3D_extract_raw_descriptors. */
 int mex_SIFT3D_extract_raw_descriptors(const Image *const im, 
         const Keypoint_store *const kp, SIFT3D_Descriptor_store *const desc) {
-        return SIFT3D_extract_raw_descriptors(&sift3d, im, kp, desc);
+        return SIFT3D_extract_raw_descriptors(&reg.sift3d, im, kp, desc);
 }
 
-/* Wrapper around SIFT3D_have_gpyr. */
+/* Wrapper for SIFT3D_have_gpyr. */
 int mexHaveGpyr(void) {
-        return SIFT3D_have_gpyr(&sift3d);
+        return SIFT3D_have_gpyr(&reg.sift3d);
+}
+
+/* Wrapper for set_nn_thresh_Reg_SIFT3D */
+int mex_set_nn_thresh_Reg_SIFT3D(const double nn_thresh) {
+        return set_nn_thresh_Reg_SIFT3D(&reg, nn_thresh);
+}
+
+/* Get the current value of nn_thresh from the Reg_SIFT3D struct. */
+double mex_get_nn_thresh_Reg_SIFT3D(void) {
+        return reg.nn_thresh;
+}
+
+/* Wrapper for register_SIFT3D_resample */
+int mex_register_SIFT3D_resample(const Image *const src, 
+        const Image *const ref, const interp_type interp, void *const tform) {
+        return register_SIFT3D_resample(&reg, src, ref, interp, tform); 
+}
+
+/* Wrapper for get_matches_Reg_SIFT3D */
+int mex_get_matches_Reg_SIFT3D(Mat_rm *const match_src, 
+        Mat_rm *const match_ref) {
+        return get_matches_Reg_SIFT3D(&reg, match_src, match_ref);
 }

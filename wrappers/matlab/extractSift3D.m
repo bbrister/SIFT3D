@@ -6,7 +6,8 @@ function [desc, coords] = extractSift3D(keys, im, units)
 %    im - (Optional) An [MxNxP] array, where voxels are indexed in
 %      (x, y, z) order. If im is empty or not provided, this function uses 
 %      the Gaussian scale-space pyramid from the most recent call to 
-%      detectSift3D.
+%      detectSift3D. (Note: this data is overwritten by calls to
+%      registerSift3D.)
 %    units - (Optional) See imRead3D. If units are specified, the extracted
 %       descriptors are isotropic even when im is not.
 %
@@ -36,7 +37,7 @@ function [desc, coords] = extractSift3D(keys, im, units)
 %  See also:
 %    detectSift3D, imRead3D, keypoint3D, orientation3D, setupSift3D
 %
-% Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+% Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
 
 % Required field dimensions
 coordsSizeReq = [1 3];
@@ -50,8 +51,8 @@ if nargin < 2
     im = [];
 end
 
-if nargin < 3 || isempty(units)
-    units = ones(3,1);
+if nargin < 3
+    units = [];
 end
 
 % Verify inputs

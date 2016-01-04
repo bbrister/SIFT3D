@@ -63,6 +63,16 @@ int mex_SIFT3D_extract_raw_descriptors(const Image *const im,
 
 int mexHaveGpyr(void);
 
+int mex_set_nn_thresh_Reg_SIFT3D(const double nn_thresh);
+
+double mex_get_nn_thresh_Reg_SIFT3D(void);
+
+int mex_register_SIFT3D_resample(const Image *const src, 
+        const Image *const ref, const interp_type interp, void *const tform);
+
+int mex_get_matches_Reg_SIFT3D(Mat_rm *const match_src, 
+        Mat_rm *const match_ref);
+
 #ifdef __cplusplus
 }
 #endif

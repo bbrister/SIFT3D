@@ -24,11 +24,11 @@ function keys = detectSift3D(im, units)
 %  See also:
 %    extractSift3D, imRead3D, imWrite3D, keypoint3D, setupSift3D
 %
-% Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+% Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
 
 % Default parameters
-if nargin < 2 || isempty(units)
-    units = ones(3, 1);
+if nargin < 2
+    units = [];
 end
 
 % Verify inputs

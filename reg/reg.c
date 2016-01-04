@@ -31,8 +31,8 @@ int init_Reg_SIFT3D(Reg_SIFT3D *const reg) {
 	init_SIFT3D_Descriptor_store(&reg->desc_src);
 	init_SIFT3D_Descriptor_store(&reg->desc_ref);
 	init_Ransac(&reg->ran);
-        init_SIFT3D(&reg->sift3d);
-	if (init_Mat_rm(&reg->match_src, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+	if (init_SIFT3D(&reg->sift3d) ||
+                init_Mat_rm(&reg->match_src, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 		init_Mat_rm(&reg->match_ref, 0, 0, DOUBLE, SIFT3D_FALSE)) {
                 fprintf(stderr, "register_SIFT3D: unexpected error \n");
                 return SIFT3D_FAILURE;
@@ -60,7 +60,7 @@ void cleanup_Reg_SIFT3D(Reg_SIFT3D *const reg) {
 /* Set the matching theshold of a Reg_SIFT3D struct. */
 int set_nn_thresh_Reg_SIFT3D(Reg_SIFT3D *const reg, const double nn_thresh) {
 
-        if (nn_thresh <= 0) {
+        if (nn_thresh <= 0 || nn_thresh >= 1) {
                 fprintf(stderr, "set_nn_thresh_Reg_SIFT3D: invalid threshold: "
                         "%f \n", nn_thresh);
                 return SIFT3D_FAILURE;

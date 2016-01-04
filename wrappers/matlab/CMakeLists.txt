@@ -6,7 +6,8 @@
 
 # Enumerate the Matlab scripts for testing and installation
 set (INSTALL_SCRIPTS setupSift3D.m imRead3D.m imWrite3D.m detectSift3D.m
-        extractSift3D.m orientation3D.m keypoint3D.m checkUnits3D.m)
+        extractSift3D.m orientation3D.m keypoint3D.m registerSift3D.m 
+        checkUnits3D.m)
 set (TEST_SCRIPTS Sift3DTest.m)
 
 # Build the mex utility library
@@ -16,7 +17,7 @@ target_include_directories (mexutil PUBLIC
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
 )
-target_link_libraries (mexutil PUBLIC mexsift3D meximutil 
+target_link_libraries (mexutil PUBLIC mexreg mexsift3D meximutil 
         ${Matlab_MWLAPACK_LIBRARY} ${Matlab_MWBLAS_LIBRARY} ${Matlab_LIBRARIES})
 
 # Build the mex files
@@ -35,7 +36,7 @@ matlab_add_mex (NAME mexDetectSift3D
         LINK_TO mexutil ${Matlab_LIBRARIES}
 )
 
-matlab_add_mex(NAME mexOrientation3D
+matlab_add_mex (NAME mexOrientation3D
         SRC mexOrientation3D.c
         LINK_TO mexutil ${Matlab_LIBRARIES}
 )
@@ -45,9 +46,14 @@ matlab_add_mex (NAME mexExtractSift3D
         LINK_TO mexutil ${Matlab_LIBRARIES}
 )
 
+matlab_add_mex (NAME mexRegisterSift3D
+        SRC mexRegisterSift3D.c
+        LINK_TO mexutil ${Matlab_LIBRARIES}
+)
+
 # Enumerate the binary targets
 set (BINARIES mexutil mexImRead3D mexImWrite3D mexDetectSift3D 
-        mexOrientation3D mexExtractSift3D)
+        mexOrientation3D mexExtractSift3D mexRegisterSift3D)
 
 # Configure the build destination
 set_target_properties (${BINARIES}
