@@ -22,6 +22,7 @@
 ## 1.2
 
 * Take real-world units into account in SIFT3D keypoints, descriptors
+* Optionally resample input images prior to registration (regSift3D, register_SIFT3D_resample)
 * Write more NIFTI metadata (im_write, imWrite3D)
 * Changed C interface for descriptor extraction to disallow providing a custom Gaussian scale-space pyramid (SIFT3D_Extract_Descriptors)
 * Minor bug fixes
