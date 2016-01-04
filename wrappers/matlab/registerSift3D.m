@@ -11,7 +11,7 @@
 %      respectively. See imRead3D for the format. Units should be provided
 %      when attempting to register images of different resolutions, i.e.
 %      5mm slices to 1mm slices.
-%    thresh - (Optional) The matching threshold, in the interval (0, 1).
+%    thresh - (Optional) The matching threshold, in the interval (0, 1].
 %      (Default: 0.8)
 %
 %  Return values:
@@ -72,8 +72,8 @@ function [A, matchSrc, matchRef] = registerSift3D(src, ref, srcUnits, ...
         if ~isnumeric(thresh)
             error('thresh must be numeric')
         end
-        if thresh <= 0 || thresh >= 1
-            error('thresh must be in the interval (0, 1)')
+        if thresh <= 0 || thresh > 1
+            error('thresh must be in the interval (0, 1]')
         end
     end
     

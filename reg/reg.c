@@ -60,7 +60,7 @@ void cleanup_Reg_SIFT3D(Reg_SIFT3D *const reg) {
 /* Set the matching theshold of a Reg_SIFT3D struct. */
 int set_nn_thresh_Reg_SIFT3D(Reg_SIFT3D *const reg, const double nn_thresh) {
 
-        if (nn_thresh <= 0 || nn_thresh >= 1) {
+        if (nn_thresh <= 0 || nn_thresh > 1) {
                 fprintf(stderr, "set_nn_thresh_Reg_SIFT3D: invalid threshold: "
                         "%f \n", nn_thresh);
                 return SIFT3D_FAILURE;
