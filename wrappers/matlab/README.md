@@ -8,6 +8,8 @@ This is a Matlab toolbox wrapping SIFT3D. It contains the following functions:
 - detectSift3D.m - Detect SIFT3D keypoints from a 3-dimensional array.
 - extractSift3D.m - Extract SIFT3D descriptors from a 3-dimensional array.
 - keypoint3D.m - Create SIFT3D keypoints from user-supplied coordinates.
+- orientation3D.m - Assign 3D orientations to user-supplied keypoints.
+- registerSift3D.m - Register images using SIFT3D keypoints and descriptors.
 - imRead3D.m - Read 2D and 3D images in DICOM and NIFTI formats.
 - imWrite3D.m - Write 2D and 3D images in DICOM and NIFTI formats.
 
