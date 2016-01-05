@@ -1,16 +1,16 @@
 classdef Sift3DTest < TestCase
-    %Sift3DTest a test suite for SIFT3D.
-    %
-    % To run this test suite, you must have installed xUnit. As of August
-    % 25th, 2015, xUnit is available at:
-    %   http://www.mathworks.com/matlabcentral/fileexchange/22846-matlab-xunit-test-framework
-    %
-    % Run the tests with the following command:
-    %   runtests
-    %
-    % This test suite can only be run from the build tree.
-    %
-    % Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+%Sift3DTest a test suite for SIFT3D.
+%
+% To run this test suite, you must have installed xUnit. As of August
+% 25th, 2015, xUnit is available at:
+%   http://www.mathworks.com/matlabcentral/fileexchange/22846-matlab-xunit-test-framework
+%
+% Run the tests with the following command:
+%   runtests
+%
+% This test suite can only be run from the build tree.
+%
+% Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
     
     properties (SetAccess = private)
         cd
@@ -21,6 +21,7 @@ classdef Sift3DTest < TestCase
         im2Name
         dataName
         kpCmd
+        regCmd
         tolText
         fullTest
     end
@@ -55,6 +56,9 @@ classdef Sift3DTest < TestCase
             
             % Keypoints command name
             self.kpCmd = fullfile(self.binDir, 'kpSift3D');
+            
+            % Registration command name
+            self.regCmd = fullfile(self.binDir, 'regSift3D --resample');
             
             % Error tolerance for text output
             self.tolText = 0.01;
@@ -263,6 +267,105 @@ classdef Sift3DTest < TestCase
                 assertElementsAlmostEqual(det(key.ori), 1, 'absolute', ...
                     1E-3);
             end
+        end
+        
+        % Test registering an image against the CLI version
+        function regCliTest(self)
+            if ~self.fullTest || ispc
+                return
+            end
+            
+            % Output file names
+            matchesName = 'matches.csv';
+            transformName = 'transform.csv';
+            
+            % Register with the CLI
+            status = runCmd([self.regCmd ' --matches ' matchesName ...
+                ' --transform ' transformName ' ' self.im1Name ' ' ...
+                self.im2Name]);
+            assertEqual(status, 0);
+            
+            % Read the results
+            matchesCli = csvread(matchesName);
+            transformCli = csvread(transformName);
+            
+            % Convert the results to Matlab's format
+            matchSrcCli = matchesCli(:, 1 : 3);
+            matchRefCli = matchesCli(:, 4 : end);
+            
+            % Load the images
+            [im1, units1] = imRead3D(self.im1Name);
+            [im2, units2] = imRead3D(self.im2Name);
+            
+            % Register with Matlab
+            [A, matchSrc, matchRef] = registerSift3D(im1, im2, units1, ...
+                units2);
+            
+            % Check the dimensions
+            assertEqual(size(A), size(transformCli));
+            assertEqual(size(matchSrc), size(matchSrcCli));
+            assertEqual(size(matchRef), size(matchRefCli));
+            
+            % Check the matches (the only error is conversion to text)
+            assertElementsAlmostEqual(matchSrc, matchSrcCli, ...
+                'absolute', self.tolText);
+            assertElementsAlmostEqual(matchRef, matchRefCli, ...
+                'absolute', self.tolText);
+            
+            % Check the transformation (discrepancies introduced by 
+            % randomized regression)
+            assertElementsAlmostEqual(A(:, 1 : 3), ...
+                transformCli(:, 1 : 3), 'absolute', 5E-2);
+            assertElementsAlmostEqual(A(:, end), transformCli(:, end), ...
+                'absolute', 5);
+            
+            % Clean up
+            delete(matchesName);
+            delete(transformName);
+        end
+        
+        % Test anisotropic registration
+        function regAnisoTest(self)
+            
+            if ~self.fullTest
+                return
+            end
+            
+            % Load the image
+            [im, units] = imRead3D(self.im1Name);
+            
+            % Remove half of the slices of the image
+            imAniso = im(:, :, 1 : 2 : end);
+            unitsAniso = [units(1) units(2) units(3) * 2];
+            
+            % Register the original to the anisotropic image
+            A = registerSift3D(im, imAniso, units, unitsAniso);
+            
+            % Form the reference (ground truth) transformation
+            refA = [eye(3) zeros(3, 1)];
+            refA(3, 3) = 2;
+            
+            % Check the transformation
+            assertElementsAlmostEqual(A(:, 1 : 3), refA(:, 1 : 3), ...
+                'absolute', 5E-2);
+            assertElementsAlmostEqual(A(:, end), refA(:, end), ...
+                'absolute', 5);
+        end
+        
+        % Test registration with invalid threshold
+        function regInvalidTest(self)
+            
+           % Load the images
+           im1 = imRead3D(self.im1Name);
+           im2 = imRead3D(self.im2Name);
+            
+           threwErr = false;
+           try 
+               A = registerSift3D(im1, im2, -1);
+           catch ME
+               threwErr = true;
+           end
+           assertTrue(threwErr);
         end
         
         % Test reading and writing a NIFTI image
