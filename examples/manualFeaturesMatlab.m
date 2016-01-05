@@ -3,7 +3,7 @@
 % This script shows how to manually define keypoints in a volumetric image,
 % and extract SIFT3D feature descriptors at those locations.
 %
-% Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+% Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
 
 % Load the image
 [im, units] = imRead3D('data/1.nii.gz');

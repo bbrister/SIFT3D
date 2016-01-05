@@ -20,7 +20,7 @@ function imWrite3D(path, im, units)
 %  See also:
 %    imRead3D, detectSift3D, extractSift3D, setupSift3D
 %
-% Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+% Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
 
 % Default parameters
 if nargin < 3 || isempty(units)

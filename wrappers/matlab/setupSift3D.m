@@ -11,7 +11,7 @@
 % See also:
 %   imRead3D, imWrite3D, detectSift3D, extractSift3D, keypoint3D
 %
-% Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+% Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
 
 % Get the full path to this file
 filename = mfilename('fullpath');

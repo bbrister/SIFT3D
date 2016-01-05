@@ -1,6 +1,6 @@
 # SIFT3D
 
-Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
 
 SIFT3D is an analogue of the scale-invariant feature transform (SIFT) for three-dimensional images. It leverages volumetric data and real-world units to detect keypoints and extract a robust description of their content. It can also perform 3D image registration by matching SIFT3D features and fitting geometric transformations with the RANSAC algorithm. All of this is implemented in a cross-platform C library, with wrappers for Matlab.
 

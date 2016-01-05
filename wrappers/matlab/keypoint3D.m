@@ -28,6 +28,8 @@ function keys = keypoint(coords, scale, ori)
 %
 % See also:
 %   orientation3D, extractSift3D, setupSift3D
+%
+% Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
 
 % Default parameters
 n = 3;

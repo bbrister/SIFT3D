@@ -24,7 +24,7 @@ function [im, units] = imRead3D(path)
 %  See also:
 %    imWrite3D, detectSift3D, extractSift3D, setupSift3D
 %
-% Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+% Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
 
 % Verify inputs
 if nargin < 1 || isempty(path)

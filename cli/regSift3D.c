@@ -1,7 +1,7 @@
 /* -----------------------------------------------------------------------------
  * regSift3D.c
  * -----------------------------------------------------------------------------
- * Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+ * Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
  * -----------------------------------------------------------------------------
  * This file contains the CLI to detect and match SIFT3D features between a pair
  * of images, and register one image to another.

@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+# Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
 ################################################################################
 # Build file for 3D SIFT keypoint detection, description, and matching.
 ################################################################################

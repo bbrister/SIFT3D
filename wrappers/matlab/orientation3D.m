@@ -27,6 +27,8 @@
 %
 %  See also:
 %       keypoint3D, extractSift3D, imRead3D, setupSift3D
+%
+%  Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
 function [R, conf] = orientation3D(keys, im, units)
 
 % Verify inputs

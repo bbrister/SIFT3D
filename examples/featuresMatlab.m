@@ -2,7 +2,7 @@
 %
 % This script shows how to extract SIFT3D features from a volumetric image.
 %
-% Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+% Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
 
 % Load the image
 [im, units] = imRead3D('data/1.nii.gz');

@@ -1,7 +1,7 @@
 /* -----------------------------------------------------------------------------
  * ioC.c
  * -----------------------------------------------------------------------------
- * Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+ * Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
  * -----------------------------------------------------------------------------
  * Short example of file I/O, converting a NIFTI file to DICOM.
  */

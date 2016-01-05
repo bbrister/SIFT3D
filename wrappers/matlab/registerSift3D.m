@@ -43,7 +43,7 @@
 %  See also:
 %    imRead3D, imWrite3D, setupSift3D
 %
-%  Copyright (c) 2016 Blaine Rister et al., see LICENSE for details.
+%  Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
 function [A, matchSrc, matchRef] = registerSift3D(src, ref, srcUnits, ...
                                                   refUnits, thresh)
 

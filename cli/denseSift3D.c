@@ -1,7 +1,7 @@
 /* -----------------------------------------------------------------------------
  * denseSift3d.c 
  * -----------------------------------------------------------------------------
- * Copyright (c) 2015 Blaine Rister et al., see LICENSE for details.
+ * Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
  * -----------------------------------------------------------------------------
  * This file contains a command-line tool to extract dense SIFT3D features from 
  * an image.
