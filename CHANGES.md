@@ -25,4 +25,5 @@
 * Optionally resample input images prior to registration (regSift3D, register_SIFT3D_resample)
 * Write more NIFTI metadata (im_write, imWrite3D)
 * Changed C interface for descriptor extraction to disallow providing a custom Gaussian scale-space pyramid (SIFT3D_Extract_Descriptors)
+* Allow arbitrary output sizes in im_inv_transform
 * Minor bug fixes

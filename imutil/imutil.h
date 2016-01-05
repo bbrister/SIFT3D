@@ -86,11 +86,11 @@ int copy_tform(const void *const src, void *const dst);
 
 int Affine_set_mat(const Mat_rm *const mat, Affine *const affine);
 
-void apply_tform_xyz(void *const tform, const double x_in, const double y_in, 
-        const double z_in, double *const x_out, double *const y_out, 
-        double *const z_out);
+void apply_tform_xyz(const void *const tform, const double x_in, 
+                     const double y_in, const double z_in, double *const x_out,
+		     double *const y_out, double *const z_out);
 
-int apply_tform_Mat_rm(void *const tform, const Mat_rm *const mat_in, 
+int apply_tform_Mat_rm(const void *const tform, const Mat_rm *const mat_in, 
         Mat_rm *const mat_out);
 
 tform_type tform_get_type(const void *const tform);
@@ -169,8 +169,9 @@ void im_zero(Image *im);
 
 void im_Hessian(Image *im, int x, int y, int z, Mat_rm *H);
 
-int im_inv_transform(void *const tform, const Image *const in, 
-        Image *const out, const interp_type interp);
+int im_inv_transform(const void *const tform, const Image * const src,
+		     const interp_type interp, const int resize, 
+                     Image *const dst);
 
 int im_resample(const Image *const src, const double *const units, 
 	const interp_type interp, Image *const dst);

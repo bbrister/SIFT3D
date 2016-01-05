@@ -363,10 +363,11 @@ typedef struct _Tform_vtable {
 
         int (*copy)(const void *const, void *const);
 
-        void (*apply_xyz)(void *const, const double, const double, const double,
-                double *const, double *const, double *const);
+        void (*apply_xyz)(const void *const, const double, const double, 
+                const double, double *const, double *const, double *const);
 
-        int (*apply_Mat_rm)(void *const, const Mat_rm *const, Mat_rm *const);
+        int (*apply_Mat_rm)(const void *const, const Mat_rm *const, 
+                Mat_rm *const);
 
         size_t (*get_size)(void);
 

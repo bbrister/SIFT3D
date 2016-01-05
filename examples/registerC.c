@@ -60,7 +60,7 @@ int demo(void) {
                 goto demo_quit;
 
         // Warp the source image
-        if (im_inv_transform(&affine, &src, &warped, LINEAR))
+        if (im_inv_transform(&affine, &src, LINEAR, SIFT3D_TRUE, &warped))
                 goto demo_quit;
 
         // Write the warped image to a file

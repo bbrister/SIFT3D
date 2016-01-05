@@ -84,16 +84,17 @@ const int num_iter_default = 500;
 /* Declarations for the virtual function implementations */
 static int copy_Affine(const void *const src, void *const dst);
 static int copy_Tps(const void *const src, void *const dst);
-static void apply_Affine_xyz(void *const affine, const double x_in,
+static void apply_Affine_xyz(const void *const affine, const double x_in,
 			     const double y_in, const double z_in,
 			     double *const x_out, double *const y_out,
 			     double *const z_out);
-static void apply_Tps_xyz(void *const tps, const double x_in, const double y_in,
-			  const double z_in, double *const x_out,
-			  double *const y_out, double *const z_out);
-static int apply_Affine_Mat_rm(void *const affine, const Mat_rm * const mat_in,
-			       Mat_rm * const mat_out);
-static int apply_Tps_Mat_rm(void *const tps, const Mat_rm * const mat_in,
+static void apply_Tps_xyz(const void *const tps, const double x_in, 
+                          const double y_in, const double z_in, 
+                          double *const x_out, double *const y_out, 
+                          double *const z_out);
+static int apply_Affine_Mat_rm(const void *const affine, 
+        const Mat_rm * const mat_in, Mat_rm * const mat_out);
+static int apply_Tps_Mat_rm(const void *const tps, const Mat_rm * const mat_in,
 			    Mat_rm * const mat_out);
 static size_t Affine_get_size(void);
 static size_t Tps_get_size(void);
@@ -2160,25 +2161,36 @@ void im_zero(Image * im)
 SIFT3D_IM_LOOP_END_C}
 
 /* Transform an image according to the inverse of the provided tform. 
- * Resizes im_out. */
-int im_inv_transform(void *const tform, const Image * const in,
-		     Image * const out, const interp_type interp)
+ * 
+ * Paramters:
+ *   tform: The transformation. 
+ *   src: The input image.
+ *   interp: The type of interpolation.
+ *   resize: If true, resizes the dst to be the same size as src. Otherwise,
+ *     uses the dimensions of dst. 
+ *   dst: The output image.
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
+int im_inv_transform(const void *const tform, const Image * const src,
+		     const interp_type interp, const int resize, 
+                     Image *const dst)
 {
-
 	int x, y, z, c;
-	double transx, transy, transz;
 
-	// Resize the output image
-	if (im_copy_dims(in, out))
+	// Optionally resize the output image
+	if (resize && im_copy_dims(src, dst))
 		return SIFT3D_FAILURE;
 
 #define IMUTIL_RESAMPLE(arg) \
-    SIFT3D_IM_LOOP_START(in, x, y, z) \
+    SIFT3D_IM_LOOP_START(dst, x, y, z) \
+\
+	double transx, transy, transz; \
+\
         apply_tform_xyz(tform, (double)x, (double)y, (double)z, \
             &transx, &transy, &transz); \
                         \
-                for (c = 0; c < out->nc; c++) { \
-                SIFT3D_IM_GET_VOX(out, x, y, z, c) = resample_ ## arg(in, \
+                for (c = 0; c < dst->nc; c++) { \
+                SIFT3D_IM_GET_VOX(dst, x, y, z, c) = resample_ ## arg(src, \
                                 transx, transy, transz, c); \
                 } \
     SIFT3D_IM_LOOP_END
@@ -2340,16 +2352,16 @@ int im_resample(const Image *const src, const double *const units,
 	for (i = 0; i < IM_NDIMS; i++) {
 		dst->dims[i] = (int) ceil((double) src->dims[i] * factors[i]);
 	}
-
-	// Resize the output
-	memcpy(SIFT3D_IM_GET_UNITS(dst), units, IM_NDIMS * sizeof(double));
 	im_default_stride(dst);	
-	if (im_resize(dst))
+        if (im_resize(dst))
 		goto im_resample_quit;
 
 	// Apply the transformation
-	if (im_inv_transform(&aff, src, dst, interp))
+	if (im_inv_transform(&aff, src, interp, SIFT3D_FALSE, dst))
 		goto im_resample_quit;
+
+        // Set the new output units
+	memcpy(SIFT3D_IM_GET_UNITS(dst), units, IM_NDIMS * sizeof(double));
 
 	// Clean up
 	cleanup_tform(&aff);
@@ -2755,8 +2767,8 @@ int Affine_set_mat(const Mat_rm * const mat, Affine * const affine)
 }
 
 /* Apply an arbitrary transformation to an [x, y, z] triple. */
-void apply_tform_xyz(void *const tform, const double x_in, const double y_in,
-		     const double z_in, double *const x_out,
+void apply_tform_xyz(const void *const tform, const double x_in, 
+                     const double y_in, const double z_in, double *const x_out,
 		     double *const y_out, double *const z_out)
 {
 	TFORM_GET_VTABLE(tform)->apply_xyz(tform, x_in, y_in, z_in,
@@ -2764,13 +2776,13 @@ void apply_tform_xyz(void *const tform, const double x_in, const double y_in,
 }
 
 /* Apply an Affine transformation to an [x, y, z] triple. */
-static void apply_Affine_xyz(void *const affine, const double x_in,
+static void apply_Affine_xyz(const void *const affine, const double x_in,
 			     const double y_in, const double z_in,
 			     double *const x_out, double *const y_out,
 			     double *const z_out)
 {
 
-	Affine *const aff = affine;
+	const Affine *const aff = affine;
 
 	const Mat_rm *const A = &aff->A;
 	assert(aff->dim == 3);
@@ -2789,13 +2801,13 @@ static void apply_Affine_xyz(void *const affine, const double x_in,
 }
 
 /* Apply a thin-plate spline transformation to an [x, y, z] triple. */
-static void apply_Tps_xyz(void *const tps, const double x_in,
+static void apply_Tps_xyz(const void *const tps, const double x_in,
 			  const double y_in, const double z_in,
 			  double *const x_out, double *const y_out,
 			  double *const z_out)
 {
 
-	Tps *const t = tps;
+	const Tps *const t = tps;
 
 	const Mat_rm *const params = &t->params;
 	const Mat_rm *const kp_src = &t->kp_src;
@@ -2846,7 +2858,7 @@ static void apply_Tps_xyz(void *const tps, const double x_in,
 
 /* Apply an arbitrary transform to a matrix. See apply_Affine_Mat_rm for
  * matrix formats. */
-int apply_tform_Mat_rm(void *const tform, const Mat_rm * const mat_in,
+int apply_tform_Mat_rm(const void *const tform, const Mat_rm * const mat_in,
 		       Mat_rm * const mat_out)
 {
 	return TFORM_GET_VTABLE(tform)->apply_Mat_rm(tform, mat_in, mat_out);
@@ -2856,11 +2868,11 @@ int apply_tform_Mat_rm(void *const tform, const Mat_rm * const mat_in,
  * by multiplication. See apply_Affine_Mat_rm for format of input matrices
  *
  * All matrices must be initialized with init_Mat_rm prior to use. For 3D!*/
-static int apply_Tps_Mat_rm(void *const tps, const Mat_rm * const mat_in,
+static int apply_Tps_Mat_rm(const void *const tps, const Mat_rm * const mat_in,
 			    Mat_rm * const mat_out)
 {
 
-	Tps *const t = tps;
+	const Tps *const t = tps;
 
 	//Spline transformation matrix is dim * [number of chosen points+dim+1]
 	//sp_src is [number of chosen points] * dim
@@ -3023,11 +3035,11 @@ static void cleanup_Tps(void *const tps)
  *  w1' w2' ... wN'] 
  *
  * All matrices must be initialized with init_Mat_rm prior to use. */
-static int apply_Affine_Mat_rm(void *const affine, const Mat_rm * const mat_in,
-			       Mat_rm * const mat_out)
+static int apply_Affine_Mat_rm(const void *const affine, 
+        const Mat_rm * const mat_in, Mat_rm * const mat_out)
 {
 
-	Affine *const aff = affine;
+	const Affine *const aff = affine;
 
 	return mul_Mat_rm(&aff->A, mat_in, mat_out);
 }

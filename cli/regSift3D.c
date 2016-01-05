@@ -345,8 +345,15 @@ int main(int argc, char *argv[]) {
                 // Initialize intermediates
                 init_im(&warped);
 
+                // Set the output to the reference image size
+                if (im_copy_dims(&ref, &warped)) {
+                        err_msgu("Failed to resize the warped image.");
+                        return 1;
+                }
+
                 // Warp
-                if (im_inv_transform(tform, &src, &warped, interp)) {
+                if (im_inv_transform(tform, &src, interp, SIFT3D_FALSE, 
+                        &warped)) {
                         err_msgu("Failed to warp the source image.");
                         return 1;
                 }
@@ -371,7 +378,11 @@ int main(int argc, char *argv[]) {
 
                 Image concat, keys, lines;
                 Mat_rm keys_src, keys_ref;
-                Image *concat_arg, *keys_arg, *lines_arg;
+
+                // Set up the pointers for the images
+                Image *const concat_arg = concat_path == NULL ? NULL : &concat;
+                Image *const keys_arg = keys_path == NULL ? NULL : &keys;
+                Image *const lines_arg = lines_path == NULL ? NULL : &lines;
 
                 // Initialize intermediates
                 init_im(&concat);
@@ -382,11 +393,6 @@ int main(int argc, char *argv[]) {
                         err_msgu("Failed to initialize keypoint matrices.");
                         return 1;
                 }
-
-                // Set up the pointers for the images
-                concat_arg = concat_path == NULL ? NULL : &concat;
-                keys_arg = keys_path == NULL ? NULL : &keys;
-                lines_arg = lines_path == NULL ? NULL : &lines;
 
                 // Convert the keypoints to matrices
                 if (Keypoint_store_to_Mat_rm(&reg.kp_src, &keys_src) ||
