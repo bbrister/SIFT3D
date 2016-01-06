@@ -59,4 +59,7 @@ Please contact me at blaine@stanford.edu if you have any questions or concerns.
 
 If you would like to cite this work, please refer to the following paper:
 
-B. Rister, D. Reiter, H. Zhang, D. Volz, M. Horowitz, R. Gabr, and J. R. Cavallaro, "Scale- and Orientation-Invariant Keypoints in Higher-Dimensional Data," to appear in *Proceedings of the IEEE International Conference on Image Processing (ICIP)*. 2015.
+Rister, Blaine; Reiter, Daniel; Zhang, Hejia; Volz, Daniel; Horowitz, Mark; Gabr, Refaat E.; Cavallaro, Joseph R., "Scale- and orientation-invariant keypoints in higher-dimensional data," in *Image Processing (ICIP), 2015 IEEE International Conference on*, pp.3490-3494, 27-30 Sept. 2015.
+doi: 10.1109/ICIP.2015.7351453
+
+The paper and automatic citations are available [here](http://ieeexplore.ieee.org/xpls/abs_all.jsp?arnumber=7351453).
