@@ -19,7 +19,7 @@
 * Write more DICOM metadata (im_write, imWrite3D)
 * Corrected Mac build instructions
 
-## 1.2.0 Januaray 5, 2016
+## 1.2.0 January 5, 2016
 
 * Fixed Mac linking issues
 * Take real-world units into account in SIFT3D keypoints, descriptors
