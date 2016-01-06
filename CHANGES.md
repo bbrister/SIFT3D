@@ -19,8 +19,9 @@
 * Write more DICOM metadata (im_write, imWrite3D)
 * Corrected Mac build instructions
 
-## 1.2
+## 1.2.0 Januaray 5, 2016
 
+* Fixed Mac linking issues
 * Take real-world units into account in SIFT3D keypoints, descriptors
 * Added Matlab wrapper for image registration
 * Optionally resample input images prior to registration (regSift3D, register_SIFT3D_resample)

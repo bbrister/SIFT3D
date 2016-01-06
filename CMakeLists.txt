@@ -22,13 +22,6 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
         set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
 endif ()
 
-# Platform path separation character
-if (WIN32 AND NOT CYGWIN)
-        set (PATH_SEP ";")
-else ()
-        set (PATH_SEP ":")
-endif()
-
 # Default settings for optional components
 if (WIN32)
         set (_BUILD_CLI OFF)
@@ -146,8 +139,7 @@ if (${Matlab_FOUND})
         set (INSTALL_TOOLBOX_DIR "${INSTALL_WRAPPERS_DIR}/${TOOLBOX_NAME}"
                 CACHE PATH "Installation directory for the Matlab toolbox")
         set (INSTALL_TOOLBOX_PATH "${CMAKE_INSTALL_PREFIX}/${INSTALL_TOOLBOX_DIR}")
-        set (CMAKE_INSTALL_RPATH 
-                "${CMAKE_INSTALL_RPATH}${PATH_SEP}${INSTALL_TOOLBOX_PATH}")
+        list (APPEND CMAKE_INSTALL_RPATH ${INSTALL_TOOLBOX_PATH})
 
         # Get the path of the Matlab libraries
         get_filename_component (Matlab_LIBRARIES_PATH ${Matlab_MEX_LIBRARY} 

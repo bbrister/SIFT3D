@@ -17,6 +17,11 @@ endif ()
 # Find NIFTI 
 find_package (NIFTI REQUIRED)
 
+# Find iconv on Mac
+if (APPLE)
+	find_library (ICONV_LIBRARY NAMES iconv libiconv libiconv-2 c REQUIRED)
+endif ()
+
 # Try to find the path for DCMTK libraries
 if (DCMTK_dcmdata_LIBRARY)
 	get_filename_component (DCMTK_LIBRARIES_PATH 
@@ -107,6 +112,9 @@ install (FILES types.h macros.h imutil.h kernels.cl
 # Link to system libraries
 target_link_libraries(imutil PUBLIC ${ZLIB_LIBRARIES} ${M_LIBRARY})
 target_include_directories(imutil PRIVATE ${ZLIB_INCLUDE_DIRS})
+if (APPLE)
+	target_link_libraries(imutil PUBLIC ${ICONV_LIBRARY})
+endif ()
 
 # Configure the installation
 install (TARGETS imutil 
