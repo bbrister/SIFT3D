@@ -1,6 +1,6 @@
 %orientation3D(keys, im, units) Assign 3D orientations to keypoints 
-%   in an image. This is not needed your keypoints were detected with
-%   detectSift3D, but may be useful your keypoints are defined
+%   in an image. This is not needed if your keypoints were detected with
+%   detectSift3D, but may be useful if your keypoints were defined
 %   manually with keypoint3D.
 %
 %  Arguments:
