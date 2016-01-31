@@ -22,7 +22,7 @@
 %    matchSrc, matchRef - A pair of [3xQ] arrays giving the matched
 %      keypoint locations in src and ref, respectively. Each row is an
 %      (x, y, z) coordinate, so that the ith row of matchSrc matches the
-%      jth row of matchRef. These matches may contain outliers.
+%      ith row of matchRef. These matches may contain outliers.
 %
 %  Examples:
 %    % Load the images
