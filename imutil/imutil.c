@@ -124,6 +124,7 @@ const Tform_vtable Tps_vtable = {
 
 /* Internal macros */
 #define TFORM_GET_VTABLE(arg) (((Affine *) arg)->tform.vtable)
+#define AFFINE_GET_DIM(affine) ((affine)->A.num_rows)
 
 /* Global data */
 CL_data cl_data;
@@ -197,19 +198,20 @@ static int init_List(List ** list, const int num);
 static int List_get(List * list, const int idx, List ** el);
 static void List_remove(List ** list, List * el);
 static void cleanup_List(List * list);
-static int rand_rows(Mat_rm * in1, Mat_rm * in2, Mat_rm * out1, Mat_rm * out2,
-		     int num_rows);
+static int rand_rows(const Mat_rm *const in1, const Mat_rm *const in2, 
+        const int num_rows, Mat_rm *const out1, Mat_rm *const out2);
 static int make_spline_matrix(Mat_rm * src, Mat_rm * src_in, Mat_rm * sp_src,
 			      int K_terms, int *r, int dim);
-static int make_affine_matrix(Mat_rm * pts_in, Mat_rm * mat_out, const int dim);
+static int make_affine_matrix(const Mat_rm const* pts_in, const int dim, 
+        Mat_rm *const mat_out);
 static Mat_rm *extract_ctrl_pts(void *tform, tform_type type);
 static Mat_rm *extract_ctrl_pts_Tps(Tps * tps);
-static int solve_system(void *tform, Mat_rm * src, Mat_rm * ref, const int dim,
-			tform_type type);
-static double tform_err_sq(void *tform, Mat_rm * src, Mat_rm * ref, int i,
-			   tform_type type);
-static int ransac(Mat_rm * src, Mat_rm * ref, Ransac * ran, const int dim,
-		  void *tform, tform_type type, int **cset, int *len);
+static int solve_system(const Mat_rm *const src, const Mat_rm *const ref, 
+        void *const tform);
+static double tform_err_sq(const void *const tform, const Mat_rm *const src, 
+        const Mat_rm *const ref, const int i);
+static int ransac(const Mat_rm *const src, const Mat_rm *const ref, 
+        const Ransac *const ran, void *tform, int **const cset, int *const len);
 static int convolve_sep(const Image * const src,
 			Image * const dst, const Sep_FIR_filter * const f,
 			int dim, const double unit);
@@ -2762,7 +2764,6 @@ int Affine_set_mat(const Mat_rm * const mat, Affine * const affine)
 	if (mat->num_cols != mat->num_rows + 1 || mat->num_rows < 2)
 		return SIFT3D_FAILURE;
 
-	affine->dim = mat->num_rows;
 	return convert_Mat_rm(mat, &affine->A, DOUBLE);
 }
 
@@ -2785,7 +2786,7 @@ static void apply_Affine_xyz(const void *const affine, const double x_in,
 	const Affine *const aff = affine;
 
 	const Mat_rm *const A = &aff->A;
-	assert(aff->dim == 3);
+	assert(AFFINE_GET_DIM(aff) == 3);
 	*x_out = SIFT3D_MAT_RM_GET(A, 0, 0, double) * x_in +
 	    SIFT3D_MAT_RM_GET(A, 0, 1, double) * y_in +
 	    SIFT3D_MAT_RM_GET(A, 0, 2, double) * z_in +
@@ -3211,16 +3212,17 @@ int eigen_Mat_rm(Mat_rm * A, Mat_rm * Q, Mat_rm * L)
  * 
  * This function returns an error if A and B do not have valid dimensions. 
  * This function resizes X to [nx1] and changes the type to match B. 
- * All matrices must be initialized prior to calling this funciton.
+ * All matrices must be initialized prior to calling this function.
  * All matrices must have type double.
  */
-int solve_Mat_rm(Mat_rm * A, Mat_rm * B, double limit, Mat_rm * X)
+int solve_Mat_rm(const Mat_rm *const A, const Mat_rm *const B, 
+        const double limit, Mat_rm *const X)
 {
 
 	Mat_rm A_trans, B_trans;
 	double *work;
 	fortran_int *ipiv, *iwork;
-	double anorm, rcond;
+	double limit_arg, anorm, rcond;
 	fortran_int info;
 
 	const fortran_int m = A->num_rows;
@@ -3233,7 +3235,7 @@ int solve_Mat_rm(Mat_rm * A, Mat_rm * B, double limit, Mat_rm * X)
 
 	// Default parameters
 	if (limit < 0)
-		limit = 100.0 * DBL_EPSILON;
+		limit_arg = 100.0 * DBL_EPSILON;
 
 	// Verify inputs
 	if (m != n || ldb != m) {
@@ -3278,7 +3280,7 @@ int solve_Mat_rm(Mat_rm * A, Mat_rm * B, double limit, Mat_rm * X)
 		goto SOLVE_MAT_RM_QUIT;
 	}
 	// Return if A is singular
-	if (rcond < limit)
+	if (rcond < limit_arg)
 		goto SOLVE_MAT_RM_SINGULAR;
 
 	// Solve the system 
@@ -3331,7 +3333,8 @@ int solve_Mat_rm(Mat_rm * A, Mat_rm * B, double limit, Mat_rm * X)
  * All matrices must be initialized prior to calling this funciton.
  * All matrices must have type double.
  */
-int solve_Mat_rm_ls(Mat_rm * A, Mat_rm * B, Mat_rm * X)
+int solve_Mat_rm_ls(const Mat_rm *const A, const Mat_rm *const B, 
+        Mat_rm *const X)
 {
 
 	Mat_rm A_trans, B_trans;
@@ -4368,8 +4371,8 @@ void set_num_iter_Ransac(Ransac * ran, unsigned int num_iter)
  *
  * All matrices must be initialized prior to calling 
  * this function.*/
-static int rand_rows(Mat_rm * in1, Mat_rm * in2, Mat_rm * out1, Mat_rm * out2,
-		     int num_rows)
+static int rand_rows(const Mat_rm *const in1, const Mat_rm *const in2, 
+        const int num_rows, Mat_rm *const out1, Mat_rm *const out2)
 {
 
 	List *row_indices, *el;
@@ -4429,16 +4432,17 @@ static int rand_rows(Mat_rm * in1, Mat_rm * in2, Mat_rm * out1, Mat_rm * out2,
 	// Build the output matrices
 	el = row_indices;
 	SIFT3D_MAT_RM_LOOP_START(out1, i, j)
-	    SIFT3D_MAT_RM_GET(out1, i, j, double) =
-	    SIFT3D_MAT_RM_GET(in1, el->idx, j, double);
-	SIFT3D_MAT_RM_GET(out2, i, j, double) =
-	    SIFT3D_MAT_RM_GET(in2, el->idx, j, double);
-	SIFT3D_MAT_RM_LOOP_COL_END
-	    // Get the next row
-	    el = el->next;
+	                SIFT3D_MAT_RM_GET(out1, i, j, double) =
+	                        SIFT3D_MAT_RM_GET(in1, el->idx, j, double);
+	                SIFT3D_MAT_RM_GET(out2, i, j, double) =
+	                        SIFT3D_MAT_RM_GET(in2, el->idx, j, double);
+	        SIFT3D_MAT_RM_LOOP_COL_END
+	        // Get the next row
+	        el = el->next;
 	SIFT3D_MAT_RM_LOOP_ROW_END
-	    // Clean up
-	    cleanup_List(row_indices);
+
+	// Clean up
+        cleanup_List(row_indices);
 
 	return SIFT3D_SUCCESS;
 }
@@ -4631,7 +4635,8 @@ static int make_spline_matrix(Mat_rm * src, Mat_rm * src_in, Mat_rm * sp_src,
 }
 
 //make the system matrix for affine
-static int make_affine_matrix(Mat_rm * pts_in, Mat_rm * mat_out, const int dim)
+static int make_affine_matrix(const Mat_rm const* pts_in, const int dim, 
+        Mat_rm *const mat_out)
 {
 
 	int i, j;
@@ -4681,22 +4686,26 @@ static Mat_rm *extract_ctrl_pts_Tps(Tps * tps)
 	return kp_src;
 }
 
-//Solve the transformation struct
-static int solve_system(void *tform, Mat_rm * src, Mat_rm * ref, const int dim,
-			tform_type type)
+/* Solve for a transformation struct. 
+ *
+ * Paramters:
+ *   src - See ransac().
+ *   ref - See ransac()
+ *   tform - See ransac()
+ *
+ * Returns SIFT3D_SUCCESS, SIFT3D_SINGULAR, or SIFT3D_FAILURE. See ransac() for
+ * interpretation. */
+static int solve_system(const Mat_rm *const src, const Mat_rm *const ref, 
+        void *const tform)
 {
-	//r -- the select vector to select points in source and reference matrix
-	//num_pts -- number of points selected
+	const tform_type type = tform_get_type(tform);
 
 	//Mat_rm *kp_ref;
 	Mat_rm ref_sys, X;
-	int ret;
-
-	//extract matrices from struct
-	//T = extract_params_Mat_rm(tform, type);
+	int dim, ret;
 
 	init_Mat_rm(&ref_sys, 0, 0, DOUBLE, SIFT3D_FALSE);
-	init_Mat_rm(&X, 0, 0, DOUBLE, 0);
+	init_Mat_rm(&X, 0, 0, DOUBLE, SIFT3D_FALSE);
 
 	//construct source matrix and initialize reference vector
 	switch (type) {
@@ -4706,7 +4715,8 @@ static int solve_system(void *tform, Mat_rm * src, Mat_rm * ref, const int dim,
 		puts("solve_system: TPS not yet implemented");
 		goto SOLVE_SYSTEM_FAIL;
 	case AFFINE:
-		make_affine_matrix(ref, &ref_sys, dim);
+                dim = AFFINE_GET_DIM((Affine *const) tform);
+		make_affine_matrix(ref, dim, &ref_sys);
 		break;
 	default:
 		puts("solve_system: unknown type");
@@ -4714,10 +4724,9 @@ static int solve_system(void *tform, Mat_rm * src, Mat_rm * ref, const int dim,
 	}
 
 	// solve for the coefficients                   
-	if (ref_sys.num_rows == ref_sys.num_cols)
-		ret = solve_Mat_rm(&ref_sys, src, -1, &X);
-	else
-		ret = solve_Mat_rm_ls(&ref_sys, src, &X);
+        ret = ref_sys.num_rows == ref_sys.num_cols ?
+		solve_Mat_rm(&ref_sys, src, -1.0, &X) :
+		solve_Mat_rm_ls(&ref_sys, src, &X);
 
 	switch (ret) {
 	case SIFT3D_SUCCESS:
@@ -4733,26 +4742,27 @@ static int solve_system(void *tform, Mat_rm * src, Mat_rm * ref, const int dim,
 	case TPS:
 		//TODO
 		goto SOLVE_SYSTEM_FAIL;
-	case AFFINE:{
+	case AFFINE:
+        {
+		Mat_rm X_trans;
 
-			Mat_rm X_trans;
+		init_Mat_rm(&X_trans, 0, 0, DOUBLE, SIFT3D_FALSE);
 
-			init_Mat_rm(&X_trans, 0, 0, DOUBLE, SIFT3D_FALSE);
+		ret = transpose_Mat_rm(&X, &X_trans) ||
+		    Affine_set_mat(&X_trans, (Affine *) tform);
 
-			ret = transpose_Mat_rm(&X, &X_trans) ||
-			    Affine_set_mat(&X_trans, (Affine *) tform);
+		cleanup_Mat_rm(&X_trans);
 
-			cleanup_Mat_rm(&X_trans);
+		if (ret)
+			goto SOLVE_SYSTEM_FAIL;
 
-			if (ret)
-				goto SOLVE_SYSTEM_FAIL;
-
-			break;
-		}
+		break;
+	}
 	default:
 		goto SOLVE_SYSTEM_FAIL;
 	}
 
+        // Clean up
 	cleanup_Mat_rm(&ref_sys);
 	cleanup_Mat_rm(&X);
 
@@ -4764,14 +4774,14 @@ static int solve_system(void *tform, Mat_rm * src, Mat_rm * ref, const int dim,
 	return SIFT3D_SINGULAR;
 
  SOLVE_SYSTEM_FAIL:
-	cleanup_Mat_rm(&X);
 	cleanup_Mat_rm(&ref_sys);
+	cleanup_Mat_rm(&X);
 	return SIFT3D_FAILURE;
 }
 
 //Find the SSD error for the i'th point
-static double tform_err_sq(void *tform, Mat_rm * src, Mat_rm * ref, int i,
-			   tform_type type)
+static double tform_err_sq(const void *const tform, const Mat_rm *const src, 
+        const Mat_rm *const ref, const int i)
 {
 
 	double err = 0.0;
@@ -4802,15 +4812,21 @@ static double tform_err_sq(void *tform, Mat_rm * src, Mat_rm * ref, int i,
 	return err;
 }
 
-//RANSAC for one iteration
-static int ransac(Mat_rm * src, Mat_rm * ref, Ransac * ran, const int dim,
-		  void *tform, tform_type type, int **cset, int *len)
+/* Perform one iteration of RANSAC. 
+ *
+ * Parameters:
+ *  src - The source points.
+ *  ref - The reference points.
+ *  tform - The output transformation. Must be initialized.
+ *  cset - An array in which to store the concensus set. The value *cset must
+ *         either be NULL, or a pointer to a previously allocated block.
+ *  len - A location in which to store the length of the cset. 
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_SINGULAR if the system is 
+ * near singular, and SIFT3D_FAILURE otherwise. */
+static int ransac(const Mat_rm *const src, const Mat_rm *const ref, 
+        const Ransac *const ran, void *tform, int **const cset, int *const len)
 {
-/* tform -- the transformation struct
-     src -- matrix of all source points [number of points * dim]
-     ref -- matrix of all reference points [number of points * dim]
-*/
-
 	/* Initialization */
 	Mat_rm src_rand, ref_rand;
 	int i, sel_pts, cset_len;
@@ -4818,6 +4834,7 @@ static int ransac(Mat_rm * src, Mat_rm * ref, Ransac * ran, const int dim,
 	const double err_thresh = ran->err_thresh;
 	const double err_thresh_sq = err_thresh * err_thresh;
 	const int num_src = src->num_rows;
+	const tform_type type = tform_get_type(tform);
 
 	// Verify inputs
 	if (src->type != DOUBLE || src->type != ref->type) {
@@ -4829,14 +4846,14 @@ static int ransac(Mat_rm * src, Mat_rm * ref, Ransac * ran, const int dim,
 		return SIFT3D_FAILURE;
 	}
 	// Initialize
-	init_Mat_rm(&src_rand, 0, 0, INT, SIFT3D_FALSE);
-	init_Mat_rm(&ref_rand, 0, 0, INT, SIFT3D_FALSE);
+	init_Mat_rm(&src_rand, 0, 0, DOUBLE, SIFT3D_FALSE);
+	init_Mat_rm(&ref_rand, 0, 0, DOUBLE, SIFT3D_FALSE);
 
 	/*Fit random points */
 	//number of points it randomly chooses
 	switch (type) {
 	case AFFINE:
-		sel_pts = dim + 1;
+		sel_pts = AFFINE_GET_DIM((Affine *const) tform) + 1;
 		break;
 	default:
 		printf("ransac: unknown transformation type \n");
@@ -4844,11 +4861,11 @@ static int ransac(Mat_rm * src, Mat_rm * ref, Ransac * ran, const int dim,
 	}
 
 	//choose random points
-	if (rand_rows(src, ref, &src_rand, &ref_rand, sel_pts))
+	if (rand_rows(src, ref, sel_pts, &src_rand, &ref_rand))
 		goto RANSAC_FAIL;
 
 	//solve the system
-	switch (solve_system(tform, &src_rand, &ref_rand, dim, type)) {
+	switch (solve_system(&src_rand, &ref_rand, tform)) {
 	case SIFT3D_SUCCESS:
 		break;
 	case SIFT3D_SINGULAR:
@@ -4864,7 +4881,7 @@ static int ransac(Mat_rm * src, Mat_rm * ref, Ransac * ran, const int dim,
 	for (i = 0; i < num_src; i++) {
 
 		// Calculate the error
-		const double err_sq = tform_err_sq(tform, src, ref, i, type);
+		const double err_sq = tform_err_sq(tform, src, ref, i);
 
 		// Reject points below the error threshold
 		if (err_sq > err_thresh_sq)
@@ -4916,19 +4933,25 @@ int resize_Tps(Tps * tps, int num_pts, int dim)
 	return SIFT3D_SUCCESS;
 }
 
-int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
-		      void *const tform)
+/* Fit a transformation from ref to src points, using random sample concensus 
+ * (RANSAC).
+ * 
+ * Parameters:
+ *   ran - Struct storing RANSAC parameters.
+ *   src - The [mxn] source points.
+ *   ref - The [mxn] reference points.
+ *   tform - The output transform. Must be initialized with init_from prior to 
+ *           calling this function. 
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
+int find_tform_ransac(const Ransac *const ran, const Mat_rm *const src, 
+        const Mat_rm *const ref, void *const tform)
 {
-
-	/* tform --transformation matrix (will fill in this struct)
-	   src --source points [number of points * dim]
-	   ref -- reference points [number of points * dim]
-	 */
 
 	Mat_rm ref_cset, src_cset;
 	void *tform_cur;
 	int *cset, *cset_best;
-	int i, j, num_terms, ret, len, len_best, min_num_inliers,
+	int i, j, dim, num_terms, ret, len, len_best, min_num_inliers,
 	    type_min_inliers;
 
 	const int num_iter = ran->num_iter;
@@ -4948,6 +4971,7 @@ int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
 	// initialize type-specific variables
 	switch (type) {
 	case AFFINE:
+                dim = AFFINE_GET_DIM((Affine *const) tform);
 		num_terms = dim + 1;
 		type_min_inliers = 5;
 		break;
@@ -4967,8 +4991,7 @@ int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
 	// Ransac iterations
 	for (i = 0; i < num_iter; i++) {
 		do {
-			ret = ransac(src, ref, ran, dim, tform_cur, type, &cset,
-				     &len);
+			ret = ransac(src, ref, ran, tform_cur, &cset, &len);
 		} while (ret == SIFT3D_SINGULAR);
 
 		if (ret == SIFT3D_FAILURE)
@@ -4998,17 +5021,17 @@ int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
 	// Extract the concensus set
 	SIFT3D_MAT_RM_LOOP_START(&src_cset, i, j)
 
-	const int idx = cset_best[i];
+	        const int idx = cset_best[i];
 
-	SIFT3D_MAT_RM_GET(&src_cset, i, j, double) =
-	    SIFT3D_MAT_RM_GET(src, idx, j, double);
-	SIFT3D_MAT_RM_GET(&ref_cset, i, j, double) =
-	    SIFT3D_MAT_RM_GET(ref, idx, j, double);
+	        SIFT3D_MAT_RM_GET(&src_cset, i, j, double) =
+	                SIFT3D_MAT_RM_GET(src, idx, j, double);
+	        SIFT3D_MAT_RM_GET(&ref_cset, i, j, double) =
+	                SIFT3D_MAT_RM_GET(ref, idx, j, double);
 
 	SIFT3D_MAT_RM_LOOP_END
 #ifdef SIFT3D_RANSAC_REFINE
-	    // Refine with least squares
-	    switch (solve_system(tform_cur, &src_cset, &ref_cset, dim, type)) {
+	// Refine with least squares
+	switch (solve_system(&src_cset, &ref_cset, tform_cur)) {
 	case SIFT3D_SUCCESS:
 		// Copy the refined transformation to the output
 		if (copy_tform(tform_cur, tform))
@@ -5026,6 +5049,7 @@ int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
 	}
 #endif
 
+        // Clean up
 	free(cset);
 	free(cset_best);
 	cleanup_tform(tform_cur);
@@ -5036,6 +5060,7 @@ int find_tform_ransac(Ransac * ran, Mat_rm * src, Mat_rm * ref, const int dim,
 	return SIFT3D_SUCCESS;
 
 find_tform_quit:
+        // Clean up and return an error
 	if (cset != NULL)
 		free(cset);
 	if (cset_best != NULL)

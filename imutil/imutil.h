@@ -64,9 +64,11 @@ int resize_Mat_rm(Mat_rm *const mat);
 
 int eigen_Mat_rm(Mat_rm *A, Mat_rm *Q, Mat_rm *L);
 
-int solve_Mat_rm(Mat_rm *A, Mat_rm *B, double limit, Mat_rm *X);
+int solve_Mat_rm(const Mat_rm *const A, const Mat_rm *const B, 
+        const double limit, Mat_rm *const X);
 
-int solve_Mat_rm_ls(Mat_rm *A, Mat_rm *B, Mat_rm *X);
+int solve_Mat_rm_ls(const Mat_rm *const A, const Mat_rm *const B, 
+        Mat_rm *const X);
 
 int transpose_Mat_rm(const Mat_rm *const src, Mat_rm *const dst);
 
@@ -234,8 +236,8 @@ int set_err_thresh_Ransac(Ransac *ran, double err_thresh);
 
 void set_num_iter_Ransac(Ransac *ran, unsigned int num_iter);
 
-int find_tform_ransac(Ransac* ran, Mat_rm* src, Mat_rm* ref, const int dim,
-		      void *const tform);
+int find_tform_ransac(const Ransac *const ran, const Mat_rm *const src, 
+        const Mat_rm *const ref, void *const tform);
 
 int parse_gnu(const int argc, char *const *argv);
 

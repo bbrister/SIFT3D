@@ -176,7 +176,7 @@ int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
                 return SIFT3D_SUCCESS;
 
 	// Find the transformation 
-	if (find_tform_ransac(ran, match_src, match_ref, 3, tform))
+	if (find_tform_ransac(ran, match_src, match_ref, tform))
                 return SIFT3D_FAILURE;
 
 	return SIFT3D_SUCCESS;

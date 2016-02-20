@@ -387,7 +387,6 @@ typedef struct _Tform {
 typedef struct _Affine {
         Tform tform;    // Abstract parent class
 	Mat_rm A;	// Transformation matrix, x' = Ax
-	int dim; 	// Dimensionality, e.g. 3
 } Affine;
 
 /* Struct to hold a thin-plate spline */
