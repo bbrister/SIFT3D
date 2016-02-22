@@ -77,7 +77,6 @@ const char ext_dir[] = "";
 const mode_t out_mode = 0755;
 
 /* Default parameters */
-const double min_inliers_default = 0.01;
 const double err_thresh_default = 5.0;
 const int num_iter_default = 500;
 
@@ -4323,23 +4322,8 @@ int init_Ransac(Ransac * ran)
 {
 
 	/* Set the default parameters */
-	ran->min_inliers = min_inliers_default;
 	ran->err_thresh = err_thresh_default;
 	ran->num_iter = num_iter_default;
-
-	return SIFT3D_SUCCESS;
-}
-
-int set_min_inliers_Ransac(Ransac * ran, double min_inliers)
-{
-
-	if (min_inliers < 0.0) {
-		fprintf(stderr, "set_min_inliers_Ransac: invalid minimum "
-			"inlier ratio: %f", min_inliers);
-		return SIFT3D_FAILURE;
-	}
-
-	ran->min_inliers = min_inliers;
 
 	return SIFT3D_SUCCESS;
 }
@@ -4951,8 +4935,7 @@ int find_tform_ransac(const Ransac *const ran, const Mat_rm *const src,
 	Mat_rm ref_cset, src_cset;
 	void *tform_cur;
 	int *cset, *cset_best;
-	int i, j, dim, num_terms, ret, len, len_best, min_num_inliers,
-	    type_min_inliers;
+	int i, j, dim, num_terms, ret, len, len_best, min_num_inliers;
 
 	const int num_iter = ran->num_iter;
 	const int num_pts = src->num_rows;
@@ -4973,16 +4956,13 @@ int find_tform_ransac(const Ransac *const ran, const Mat_rm *const src,
 	case AFFINE:
                 dim = AFFINE_GET_DIM((Affine *const) tform);
 		num_terms = dim + 1;
-		type_min_inliers = 5;
+		min_num_inliers = 5;
 		break;
 	default:
 		puts("find_tform_ransac: unsupported transformation "
 		     "type \n");
 		goto find_tform_quit;
 	}
-
-	min_num_inliers = (int)SIFT3D_MAX(ceil(ran->min_inliers * num_pts),
-					  type_min_inliers);
 
 	if (num_pts < num_terms) {
 		printf("Not enough matched points \n");

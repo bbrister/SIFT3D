@@ -230,8 +230,6 @@ int mkpath(const char *path, mode_t mode);
 
 int init_Ransac(Ransac *ran); 
 					  
-int set_min_inliers_Ransac(Ransac *ran, double min_inliers);
-
 int set_err_thresh_Ransac(Ransac *ran, double err_thresh);
 
 void set_num_iter_Ransac(Ransac *ran, unsigned int num_iter);

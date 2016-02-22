@@ -399,7 +399,6 @@ typedef struct _Tps {
 
 /* Struct to hold RANSAC parameters */
 typedef struct _Ransac {
-	double min_inliers; //ratio of inliers threshold for RANSAC concensus sets
  	double err_thresh; //error threshold for RANSAC inliers
 	int num_iter; //number of RANSAC iterations
 } Ransac;

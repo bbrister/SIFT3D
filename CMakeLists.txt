@@ -13,7 +13,7 @@ cmake_minimum_required (VERSION 2.8)
 project (SIFT3D)
 
 # Project version
-set (SIFT3D_VERSION 1.2.0)
+set (SIFT3D_VERSION 1.3.0)
 
 # Default build type
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
