@@ -15,11 +15,10 @@
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
-        const mxArray *mxSrc, *mxRef, *mxSrcUnits, *mxRefUnits, *mxThresh;
+        const mxArray *mxSrc, *mxRef, *mxSrcUnits, *mxRefUnits, *mxOpts;
         Image src, ref;
         Affine aff;
         Mat_rm match_src, match_ref;
-        double nn_thresh_old;
         int ret;
 
 /* Clean up and print an error */
@@ -49,7 +48,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mxRef = prhs[1];
         mxSrcUnits = prhs[2];
         mxRefUnits = prhs[3];
-        mxThresh = prhs[4];
+        mxOpts = prhs[4];
 
         // Initialize intermediates
         if (init_Affine(&aff, IM_NDIMS) ||
@@ -66,33 +65,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         if (mx2imWithUnits(mxRef, mxRefUnits, &ref))
                 CLEAN_AND_QUIT("main:convertSrc", "Failed to convert the "
                         "reference image.", SIFT3D_TRUE);
-        
-        // Set the threshold if it is not empty
-        if (!mxIsEmpty(mxThresh)) {
 
-                // Verify thresh
-                if (!mxIsScalar(mxThresh)) {
-                        CLEAN_AND_QUIT("main:threshScalar", 
-                                "thresh must be scalar.", SIFT3D_TRUE);
-                }
-        
-                // Record the old value
-                nn_thresh_old = mex_get_nn_thresh_Reg_SIFT3D();
-        
-                // Set the new one
-                if (mex_set_nn_thresh_Reg_SIFT3D(mxGetScalar(mxThresh)))
-                        CLEAN_AND_QUIT("main:thresh", "Invalid thresh.", 
-                                SIFT3D_TRUE);
-        }
+        // Set the options
+        if (mex_set_opts_Reg_SIFT3D(mxOpts))
+                CLEAN_AND_QUIT("main:setOpts", "Failed to set the options.", 
+                        SIFT3D_FALSE);
 
         // Register the images
         ret = mex_register_SIFT3D_resample(&src, &ref, LINEAR, &aff);
-
-        // Optionally reset the old threshold
-        if (!mxIsEmpty(mxThresh) && 
-                mex_set_nn_thresh_Reg_SIFT3D(nn_thresh_old))
-                CLEAN_AND_QUIT("main:resetThresh", "Failed to reset thresh.", 
-                        SIFT3D_FALSE);
 
         // Handle registration errors
         if (ret) {

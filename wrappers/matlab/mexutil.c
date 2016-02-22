@@ -658,9 +658,50 @@ int mexHaveGpyr(void) {
         return SIFT3D_have_gpyr(&reg.sift3d);
 }
 
-/* Wrapper for set_nn_thresh_Reg_SIFT3D */
-int mex_set_nn_thresh_Reg_SIFT3D(const double nn_thresh) {
-        return set_nn_thresh_Reg_SIFT3D(&reg, nn_thresh);
+/* Wrapper to set the options for the Reg_SIFT3D struct. The argument mx shall
+ * be a struct with the following fields:
+ *   -numIter
+ *   -errThresh
+ *   -nnThresh
+ *
+ * Any other fields are ignored. Empty fields are replaced with the defaults. */
+int mex_set_opts_Reg_SIFT3D(const mxArray *const mx) {
+
+        Ransac ran;
+        mxArray *mxNumIter, *mxErrThresh, *mxNnThresh;
+        double nn_thresh;
+
+        // Verify inputs
+        if (mxIsEmpty(mx) || !mxIsStruct(mx))
+                return SIFT3D_FAILURE;
+        
+        // Initialize options to the defaults
+        nn_thresh = nn_thresh_default;
+        if (init_Ransac(&ran))
+                return SIFT3D_FAILURE;
+
+        // Get the option arrays
+        if ((mxNumIter = mxGetField(mx, 0, "numIter")) == NULL ||
+                (mxErrThresh = mxGetField(mx, 0, "errThresh")) == NULL ||
+                (mxNnThresh = mxGetField(mx, 0, "nnThresh")) == NULL)
+                return SIFT3D_FAILURE;
+
+        // Get the non-empty options 
+        if (!mxIsEmpty(mxNumIter)) {
+                const unsigned int num_iter = mxGetScalar(mxNumIter);
+                set_num_iter_Ransac(&ran, num_iter);
+        } 
+        if (!mxIsEmpty(mxErrThresh) && 
+                set_err_thresh_Ransac(&ran, mxGetScalar(mxErrThresh))) {
+                return SIFT3D_FAILURE;
+        } 
+        if (!mxIsEmpty(mxNnThresh)) {
+                nn_thresh = mxGetScalar(mxNnThresh);
+        }
+
+        // Set the options
+        return set_Ransac_Reg_SIFT3D(&reg, &ran) ||
+            set_nn_thresh_Reg_SIFT3D(&reg, nn_thresh);
 }
 
 /* Get the current value of nn_thresh from the Reg_SIFT3D struct. */

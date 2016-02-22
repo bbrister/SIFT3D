@@ -71,10 +71,15 @@ int set_nn_thresh_Reg_SIFT3D(Reg_SIFT3D *const reg, const double nn_thresh) {
         return SIFT3D_SUCCESS;
 }
 
+/* Set the Ransac parameters of the Reg_SIFT3D struct. */
+int set_Ransac_Reg_SIFT3D(Reg_SIFT3D *const reg, const Ransac *const ran) {
+        return copy_Ransac(ran, &reg->ran);
+}
+
 /* Set the SIFT3D parameters of the Reg_SIFT3D struct. Makes a deep copy of
  * sift3d, so you are free to modify it after calling this function. */
-void set_SIFT3D_Reg_SIFT3D(Reg_SIFT3D *const reg, const SIFT3D *const sift3d) {
-        copy_SIFT3D(sift3d, &reg->sift3d);
+int set_SIFT3D_Reg_SIFT3D(Reg_SIFT3D *const reg, const SIFT3D *const sift3d) {
+        return copy_SIFT3D(sift3d, &reg->sift3d);
 }
 
 /* Set the source image. This makes a deep copy of the data, so you are free

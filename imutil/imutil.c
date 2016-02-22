@@ -4328,6 +4328,7 @@ int init_Ransac(Ransac * ran)
 	return SIFT3D_SUCCESS;
 }
 
+/* Set the err_thresh parameter in a Ransac struct, checking for validity. */
 int set_err_thresh_Ransac(Ransac * ran, double err_thresh)
 {
 
@@ -4342,9 +4343,16 @@ int set_err_thresh_Ransac(Ransac * ran, double err_thresh)
 	return SIFT3D_SUCCESS;
 }
 
+/* Set the num_iter parameter in a Ransac struct. */
 void set_num_iter_Ransac(Ransac * ran, unsigned int num_iter)
 {
 	ran->num_iter = (int)num_iter;
+}
+
+/* Copy a Ransac struct from src to dst. */
+int copy_Ransac(const Ransac *const src, Ransac *const dst) {
+        set_num_iter_Ransac(dst, src->num_iter);
+        return set_err_thresh_Ransac(dst, src->err_thresh);
 }
 
 /* Select a random subset of rows, length "num_rows".

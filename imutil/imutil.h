@@ -234,6 +234,8 @@ int set_err_thresh_Ransac(Ransac *ran, double err_thresh);
 
 void set_num_iter_Ransac(Ransac *ran, unsigned int num_iter);
 
+int copy_Ransac(const Ransac *const src, Ransac *const dst);
+
 int find_tform_ransac(const Ransac *const ran, const Mat_rm *const src, 
         const Mat_rm *const ref, void *const tform);
 
