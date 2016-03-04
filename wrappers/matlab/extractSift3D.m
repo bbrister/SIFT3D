@@ -113,7 +113,7 @@ if (~isempty(im))
         error(['im must have 3 dimensions, detected ' num2str(ndims(im))]);
     end
     
-    im = im / max(im(:));
+    im = im / (max(im(:)) + eps);
 end
 
 units = checkUnits3D(units);

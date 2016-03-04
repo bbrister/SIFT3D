@@ -102,5 +102,5 @@ end
 % Helper function to convert images to single precision and scale to [0,1]
 function im = imFormat(im)
     im = single(im);
-    im = im / max(im(:));
+    im = im / (max(im(:)) + eps);
 end

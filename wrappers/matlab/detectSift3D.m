@@ -48,7 +48,7 @@ units = checkUnits3D(units);
 
 % Scale and convert the image to single precision
 im = single(im);
-im = im / max(im(:));
+im = im / (max(im(:)) + eps);
 
 % Detect features
 keys = mexDetectSift3D(im, units);
