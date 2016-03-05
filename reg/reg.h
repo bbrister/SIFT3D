@@ -22,6 +22,7 @@ const double nn_thresh_default = 0.8; // Default matching threshold
 /* Internal data for the SIFT3D + RANSAC registration process */
 typedef struct _Reg_SIFT3D {
 
+        double src_units[IM_NDIMS], ref_units[IM_NDIMS];
         SIFT3D sift3d;
         Ransac ran;
         Keypoint_store kp_src, kp_ref;

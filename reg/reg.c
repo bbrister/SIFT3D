@@ -20,6 +20,95 @@
 /* Internal helper routines */
 static void scale_SIFT3D(const double *const factors, 
 	Keypoint_store *const kp, SIFT3D_Descriptor_store *const d);
+static int im2mm(const Mat_rm *const im, const double *const units, 
+        Mat_rm *const mm);
+static int mm2im(const double *const src_units, const double *const ref_units,
+        void *const tform);
+
+/* Convert an [mxIM_NDIMS] coordinate matrix from image space to mm. 
+ *
+ * Parameters:
+ *   im: The input coordinate matrix, in image space. 
+ *   units: An array of length IM_NDIMS giving the units of image space.
+ *   mm: The output coordinate matrix, in mm.
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise.
+ */
+static int im2mm(const Mat_rm *const im, const double *const units, 
+        Mat_rm *const mm) {
+
+        int i, j;
+
+        // Verify inputs
+        if (im->num_cols != IM_NDIMS) {
+                fputs("im2mm: input must have IM_NDIMS columns. \n", stderr);
+                return SIFT3D_FAILURE;
+        }
+        if (im->type != DOUBLE) {
+                fputs("im2mm: input must have type double. \n", stderr);
+                return SIFT3D_FAILURE;
+        }
+
+        // Copy the input 
+        if (copy_Mat_rm(im, mm))
+                return SIFT3D_FAILURE;
+
+        // Convert the units
+        SIFT3D_MAT_RM_LOOP_START(mm, i, j)
+                SIFT3D_MAT_RM_GET(mm, i, j, double) *= units[j];
+        SIFT3D_MAT_RM_LOOP_END 
+
+        return SIFT3D_SUCCESS;
+}
+
+/* Convert a transformation from mm to image space.
+ *
+ * Parameters:
+ *   tform: The transformation, which shall be modified.
+ *   src_units: The units of the source image, array of length IM_NDIMS.
+ *   ref_units: As src_units, but for the reference image.
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise.
+ */
+static int mm2im(const double *const src_units, const double *const ref_units,
+        void *const tform) {
+
+        const tform_type type = tform_get_type(tform);
+
+        switch (type) {
+        case AFFINE:
+                { 
+                        int i, j;
+
+                        Affine *const aff = (Affine *const) tform;
+                        Mat_rm *const A = &aff->A;
+
+                        // Verify the dimensions
+                        if (A->num_rows != IM_NDIMS) {
+                                fprintf(stderr, "mm2im: Invalid transform "
+                                        "dimensionality: %d \n", A->num_rows);
+                                return SIFT3D_FAILURE;
+                        }
+
+                        // Convert the Affine transformation matrix in-place
+                        SIFT3D_MAT_RM_LOOP_START(A, i, j)
+                                // Invert the input transformation ref->mm
+                                SIFT3D_MAT_RM_GET(A, i, j, double) *= 
+                                        j < IM_NDIMS ? ref_units[j] : 1.0;
+
+                                // Invert the output transformation src->mm
+                                SIFT3D_MAT_RM_GET(A, i, j, double) /= 
+                                        src_units[i];
+                        SIFT3D_MAT_RM_LOOP_END
+                }
+                break; 
+        default:
+                fputs("mm2im: unsupported transform type. \n", stderr);
+                return SIFT3D_FAILURE;
+        }
+
+        return SIFT3D_SUCCESS; 
+}
 
 /* Initialize a Reg_SIFT3D struct with the default parameters. This must be
  * called before the struct can be used. */
@@ -90,6 +179,10 @@ int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const src) {
         Keypoint_store *const kp_src = &reg->kp_src;
         SIFT3D_Descriptor_store *const desc_src = &reg->desc_src;
 
+        // Save the units
+        memcpy(reg->src_units, SIFT3D_IM_GET_UNITS(src), 
+                IM_NDIMS * sizeof(double));
+
         // Detect keypoints
 	if (SIFT3D_detect_keypoints(sift3d, src, kp_src)) {
 		fprintf(stderr, "set_src_Reg_SIFT3D: failed to detect source "
@@ -113,6 +206,10 @@ int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const ref) {
         SIFT3D *const sift3d = &reg->sift3d;
         Keypoint_store *const kp_ref = &reg->kp_ref;
         SIFT3D_Descriptor_store *const desc_ref = &reg->desc_ref;
+
+        // Save the units
+        memcpy(reg->ref_units, SIFT3D_IM_GET_UNITS(ref), 
+                IM_NDIMS * sizeof(double));
 
         // Detect keypoints
         if (SIFT3D_detect_keypoints(sift3d, ref, kp_ref)) {
@@ -140,6 +237,9 @@ int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const ref) {
  *
  * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
 int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
+
+        Mat_rm match_src_mm, match_ref_mm;
+        int i, j;
 
         Ransac *const ran = &reg->ran;
         Mat_rm *const match_src = &reg->match_src;
@@ -180,11 +280,36 @@ int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
         if (tform == NULL)
                 return SIFT3D_SUCCESS;
 
-	// Find the transformation 
-	if (find_tform_ransac(ran, match_src, match_ref, tform))
+        // Initialize intermediates
+        if (init_Mat_rm(&match_src_mm, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+	        init_Mat_rm(&match_ref_mm, 0, 0, DOUBLE, SIFT3D_FALSE)) {
+                fprintf(stderr, "register_SIFT3D: failed initialization \n");
                 return SIFT3D_FAILURE;
+        }
+
+        // Convert the coordinate matrices to real-world units
+        if (im2mm(match_src, reg->src_units, &match_src_mm) ||
+            im2mm(match_ref, reg->ref_units, &match_ref_mm))
+                goto register_SIFT3D_quit;
+
+	// Find the transformation in real-world units
+	if (find_tform_ransac(ran, &match_src_mm, &match_ref_mm, tform))
+                goto register_SIFT3D_quit;
+
+        // Convert the transformation back to image space
+        if (mm2im(reg->src_units, reg->ref_units, tform))
+                goto register_SIFT3D_quit;
+
+        // Clean up
+        cleanup_Mat_rm(&match_src_mm);
+        cleanup_Mat_rm(&match_ref_mm);
 
 	return SIFT3D_SUCCESS;
+
+register_SIFT3D_quit:
+        cleanup_Mat_rm(&match_src_mm); 
+        cleanup_Mat_rm(&match_ref_mm); 
+        return SIFT3D_FAILURE;
 }
 
 /* Helper function to scale the keypoints and descriptors by the given 
