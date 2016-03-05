@@ -9,16 +9,16 @@
 %      the "reference" or "fixed" image.
 %
 %  Options:
-%    srcUnits, refUnits - (Optional) The physical units for src and ref, 
+%    srcUnits, refUnits - The physical units for src and ref, 
 %      respectively. See imRead3D for the format. Units should be provided
 %      when attempting to register images of different resolutions, i.e.
-%      5mm slices to 1mm slices.
+%      5mm slices to 1mm slices. (Default: [1 1 1])
 %    nnThresh - The matching threshold, in the interval (0, 1].
 %       (Default: 0.8)
 %    errThresh - The RANSAC inlier threshold, in the interval (0, inf).
-%       (Default: 5.0)
-%    numIter - The number of RANSAC iterations. (Default: 500)
-%    
+%       This is a threshold on the squared Euclidean distance in real-world 
+%       units. (Default: 5.0)
+%    numIter - The number of RANSAC iterations. (Default: 500)  
 %
 %  Return values:
 %    A - A [4x3] matrix giving an affine transformation from the
