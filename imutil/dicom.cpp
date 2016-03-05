@@ -617,7 +617,7 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
         if (im_resize(im))
                 return SIFT3D_FAILURE;
 
-        // Sort the slices by instance number
+        // Sort the slices by z position
         std::sort(dicoms.begin(), dicoms.end()); 
 
         // Allocate a temporary image for the slices
