@@ -9,4 +9,5 @@
 [ref, refUnits] = imRead3D('data/2.nii.gz');
 
 % Register
-[A, matchSrc, matchRef] = registerSift3D(src, ref, srcUnits, refUnits);
+[A, matchSrc, matchRef] = registerSift3D(src, ref, 'srcUnits', ...
+    srcUnits, 'refUnits', refUnits);
