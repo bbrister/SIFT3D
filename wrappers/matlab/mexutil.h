@@ -70,6 +70,12 @@ double mex_get_nn_thresh_Reg_SIFT3D(void);
 int mex_register_SIFT3D_resample(const Image *const src, 
         const Image *const ref, const interp_type interp, void *const tform);
 
+int mex_set_src_Reg_SIFT3D(const Image *const src);
+
+int mex_set_ref_Reg_SIFT3D(const Image *const ref);
+
+int mex_register_SIFT3D(void *const tform);
+
 int mex_get_matches_Reg_SIFT3D(Mat_rm *const match_src, 
         Mat_rm *const match_ref);
 

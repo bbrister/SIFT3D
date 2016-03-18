@@ -715,6 +715,21 @@ int mex_register_SIFT3D_resample(const Image *const src,
         return register_SIFT3D_resample(&reg, src, ref, interp, tform); 
 }
 
+/* Wrapper for set_src_Reg_SIFT3D */
+int mex_set_src_Reg_SIFT3D(const Image *const src) {
+       return set_src_Reg_SIFT3D(&reg, src); 
+}
+
+/* Wrapper for set_ref_Reg_SIFT3D */
+int mex_set_ref_Reg_SIFT3D(const Image *const ref) {
+       return set_ref_Reg_SIFT3D(&reg, ref); 
+}
+
+/* Wrapper for register_SIFT3D */
+int mex_register_SIFT3D(void *const tform) {
+        return register_SIFT3D(&reg, tform);
+}
+
 /* Wrapper for get_matches_Reg_SIFT3D */
 int mex_get_matches_Reg_SIFT3D(Mat_rm *const match_src, 
         Mat_rm *const match_ref) {

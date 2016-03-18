@@ -12,10 +12,12 @@
 #include "macros.h"
 #include "mexutil.h"
 #include "mex.h"
+#include "matrix.h"
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
-        const mxArray *mxSrc, *mxRef, *mxSrcUnits, *mxRefUnits, *mxOpts;
+        const mxArray *mxSrc, *mxRef, *mxSrcUnits, *mxRefUnits, *mxResample,
+                *mxOpts;
         Image src, ref;
         Affine aff;
         Mat_rm match_src, match_ref;
@@ -36,8 +38,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         }
 
 	// Verify the number of inputs
-	if (nrhs != 5)
-                err_msg("main:numInputs", "This function takes 5 inputs.");
+	if (nrhs != 6)
+                err_msg("main:numInputs", "This function takes 6 inputs.");
 
         // Verify the number of outputs
         if (nlhs > 3)
@@ -48,7 +50,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mxRef = prhs[1];
         mxSrcUnits = prhs[2];
         mxRefUnits = prhs[3];
-        mxOpts = prhs[4];
+        mxResample = prhs[4];
+        mxOpts = prhs[5];
+
+        // Verify the resampling option
+        if (!mxIsLogicalScalar(mxResample))
+                err_msg("main:resample", "Argument 'resample' must be a "
+                                         "logical scalar.");
 
         // Initialize intermediates
         if (init_Affine(&aff, IM_NDIMS) ||
@@ -72,7 +80,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                         SIFT3D_FALSE);
 
         // Register the images
-        ret = mex_register_SIFT3D_resample(&src, &ref, LINEAR, &aff);
+        if (mxIsLogicalScalarTrue(mxResample)) {
+                ret = mex_register_SIFT3D_resample(&src, &ref, LINEAR, &aff);
+        } else {
+                ret = mex_set_src_Reg_SIFT3D(&src) ||
+                        mex_set_ref_Reg_SIFT3D(&ref) ||
+                        mex_register_SIFT3D(&aff) ?
+                        SIFT3D_FAILURE : SIFT3D_SUCCESS;
+        }
 
         // Handle registration errors
         if (ret) {

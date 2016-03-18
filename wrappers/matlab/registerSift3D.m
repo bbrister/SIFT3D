@@ -19,6 +19,9 @@
 %       This is a threshold on the squared Euclidean distance in real-world 
 %       units. (Default: 5.0)
 %    numIter - The number of RANSAC iterations. (Default: 500)  
+%    resample - If given, resamples src and ref to have the same resolution
+%       prior to registration. This is slow. Use it when the inputs have
+%       vastly different units.
 %
 %  Return values:
 %    A - A [4x3] matrix giving an affine transformation from the
@@ -37,10 +40,10 @@
 %
 %    % Register with units
 %    [A, matchSrc, matchRef] = registerSift3D(src, ref, 'srcUnits', ...
-%       [1 1 1], 'refUnits', [1 1 5]);
+%       [1 1 1], 'refUnits', [1 1 5], 'resample');
 %
 %    % Register without units
-%    [A, matchSrc, matchRef] = registerSift3D(src, ref);
+%    [A, matchSrc, matchRef] = registerSift3D(src, ref, 'resample');
 %
 %  See also:
 %    imRead3D, imWrite3D, setupSift3D
@@ -54,6 +57,7 @@ function [A, matchSrc, matchRef] = registerSift3D(src, ref, varargin)
     numIterStr = 'numIter';
     nnThreshStr = 'nnThresh';
     errThreshStr = 'errThresh';
+    resampleStr = 'resample';
 
     % Parse options
     parser = inputParser;
@@ -62,12 +66,14 @@ function [A, matchSrc, matchRef] = registerSift3D(src, ref, varargin)
     parser.addParamValue(numIterStr, [])
     parser.addParamValue(nnThreshStr, [])
     parser.addParamValue(errThreshStr, [])
+    parser.addOptional(resampleStr, false)
     parse(parser, varargin{:})
     srcUnits = parser.Results.srcUnits;
     refUnits = parser.Results.refUnits;
     numIter = parser.Results.numIter;
     nnThresh = parser.Results.nnThresh;
     errThresh = parser.Results.errThresh;
+    resample = parser.Results.resample;
                                               
     % Verify inputs
     narginchk(2, inf)
@@ -84,6 +90,7 @@ function [A, matchSrc, matchRef] = registerSift3D(src, ref, varargin)
         {'real', '>=', 0, '<', 1}, 'nnThresh')
     validateattributes(errThresh, {'numeric'}, {'real', '>', 0}, ...
         'errThresh')
+    validateattributes(resample, {'logical'}, {'scalar'}, 'resample')
 
     % Convert the images to single precision and scale to [0, 1]
     src = imFormat(src);
@@ -96,7 +103,7 @@ function [A, matchSrc, matchRef] = registerSift3D(src, ref, varargin)
     
     % Register
     [A, matchSrc, matchRef] = mexRegisterSift3D(src, ref, srcUnits, ...
-        refUnits, optStruct);
+        refUnits, resample, optStruct);
 end
 
 % Helper function to convert images to single precision and scale to [0,1]
