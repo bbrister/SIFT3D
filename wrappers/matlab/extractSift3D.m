@@ -1,7 +1,7 @@
 function [desc, coords] = extractSift3D(keys, im, units)
 %extractSift3D(keys, im, units) Extract Sift3D descriptors from keypoints.
 %  Arguments:
-%    keys - An array of n keypoint structs. See keypoint.m for the
+%    keys - An array of n keypoint structs. See keypoint3D.m for the
 %      format.
 %    im - (Optional) An [MxNxP] array, where voxels are indexed in
 %      (x, y, z) order. If im is empty or not provided, this function uses 

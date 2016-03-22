@@ -6,7 +6,7 @@ function keys = detectSift3D(im, units)
 %       keypoints are isotropic even when im is not.
 %
 %  Return values:
-%    keys - A [Qx1] array of keypoint structs. See keypoint.m for the 
+%    keys - A [Qx1] array of keypoint structs. See keypoint3D.m for the 
 %      struct definition.
 %
 %  Keypoint coordinates are defined in the space of their pyramid level.
