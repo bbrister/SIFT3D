@@ -58,7 +58,7 @@ classdef Sift3DTest < TestCase
             self.kpCmd = fullfile(self.binDir, 'kpSift3D');
             
             % Registration command name
-            self.regCmd = fullfile(self.binDir, 'regSift3D --resample');
+            self.regCmd = fullfile(self.binDir, 'regSift3D');
             
             % Error tolerance for text output
             self.tolText = 0.01;
@@ -298,8 +298,8 @@ classdef Sift3DTest < TestCase
             [im2, units2] = imRead3D(self.im2Name);
             
             % Register with Matlab
-            [A, matchSrc, matchRef] = registerSift3D(im1, im2, units1, ...
-                units2);
+            [A, matchSrc, matchRef] = registerSift3D(im1, im2, ...
+                'srcUnits', units1, 'refUnits', units2);
             
             % Check the dimensions
             assertEqual(size(A), size(transformCli));
@@ -339,7 +339,8 @@ classdef Sift3DTest < TestCase
             unitsAniso = [units(1) units(2) units(3) * 2];
             
             % Register the original to the anisotropic image
-            A = registerSift3D(im, imAniso, units, unitsAniso);
+            A = registerSift3D(im, imAniso, 'srcUnits', units, ...
+                'refUnits', unitsAniso);
             
             % Form the reference (ground truth) transformation
             refA = [eye(3) zeros(3, 1)];
@@ -352,8 +353,8 @@ classdef Sift3DTest < TestCase
                 'absolute', 5);
         end
         
-        % Test registration with invalid threshold
-        function regInvalidTest(self)
+        % Test registration with invalid matching threshold
+        function regInvalidMatchTest(self)
             
            % Load the images
            im1 = imRead3D(self.im1Name);
@@ -361,11 +362,43 @@ classdef Sift3DTest < TestCase
             
            threwErr = false;
            try 
-               A = registerSift3D(im1, im2, -1);
+               A = registerSift3D(im1, im2, 'nnThresh', 2);
            catch ME
                threwErr = true;
            end
            assertTrue(threwErr);
+        end
+        
+        % Test registration with invalid error threshold
+        function regInvalidErrTest(self)
+            
+            % Load the images
+            im1 = imRead3D(self.im1Name);
+            im2 = imRead3D(self.im2Name);
+            
+            threwErr = false;
+            try
+                A = registerSift3D(im1, im2, 'errThresh', -1);
+            catch ME
+                threwErr = true;
+            end
+            assertTrue(threwErr);
+        end
+        
+        % Test registration with invalid number of iterations
+        function regInvalidIterTest(self)
+            
+            % Load the images
+            im1 = imRead3D(self.im1Name);
+            im2 = imRead3D(self.im2Name);
+            
+            threwErr = false;
+            try
+                A = registerSift3D(im1, im2, 'numIter', 0);
+            catch ME
+                threwErr = true;
+            end
+            assertTrue(threwErr);
         end
         
         % Test reading and writing a NIFTI image
