@@ -45,13 +45,13 @@ const char help_msg[] =
         "\n";
 
 /* Print an error message */
-void err_msg(const char *msg) {
+static void err_msg(const char *msg) {
         fprintf(stderr, "kpSift3D: %s \n"
                 "Use \"kpSift3D --help\" for more information. \n", msg);
 }
 
 /* Report an unexpected error. */
-void err_msgu(const char *msg) {
+static void err_msgu(const char *msg) {
         err_msg(msg);
         print_bug_msg();
 }

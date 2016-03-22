@@ -676,9 +676,8 @@ int mex_set_opts_Reg_SIFT3D(const mxArray *const mx) {
                 return SIFT3D_FAILURE;
         
         // Initialize options to the defaults
-        nn_thresh = nn_thresh_default;
-        if (init_Ransac(&ran))
-                return SIFT3D_FAILURE;
+        nn_thresh = SIFT3D_nn_thresh_default;
+        init_Ransac(&ran);
 
         // Get the option arrays
         if ((mxNumIter = mxGetField(mx, 0, "numIter")) == NULL ||
@@ -687,9 +686,9 @@ int mex_set_opts_Reg_SIFT3D(const mxArray *const mx) {
                 return SIFT3D_FAILURE;
 
         // Get the non-empty options 
-        if (!mxIsEmpty(mxNumIter)) {
-                const unsigned int num_iter = mxGetScalar(mxNumIter);
-                set_num_iter_Ransac(&ran, num_iter);
+        if (!mxIsEmpty(mxNumIter) &&
+                set_num_iter_Ransac(&ran, (int) mxGetScalar(mxNumIter))) {
+                return SIFT3D_FAILURE;
         } 
         if (!mxIsEmpty(mxErrThresh) && 
                 set_err_thresh_Ransac(&ran, mxGetScalar(mxErrThresh))) {

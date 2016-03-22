@@ -17,7 +17,7 @@ extern "C" {
 #endif
 
 /* Parameters */
-const double nn_thresh_default = 0.8; // Default matching threshold
+const extern double SIFT3D_nn_thresh_default; // Default matching threshold
 
 /* Internal data for the SIFT3D + RANSAC registration process */
 typedef struct _Reg_SIFT3D {

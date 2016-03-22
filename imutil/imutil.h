@@ -24,6 +24,10 @@ extern "C" {
 /* Vendor-specific info */
 #define PLATFORM_NAME_NVIDIA "NVIDIA CUDA"
 
+/* Parameters */
+const extern double SIFT3D_err_thresh_default;
+const extern int SIFT3D_num_iter_default;
+
 /* Externally-visible routines */
 void *SIFT3D_safe_realloc(void *ptr, size_t size);
 
@@ -228,11 +232,11 @@ void err_exit(const char *str);
 
 int mkpath(const char *path, mode_t mode);
 
-int init_Ransac(Ransac *ran); 
+void init_Ransac(Ransac *const ran);
 					  
-int set_err_thresh_Ransac(Ransac *ran, double err_thresh);
+int set_err_thresh_Ransac(Ransac *const ran, double err_thresh);
 
-void set_num_iter_Ransac(Ransac *ran, unsigned int num_iter);
+int set_num_iter_Ransac(Ransac *const ran, int num_iter);
 
 int copy_Ransac(const Ransac *const src, Ransac *const dst);
 

@@ -17,6 +17,9 @@
 #include "sift.h"
 #include "imutil.h"
 
+/* Default parameters */
+const double SIFT3D_nn_thresh_default = 0.8; // Default matching threshold
+
 /* Internal helper routines */
 static void scale_SIFT3D(const double *const factors, 
 	Keypoint_store *const kp, SIFT3D_Descriptor_store *const d);
@@ -115,7 +118,7 @@ static int mm2im(const double *const src_units, const double *const ref_units,
 int init_Reg_SIFT3D(Reg_SIFT3D *const reg) {
 
 	reg->matches = NULL;
-        reg->nn_thresh = nn_thresh_default;
+        reg->nn_thresh = SIFT3D_nn_thresh_default;
 	init_Keypoint_store(&reg->kp_src);
 	init_Keypoint_store(&reg->kp_ref);
 	init_SIFT3D_Descriptor_store(&reg->desc_src);

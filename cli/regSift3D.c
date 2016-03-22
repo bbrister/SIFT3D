@@ -23,15 +23,22 @@
 #define CONCAT 'd'
 #define KEYS 'e'
 #define LINES 'f'
-#define THRESH 'g'
-#define TYPE 'h' 
-#define RESAMPLE 'l'
+#define NN_THRESH 'g'
+#define ERR_THRESH 'h'
+#define NUM_ITER 'l'
+#define TYPE 'm' 
+#define RESAMPLE 'n'
 
 /* Message buffer size */
 #define BUF_SIZE 1024
 
-/* The help message */
-const char help_msg[] = 
+/* Internal parameters */
+const interp_type interp = LINEAR; // Interpolation used for the warped image
+const tform_type type_default = AFFINE; // Default transformation type
+        
+/* Print the help message */
+static void print_help() {
+        printf(
         "Usage: regSift3D [source.nii] [reference.nii] \n"
         "\n"
         "Matches SIFT3D features. \n"
@@ -41,7 +48,7 @@ const char help_msg[] =
         " .nii.gz (gzip-compressed nifti-1) \n"
         "\n"
         "Example: \n"
-        " regSift3D --thresh 0.8 --matches matches.csv im1.nii im2.nii \n"
+        " regSift3D --nn_thresh 0.8 --matches matches.csv im1.nii im2.nii \n"
         "\n"
         "Output options: \n"
         " --matches [filename] - The feature matches. \n"
@@ -59,52 +66,46 @@ const char help_msg[] =
         "At least one output option must be specified. \n"
         "\n"
         "Other options: \n"
-        " --thresh [value] - Matching threshold on the nearest neighbor \n"
-        "       ratio, in the interval (0, 1]. (default: %f) \n"
+        " --nn_thresh [value] - Matching threshold on the nearest neighbor \n"
+        "       ratio, in the interval (0, 1]. (default: %.2f) \n"
+        " --err_thresh [value] - RANSAC inlier threshold, in the interval \n"
+        "       (0, inf). This is a threshold on the squared Euclidean \n"
+        "       distance in real-world units. (default: %.1f) \n"
+        " --num_iter [value] - Number of RANSAC iterations. (default: %d) \n"
         " --type [value] - Type of transformation to be applied. \n"
         "       Supported arguments: \"affine\" (default: affine) \n"
 	" --resample - Internally resample the images to have the same \n"
 	"	physical resolution. This is slow. Use it when the images \n"
 	"	have very different resolutions, for example registering 5mm \n"
-	"	to 1mm slices. \n"
-        "\n";
-
-/* External parameters */
-extern const double nn_thresh_default; // Default matching threshold
-
-/* Internal parameters */
-const interp_type interp = LINEAR; // Interpolation used for the warped image
-const tform_type type_default = AFFINE; // Default transformation type
-        
-/* Print the help message */
-void print_help() {
-        printf(help_msg, nn_thresh_default);
+	"	to 1mm slices. \n",
+        SIFT3D_nn_thresh_default, SIFT3D_err_thresh_default, 
+        SIFT3D_num_iter_default);
         print_opts_SIFT3D();
 }
 
 /* Print an error message */
-void err_msg(const char *msg) {
+static void err_msg(const char *msg) {
         fprintf(stderr, "regSift3D: %s \n"
                 "Use \"regSift3D --help\" for more information. \n", msg);
 }
 
 /* Report an unexpected error. */
-void err_msgu(const char *msg) {
+static void err_msgu(const char *msg) {
         err_msg(msg);
         print_bug_msg();
 }
 
 int main(int argc, char *argv[]) {
 
-        SIFT3D sift3d;
         Reg_SIFT3D reg;
+        SIFT3D sift3d;
+        Ransac ran;
         Image src, ref;
         Mat_rm match_src, match_ref;
         void *tform, *tform_arg;
         char *src_path, *ref_path, *warped_path, *match_path, *tform_path,
                 *concat_path, *keys_path, *lines_path;
         tform_type type;
-        double thresh;
         int num_args, c, have_match, have_tform, resample;
 
         const struct option longopts[] = {
@@ -114,7 +115,9 @@ int main(int argc, char *argv[]) {
                 {"concat", required_argument, NULL, CONCAT},
                 {"keys", required_argument, NULL, KEYS},
                 {"lines", required_argument, NULL, LINES},
-                {"thresh", required_argument, NULL, THRESH},
+                {"nn_thresh", required_argument, NULL, NN_THRESH},
+                {"err_thresh", required_argument, NULL, ERR_THRESH},
+                {"num_iter", required_argument, NULL, NUM_ITER},
                 {"type", required_argument, NULL, TYPE},
 		{"resample", no_argument, NULL, RESAMPLE},
                 {0, 0, 0, 0}
@@ -125,15 +128,14 @@ int main(int argc, char *argv[]) {
         // Parse the GNU standard options
         switch (parse_gnu(argc, argv)) {
                 case SIFT3D_HELP:
-                        puts(help_msg);
-                        print_opts_SIFT3D();
+                        print_help();
                         return 0;
                 case SIFT3D_VERSION:
                         return 0;
                 case SIFT3D_FALSE:
                         break;
                 default:
-                        err_msgu("Unexpected return from parse_gnu \n");
+                        err_msgu("Unexpected return from parse_gnu.");
                         return 1;
         }
 
@@ -141,8 +143,9 @@ int main(int argc, char *argv[]) {
         init_im(&src);
         init_im(&ref);
         init_Reg_SIFT3D(&reg);
-        init_SIFT3D(&sift3d);
-        if (init_Mat_rm(&match_src, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+        init_Ransac(&ran);
+        if (init_SIFT3D(&sift3d) ||
+                init_Mat_rm(&match_src, 0, 0, DOUBLE, SIFT3D_FALSE) ||
                 init_Mat_rm(&match_ref, 0, 0, DOUBLE, SIFT3D_FALSE)) {
                 err_msgu("Failed basic initialization.");
                 return 1;
@@ -154,7 +157,11 @@ int main(int argc, char *argv[]) {
         // Parse the SIFT3D options
         if ((argc = parse_args_SIFT3D(&sift3d, argc, argv, SIFT3D_FALSE)) < 0)
                 return 1;
-        set_SIFT3D_Reg_SIFT3D(&reg, &sift3d);
+        if (set_SIFT3D_Reg_SIFT3D(&reg, &sift3d) ||
+                set_Ransac_Reg_SIFT3D(&reg, &ran)) {
+                err_msgu("Failed to save the SIFT3D or Ransac parameters.");
+                return 1;
+        }
 
         // Parse the remaining options 
         opterr = 1;
@@ -163,57 +170,77 @@ int main(int argc, char *argv[]) {
                 lines_path = NULL;
         while ((c = getopt_long(argc, argv, "", longopts, NULL)) != -1) {
                 switch (c) {
-                        case MATCHES:
-                                match_path = optarg;
-                                have_match = SIFT3D_TRUE;
-                                break;
-                        case TRANSFORM:
-                                tform_path = optarg;
-                                have_tform = SIFT3D_TRUE;
-                                break;
-                        case WARPED:
-                                warped_path = optarg;
-                                have_tform = SIFT3D_TRUE;
-                                break;
-                        case CONCAT:
-                                concat_path = optarg;
-                                have_match = SIFT3D_TRUE;
-                                break;
-                        case KEYS:
-                                keys_path = optarg;
-                                have_match = SIFT3D_TRUE;
-                                break;
-                        case LINES:
-                                lines_path = optarg;
-                                have_match = SIFT3D_TRUE;
-                                break;
-                        case THRESH:
-                                thresh = atof(optarg);
-                                if (set_nn_thresh_Reg_SIFT3D(&reg, thresh)) {
-                                        err_msg("Invalid value for thresh.");
-                                        return 1;
-                                }
-                                break;
-                        case TYPE:
-                                if (!strcmp(optarg, str_affine)) {
-                                        type = AFFINE;
-                                } else {
-
-                                        char msg[BUF_SIZE];
-
-                                        snprintf(msg, BUF_SIZE,
-                                                "Unrecognized transformation "
-                                                "type: %s\n", optarg);
-                                        err_msg(msg);
-                                        return 1;
-                                }
-                                break;
-			case RESAMPLE:
-				resample = SIFT3D_TRUE;
-				break;
-                        case '?':
-                        default:
+                case MATCHES:
+                        match_path = optarg;
+                        have_match = SIFT3D_TRUE;
+                        break;
+                case TRANSFORM:
+                        tform_path = optarg;
+                        have_tform = SIFT3D_TRUE;
+                        break;
+                case WARPED:
+                        warped_path = optarg;
+                        have_tform = SIFT3D_TRUE;
+                        break;
+                case CONCAT:
+                        concat_path = optarg;
+                        have_match = SIFT3D_TRUE;
+                        break;
+                case KEYS:
+                        keys_path = optarg;
+                        have_match = SIFT3D_TRUE;
+                        break;
+                case LINES:
+                        lines_path = optarg;
+                        have_match = SIFT3D_TRUE;
+                        break;
+                case NN_THRESH:
+                {
+                        const double nn_thresh = atof(optarg);
+                        if (set_nn_thresh_Reg_SIFT3D(&reg, nn_thresh)) {
+                                err_msg("Invalid value for nn_thresh.");
                                 return 1;
+                        }
+                        break;
+                }
+                case ERR_THRESH:
+                {
+                        const double err_thresh = atof(optarg);
+                        if (set_err_thresh_Ransac(&ran, err_thresh)) {
+                                err_msg("Invalid value for err_thresh.");
+                                return 1;
+                        }
+                        break;
+                }
+                case NUM_ITER:
+                {
+                        const int num_iter = atoi(optarg);
+                        if (set_num_iter_Ransac(&ran, num_iter)) {
+                                err_msg("Invalid value for num_iter.");
+                                return 1;
+                        }
+                        break;
+                }
+                case TYPE:
+                        if (!strcmp(optarg, str_affine)) {
+                                type = AFFINE;
+                        } else {
+
+                                char msg[BUF_SIZE];
+
+                                snprintf(msg, BUF_SIZE,
+                                        "Unrecognized transformation type: %s",
+                                        optarg);
+                                err_msg(msg);
+                                return 1;
+                        }
+                        break;
+                case RESAMPLE:
+                        resample = SIFT3D_TRUE;
+                        break;
+                case '?':
+                default:
+                        return 1;
                 }
         }
 

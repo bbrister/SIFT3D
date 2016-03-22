@@ -77,8 +77,8 @@ const char ext_dir[] = "";
 const mode_t out_mode = 0755;
 
 /* Default parameters */
-const double err_thresh_default = 5.0;
-const int num_iter_default = 500;
+const double SIFT3D_err_thresh_default = 5.0;
+const int SIFT3D_num_iter_default = 500;
 
 /* Declarations for the virtual function implementations */
 static int copy_Affine(const void *const src, void *const dst);
@@ -4317,24 +4317,20 @@ int init_Tps(Tps * tps, int dim, int terms)
 	return SIFT3D_SUCCESS;
 }
 
-/* Initialize a RANSAC struct with the given parameters */
-int init_Ransac(Ransac * ran)
+/* Initialize a RANSAC struct with the default parameters */
+void init_Ransac(Ransac *const ran)
 {
-
-	/* Set the default parameters */
-	ran->err_thresh = err_thresh_default;
-	ran->num_iter = num_iter_default;
-
-	return SIFT3D_SUCCESS;
+	ran->err_thresh = SIFT3D_err_thresh_default;
+	ran->num_iter = SIFT3D_num_iter_default;
 }
 
 /* Set the err_thresh parameter in a Ransac struct, checking for validity. */
-int set_err_thresh_Ransac(Ransac * ran, double err_thresh)
+int set_err_thresh_Ransac(Ransac *const ran, double err_thresh)
 {
 
 	if (err_thresh < 0.0) {
 		fprintf(stderr, "set_err_thresh_Ransac: invalid error "
-			"threshold: %f", err_thresh);
+			"threshold: %f \n", err_thresh);
 		return SIFT3D_FAILURE;
 	}
 
@@ -4344,15 +4340,23 @@ int set_err_thresh_Ransac(Ransac * ran, double err_thresh)
 }
 
 /* Set the num_iter parameter in a Ransac struct. */
-void set_num_iter_Ransac(Ransac * ran, unsigned int num_iter)
+int set_num_iter_Ransac(Ransac *const ran, int num_iter)
 {
-	ran->num_iter = (int)num_iter;
+        if (num_iter < 1) {
+                fprintf(stderr, "set_num_iter_Ransac: invalid number of "
+                                "iterations: %d \n", num_iter);
+                return SIFT3D_FAILURE;
+        }
+
+	ran->num_iter = num_iter;
+
+        return SIFT3D_SUCCESS;
 }
 
 /* Copy a Ransac struct from src to dst. */
 int copy_Ransac(const Ransac *const src, Ransac *const dst) {
-        set_num_iter_Ransac(dst, src->num_iter);
-        return set_err_thresh_Ransac(dst, src->err_thresh);
+        return set_num_iter_Ransac(dst, src->num_iter) ||
+                set_err_thresh_Ransac(dst, src->err_thresh);
 }
 
 /* Select a random subset of rows, length "num_rows".
