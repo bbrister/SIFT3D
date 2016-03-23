@@ -4032,6 +4032,10 @@ int resize_Pyramid(const Image *const im, const int first_level,
                 init_im(level);
         }
 
+        // We have nothing more to do if the image is empty
+        if (im->data == NULL)
+                return SIFT3D_SUCCESS;
+
 	// Calculate base image dimensions and units
 	factor = pow(2.0, -first_octave);
         for (i = 0; i < IM_NDIMS; i++) {
@@ -4099,22 +4103,34 @@ void set_scales_Pyramid(const double sigma0, const double sigma_n,
 int copy_Pyramid(const Pyramid * const src, Pyramid * const dst)
 {
 
-	int o, s;
+        Image dummy;
+        const Image *base;
+	int o, s, have_levels;
 
-	// Copy the parameters 
-	dst->num_kp_levels = src->num_kp_levels;
-	dst->num_levels = src->num_levels;
-	dst->first_level = src->first_level;
-	dst->first_octave = src->first_octave;
-	dst->num_octaves = src->num_octaves;
-	dst->num_kp_levels = src->num_kp_levels;
-	dst->sigma_n = src->sigma_n;
-	dst->sigma0 = src->sigma0;
+        // Initialize intermediates
+        init_im(&dummy);
 
-	// Check if src has any levels
+        // Set the scale parameters
+        set_scales_Pyramid(src->sigma0, src->sigma_n, dst);
+
+        // Get the base image
 	if (src->levels == NULL || src->num_octaves <= 0 ||
-	    src->num_levels <= 0)
-		return SIFT3D_SUCCESS;
+	    src->num_levels <= 0) {
+                base = &dummy;
+                have_levels = SIFT3D_FALSE;
+        } else {
+                base = src->levels;
+                have_levels = SIFT3D_TRUE;
+        }
+
+        // Resize dst
+        if (resize_Pyramid(base, src->first_level, src->num_kp_levels,
+                src->num_levels, src->first_octave, src->num_octaves, dst))
+                goto copy_Pyramid_failure;
+
+        // We are done if src has no levels
+        if (!have_levels)
+                goto copy_Pyramid_success;
 
 	// Copy the levels
 	SIFT3D_PYR_LOOP_START(dst, o, s)
@@ -4122,12 +4138,19 @@ int copy_Pyramid(const Pyramid * const src, Pyramid * const dst)
 		const Image *const src_level = SIFT3D_PYR_IM_GET(src, o, s);
 		Image *const dst_level = SIFT3D_PYR_IM_GET(dst, o, s);
 
-		if (im_copy_data(src_level, dst_level))
+		if (src_level->data != NULL && 
+                        im_copy_data(src_level, dst_level))
 			return SIFT3D_FAILURE;
 
 	SIFT3D_PYR_LOOP_END 
 
+copy_Pyramid_success:
+        im_free(&dummy);
 	return SIFT3D_SUCCESS;
+
+copy_Pyramid_failure:
+        im_free(&dummy);
+	return SIFT3D_FAILURE;
 }
 
 /* Release all memory associated with a Pyramid. pyr cannot be used again,
