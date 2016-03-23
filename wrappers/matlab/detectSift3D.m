@@ -6,8 +6,6 @@ function keys = detectSift3D(im, varargin)
 %  Options:
 %    units - See imRead3D. If units are specified, the detected
 %       keypoints are isotropic even when im is not.
-%    firstOctave - The first octave a pyramid. Must be a non-negative 
-%       integer. (default: 0)
 %    peakThresh - The smallest allowed absolute DoG value, as a fraction
 %       of the largest. Must be in the interval (0, 1]. (default: 0.10)
 %    cornerThresh - The smalled allowed corner score, on the interval
@@ -47,7 +45,6 @@ function keys = detectSift3D(im, varargin)
 
 % Option names
 unitsStr = 'units';
-firstOctaveStr = 'firstOctave';
 peakThreshStr = 'peakThresh';
 cornerThreshStr = 'cornerThresh';
 numOctavesStr = 'numOctaves';
@@ -58,7 +55,6 @@ sigma0Str = 'sigma0';
 % Parse options
 parser = inputParser;
 parser.addParamValue(unitsStr, [])
-parser.addParamValue(firstOctaveStr, [])
 parser.addParamValue(peakThreshStr, [])
 parser.addParamValue(cornerThreshStr, [])
 parser.addParamValue(numOctavesStr, [])
@@ -67,7 +63,6 @@ parser.addParamValue(sigmaNStr, [])
 parser.addParamValue(sigma0Str, [])
 parse(parser, varargin{:})
 units = parser.Results.units;
-firstOctave = parser.Results.firstOctave;
 peakThresh = parser.Results.peakThresh;
 cornerThresh = parser.Results.cornerThresh;
 numOctaves = parser.Results.numOctaves;
@@ -84,10 +79,6 @@ if ndims(im) ~= 3
     error(['im must have 3 dimensions, detected ' num2str(ndims(im))]);
 end
 units = checkUnits3D(units);
-if ~isempty(firstOctave)
-    validateattributes(firstOctave, {'numeric'}, ...
-        {'real', 'integer', 'scalar', 'nonnegative'}, 'firstOctave')
-end
 if ~isempty(peakThresh)
     validateattributes(peakThresh, {'numeric'}, ...
         {'real', 'positive', 'scalar'}, 'peakThresh')
@@ -121,7 +112,7 @@ im = single(im);
 im = im / (max(im(:)) + eps);
 
 % Collect the options in a struct
-optStruct = struct(firstOctaveStr, firstOctave, ...
+optStruct = struct( ...
     peakThreshStr, peakThresh, ...
     cornerThreshStr, cornerThresh, ...
     numOctavesStr, numOctaves, ...

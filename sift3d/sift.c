@@ -33,7 +33,6 @@
 
 /* Default SIFT3D parameters. These may be overriden by 
  * the calling appropriate functions. */
-const int first_octave_default = 0; // Starting octave index
 const double peak_thresh_default = 0.1; // DoG peak threshold
 const int num_kp_levels_default = 3; // Number of levels per octave in which keypoints are found
 const double corner_thresh_default = 0.5; // Minimum corner score
@@ -41,7 +40,6 @@ const double sigma_n_default = 1.15; // Nominal scale of input data
 const double sigma0_default = 1.6; // Scale of the base octave
 
 /* SIFT3D option names */
-const char opt_first_octave[] = "first_octave";
 const char opt_peak_thresh[] = "peak_thresh";
 const char opt_corner_thresh[] = "corner_thresh";
 const char opt_num_octaves[] = "num_octaves";
@@ -179,8 +177,8 @@ static int init_geometry(SIFT3D *sift3d);
 static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im);
 static int set_scales_SIFT3D(SIFT3D *const sift3d, const double sigma0,
         const double sigma_n);
-static int resize_SIFT3D(SIFT3D *const sift3d, const int first_octave, 
-        const int num_octaves, const int num_kp_levels);
+static int resize_SIFT3D(SIFT3D *const sift3d, const int num_octaves, 
+        const int num_kp_levels);
 static int build_gpyr(SIFT3D *sift3d);
 static int build_dog(SIFT3D *dog);
 static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp);
@@ -506,23 +504,6 @@ static int init_cl_SIFT3D(SIFT3D *sift3d) {
 	return SIFT3D_SUCCESS;
 }
 
-/* Sets the first octave, resizing the internal data. */
-int set_first_octave_SIFT3D(SIFT3D *const sift3d, 
-                                const int first_octave) {
-
-        const Pyramid *const gpyr = &sift3d->gpyr;
-        const int num_octaves = gpyr->num_octaves;
-        const int num_kp_levels = gpyr->num_kp_levels;
-
-        if (first_octave < 0) {
-                fprintf(stderr, "SIFT3D first_octave cannot be negative.\n");
-                return SIFT3D_FAILURE;
-        }
-
-        return resize_SIFT3D(sift3d, first_octave, num_octaves,
-                num_kp_levels);
-}
-
 /* Sets the peak threshold, checking that it is in the interval (0, inf) */
 int set_peak_thresh_SIFT3D(SIFT3D *const sift3d,
                                 const double peak_thresh) {
@@ -556,11 +537,9 @@ int set_num_octaves_SIFT3D(SIFT3D *const sift3d,
                                 const unsigned int num_octaves) {
 
         const Pyramid *const gpyr = &sift3d->gpyr;
-        const int first_octave = gpyr->first_octave;
         const int num_kp_levels = gpyr->num_kp_levels;
 
-        return resize_SIFT3D(sift3d, first_octave, num_octaves, 
-                num_kp_levels);
+        return resize_SIFT3D(sift3d, num_octaves, num_kp_levels);
 }
 
 /* Sets the number of levels per octave. This function will resize the
@@ -572,8 +551,7 @@ int set_num_kp_levels_SIFT3D(SIFT3D *const sift3d,
         const int first_octave = sift3d->gpyr.first_octave;
         const int num_octaves = gpyr->num_octaves;
 
-        return resize_SIFT3D(sift3d, first_octave, num_octaves,
-                num_kp_levels);
+        return resize_SIFT3D(sift3d, num_octaves, num_kp_levels);
 }
 
 /* Sets the nominal scale parameter of the input data, checking that it is 
@@ -616,7 +594,6 @@ int init_SIFT3D(SIFT3D *sift3d) {
         GSS_filters *const gss = &sift3d->gss;
 
 	// Initialize to defaults
-	const int first_octave = first_octave_default;
 	const double peak_thresh = peak_thresh_default;
 	const double corner_thresh = corner_thresh_default;
 	const int num_kp_levels = num_kp_levels_default;
@@ -647,7 +624,6 @@ int init_SIFT3D(SIFT3D *sift3d) {
         sift3d->dense_rotate = dense_rotate;
         if (set_sigma_n_SIFT3D(sift3d, sigma_n) ||
                 set_sigma0_SIFT3D(sift3d, sigma0) ||
-                set_first_octave_SIFT3D(sift3d, first_octave) ||
                 set_peak_thresh_SIFT3D(sift3d, peak_thresh) ||
                 set_corner_thresh_SIFT3D(sift3d, corner_thresh) ||
                 set_num_kp_levels_SIFT3D(sift3d, num_kp_levels))
@@ -667,8 +643,7 @@ int copy_SIFT3D(const SIFT3D *const src, SIFT3D *const dst) {
         // Copy the parameters
         set_sigma_n_SIFT3D(dst, src->gpyr.sigma_n); 
         set_sigma0_SIFT3D(dst, src->gpyr.sigma0);
-        if (set_first_octave_SIFT3D(dst, src->gpyr.first_octave) ||
-            set_peak_thresh_SIFT3D(dst, src->peak_thresh) ||
+        if (set_peak_thresh_SIFT3D(dst, src->peak_thresh) ||
             set_corner_thresh_SIFT3D(dst, src->corner_thresh) ||
             set_num_octaves_SIFT3D(dst, src->gpyr.num_octaves) ||
             set_num_kp_levels_SIFT3D(dst, src->gpyr.num_kp_levels))
@@ -736,9 +711,6 @@ void print_opts_SIFT3D(void) {
 
         printf("SIFT3D Options: \n"
                " --%s [value] \n"
-               "    The first octave of the pyramid. Must be a non-negative "
-               "         integer. (default: %d) \n"
-               " --%s [value] \n"
                "    The smallest allowed absolute DoG value, as a fraction \n"
                "        of the largest. Must be on the interval (0, 1]. \n"
                "        (default: %.2f) \n" 
@@ -758,7 +730,6 @@ void print_opts_SIFT3D(void) {
                " --%s [value] \n"
                "    The scale parameter of the first level of octave 0, on \n"
                "        the interval (0, inf). (default: %.2f) \n",
-               opt_first_octave, first_octave_default,
                opt_peak_thresh, peak_thresh_default,
                opt_corner_thresh, corner_thresh_default,
                opt_num_octaves, 
@@ -776,7 +747,6 @@ void print_opts_SIFT3D(void) {
  * Use argc_ret to get the number of remaining options.
  *
  * Options:
- * --first_octave	 - the first octave (int)
  * --peak_thresh	 - threshold on DoG extrema magnitude (double)
  * --corner_thresh - threshold on edge score (double)
  * --num_octaves	 - total number of octaves (default: process
@@ -803,17 +773,15 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
         double dval;
         int c, err, ival, argc_new;
 
-#define FIRST_OCTAVE 'a'
-#define PEAK_THRESH 'b'
-#define CORNER_THRESH 'c'
-#define NUM_OCTAVES 'd'
-#define NUM_KP_LEVELS 'e'
-#define SIGMA_N 'f'
-#define SIGMA0 'g'
+#define PEAK_THRESH 'a'
+#define CORNER_THRESH 'b'
+#define NUM_OCTAVES 'c'
+#define NUM_KP_LEVELS 'd'
+#define SIGMA_N 'e'
+#define SIGMA0 'f'
 
         // Options
         const struct option longopts[] = {
-                {opt_first_octave, required_argument, NULL, FIRST_OCTAVE},
                 {opt_peak_thresh, required_argument, NULL, PEAK_THRESH},
                 {opt_corner_thresh, required_argument, NULL, CORNER_THRESH},
                 {opt_num_octaves, required_argument, NULL, NUM_OCTAVES},
@@ -848,14 +816,6 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
                 }
 
                 switch (c) {
-                        case FIRST_OCTAVE:
-                                if (set_first_octave_SIFT3D(sift3d, 
-                                        ival))
-                                        goto parse_args_quit;
-
-                                processed[idx - 1] = SIFT3D_TRUE;
-                                processed[idx] = SIFT3D_TRUE;
-                                break;
                         case PEAK_THRESH:
                                 if (set_peak_thresh_SIFT3D(sift3d, 
                                         dval))
@@ -922,7 +882,6 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
                 }
         }
 
-#undef FIRST_OCTAVE
 #undef PEAK_THRESH
 #undef CORNER_THRESH
 #undef NUM_OCTAVES
@@ -978,8 +937,7 @@ static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im) {
         // Resize the internal data, if necessary
         if ((data_old == NULL || 
                 memcmp(dims_old, sift3d->im.dims, IM_NDIMS * sizeof(int))) &&
-                resize_SIFT3D(sift3d, first_octave, num_octaves, 
-                        num_kp_levels))
+                resize_SIFT3D(sift3d, num_octaves, num_kp_levels))
                 return SIFT3D_FAILURE;
 
         return SIFT3D_SUCCESS;
@@ -1007,38 +965,48 @@ static int set_scales_SIFT3D(SIFT3D *const sift3d, const double sigma0,
 
 /* Resize a SIFT3D struct, allocating temporary storage and recompiling the 
  * filters. Does nothing unless set_im_SIFT3D was previously called. */
-static int resize_SIFT3D(SIFT3D *const sift3d, const int first_octave, 
-        const int num_octaves, const int num_kp_levels) {
+static int resize_SIFT3D(SIFT3D *const sift3d, const int num_octaves, 
+        const int num_kp_levels) {
 
         unsigned int arg_num_octaves; 
-        int last_octave; 
 
         const Image *const im = &sift3d->im;
         Pyramid *const gpyr = &sift3d->gpyr;
         Pyramid *const dog = &sift3d->dog;
 	const unsigned int num_dog_levels = num_kp_levels + 2;
 	const unsigned int num_gpyr_levels = num_dog_levels + 1;
+        const int first_octave = 0;
         const int first_level = -1;
 
-	// Compute the number of octaves, if not specified by user
-	if (num_octaves == 0 && im->data != NULL) {
+	// Compute the meximum allowed number of octaves
+	if (im->data != NULL) {
                 // The minimum size of a pyramid level is 8 in any dimension
-		last_octave = 
+		const int last_octave = 
                         (int) log2((double) SIFT3D_MIN(SIFT3D_MIN(im->nx, im->ny), 
                         im->nz)) - 3 - first_octave;
 
-		arg_num_octaves = last_octave - first_octave + 1;
+                const int max_num_octaves = last_octave - first_octave + 1;
 
+                // Verify octave parameters
                 if (last_octave < first_octave) {
                         fputs("resize_SIFT3D: input image is too small: must "
                               "have at least 8 voxels in each dimension \n",
                               stderr);
                         return SIFT3D_FAILURE;
                 }
+                if (num_octaves > max_num_octaves) {
+                        fprintf(stderr, "resize_SIFT3D: num_octaves too large "
+                                "for this image. Max allowed: %d \n", 
+                                max_num_octaves);
+                        return SIFT3D_FAILURE;
+                }
+
+                // Default to max octaves if num_octaves is 0
+		arg_num_octaves = num_octaves == 0 ? max_num_octaves : 
+                                                     num_octaves;
 	} else {
-		// Number of octaves specified by user
                 arg_num_octaves = num_octaves;
-	}
+        }
 
 	// Resize the pyramid
 	if (resize_Pyramid(im, first_level, num_kp_levels,

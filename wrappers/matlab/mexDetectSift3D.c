@@ -61,7 +61,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         // Detect keypoints
 	if (mex_SIFT3D_detect_keypoints(&im, &kp))
                 CLEAN_AND_QUIT("main:detect", "Failed to detect keypoints", 
-                        SIFT3D_FALSE);
+                        SIFT3D_TRUE);
 
         // Convert the output to a MATLAB array of structs
         if ((plhs[0] = kp2mx(&kp)) == NULL)

@@ -30,9 +30,6 @@ void init_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *const desc);
 
 void cleanup_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *const desc);
 
-int set_first_octave_SIFT3D(SIFT3D *const sift3d, 
-                                const int first_octave);
-
 int set_peak_thresh_SIFT3D(SIFT3D *const sift3d,
                                 const double peak_thresh);
 
