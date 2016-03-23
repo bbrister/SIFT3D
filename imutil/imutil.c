@@ -4072,9 +4072,7 @@ int resize_Pyramid(const Image *const im, const int first_level,
 	SIFT3D_PYR_LOOP_OCTAVE_END 
 
         // Set the scales for the new levels
-        set_scales_Pyramid(pyr->sigma0, pyr->sigma_n, pyr);
-
-        return SIFT3D_SUCCESS;
+        return set_scales_Pyramid(pyr->sigma0, pyr->sigma_n, pyr);
 }
 
 /* Set the scale-space parameters on a Pyramid struct. Operates on all levels
@@ -4085,22 +4083,41 @@ int resize_Pyramid(const Image *const im, const int first_level,
  *  -sigma_n: The nominal scale parameter of images being transfomed into
  *      this pyramid struct. 
  *  -Pyr: The Pyramid to be modified. */
-void set_scales_Pyramid(const double sigma0, const double sigma_n, 
+int set_scales_Pyramid(const double sigma0, const double sigma_n, 
         Pyramid *const pyr) {
 
         int o, s;
 
         const int num_kp_levels = pyr->num_kp_levels;
+        const Image *const first_level = 
+                SIFT3D_PYR_IM_GET(pyr, pyr->first_octave, pyr->first_level);
+
+        // Compute the scales of each level
+        SIFT3D_PYR_LOOP_START(pyr, o, s)
+
+                // Compute the scale 
+                Image *const level = SIFT3D_PYR_IM_GET(pyr, o, s);
+                const double scale = 
+                        sigma0 * pow(2.0, o + (double) s / num_kp_levels);
+
+                // Verify that sigma_n is not too large
+                if (o == pyr->first_octave && s == pyr->first_level && 
+                        scale < sigma_n) {
+                        fprintf(stderr, "set_scales_Pyramid: sigma_n too large "
+                                "for these settings. Max allowed: %f \n", 
+                                scale - DBL_EPSILON);
+                        return SIFT3D_FAILURE;
+                }
+
+                // Save the scale
+                level->s = scale;
+        SIFT3D_PYR_LOOP_END
 
         // Store the parameters
         pyr->sigma0 = sigma0;
         pyr->sigma_n = sigma_n;
 
-        // Compute the scales of each level
-        SIFT3D_PYR_LOOP_START(pyr, o, s)
-                Image *const level = SIFT3D_PYR_IM_GET(pyr, o, s);
-                level->s = sigma0 * pow(2.0, o + (double) s / num_kp_levels);
-        SIFT3D_PYR_LOOP_END
+        return SIFT3D_SUCCESS;
 }
 
 /* Make a deep copy of a pyramid. */
@@ -4115,7 +4132,8 @@ int copy_Pyramid(const Pyramid * const src, Pyramid * const dst)
         init_im(&dummy);
 
         // Set the scale parameters
-        set_scales_Pyramid(src->sigma0, src->sigma_n, dst);
+        if (set_scales_Pyramid(src->sigma0, src->sigma_n, dst))
+                return SIFT3D_FAILURE;
 
         // Get the base image
 	if (src->levels == NULL || src->num_octaves <= 0 ||

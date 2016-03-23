@@ -952,8 +952,9 @@ static int set_scales_SIFT3D(SIFT3D *const sift3d, const double sigma0,
         GSS_filters *const gss = &sift3d->gss;
 
         // Set the scales for the GSS and DOG pyramids
-        set_scales_Pyramid(sigma0, sigma_n, gpyr);
-        set_scales_Pyramid(sigma0, sigma_n, dog);
+        if (set_scales_Pyramid(sigma0, sigma_n, gpyr) ||
+                set_scales_Pyramid(sigma0, sigma_n, dog))
+                return SIFT3D_FAILURE;
 
         // Do nothing more if we have no image
         if (sift3d->im.data == NULL)

@@ -215,7 +215,7 @@ int resize_Pyramid(const Image *const im, const int first_level,
         const int first_octave, const unsigned int num_octaves, 
         Pyramid *const pyr);
 
-void set_scales_Pyramid(const double sigma0, const double sigma_n, 
+int set_scales_Pyramid(const double sigma0, const double sigma_n, 
         Pyramid *const pyr);
 
 void cleanup_Pyramid(Pyramid *const pyr);
