@@ -3846,7 +3846,11 @@ int init_Gauss_incremental_filter(Gauss_filter * const gauss,
 {
 	double sigma;
 
-	assert(s_cur < s_next);
+	if (s_cur > s_next) {
+                fprintf(stderr, "init_Gauss_incremental_filter: "
+                                "s_cur (%f) > s_next (%f) \n", s_cur, s_next);
+                return SIFT3D_FAILURE;
+        }
 	assert(dim > 0);
 
 	// Compute filter width parameter (sigma)
