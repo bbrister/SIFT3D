@@ -514,6 +514,11 @@ int set_first_octave_SIFT3D(SIFT3D *const sift3d,
         const int num_octaves = gpyr->num_octaves;
         const int num_kp_levels = gpyr->num_kp_levels;
 
+        if (first_octave < 0) {
+                fprintf(stderr, "SIFT3D first_octave cannot be negative.\n");
+                return SIFT3D_FAILURE;
+        }
+
         return resize_SIFT3D(sift3d, first_octave, num_octaves,
                 num_kp_levels);
 }
@@ -545,8 +550,8 @@ int set_corner_thresh_SIFT3D(SIFT3D *const sift3d,
         return SIFT3D_SUCCESS;
 }
 
-/* Sets the number octaves to be processed. If necessary, this function will 
- * resize the internal data. */
+/* Sets the number octaves to be processed. If this function will resize the
+ * internal data. */
 int set_num_octaves_SIFT3D(SIFT3D *const sift3d,
                                 const unsigned int num_octaves) {
 
@@ -654,8 +659,12 @@ int init_SIFT3D(SIFT3D *sift3d) {
 /* Make a deep copy of a SIFT3D struct, including all internal images. */
 int copy_SIFT3D(const SIFT3D *const src, SIFT3D *const dst) {
 
+        // Free and re-initialize dst
+        cleanup_SIFT3D(dst);
+        if (init_SIFT3D(dst))
+                return SIFT3D_FAILURE;
+
         // Copy the parameters
-        dst->dog.first_level = dst->gpyr.first_level = src->dog.first_level;
         set_sigma_n_SIFT3D(dst, src->gpyr.sigma_n); 
         set_sigma0_SIFT3D(dst, src->gpyr.sigma0);
         if (set_first_octave_SIFT3D(dst, src->gpyr.first_octave) ||
@@ -666,8 +675,9 @@ int copy_SIFT3D(const SIFT3D *const src, SIFT3D *const dst) {
                 return SIFT3D_FAILURE;
         dst->dense_rotate = src->dense_rotate;
 
-        // Initialize the image pointer, pyramid dimensions, and GSS
-        set_im_SIFT3D(dst, &src->im);
+        // Copy the image, if any
+        if (src->im.data != NULL && set_im_SIFT3D(dst, &src->im))
+                return SIFT3D_FAILURE;
 
         // Copy the pyramids, if any
         if (copy_Pyramid(&src->gpyr, &dst->gpyr) ||
@@ -726,8 +736,8 @@ void print_opts_SIFT3D(void) {
 
         printf("SIFT3D Options: \n"
                " --%s [value] \n"
-               "    The first octave of the pyramid. Must be an integer. \n"
-               "        (default: %d) \n"
+               "    The first octave of the pyramid. Must be a non-negative "
+               "         integer. (default: %d) \n"
                " --%s [value] \n"
                "    The smallest allowed absolute DoG value, as a fraction \n"
                "        of the largest. Must be on the interval (0, 1]. \n"
