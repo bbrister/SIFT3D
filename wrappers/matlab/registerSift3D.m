@@ -34,6 +34,9 @@ function [A, matchSrc, matchRef] = registerSift3D(src, ref, varargin)
 %      (x, y, z) coordinate, so that the ith row of matchSrc matches the
 %      ith row of matchRef. These matches may contain outliers.
 %
+%  Note: This function will reserve memory that persists after it has
+%  finished. To release all SIFT3D memory, use 'clear mex'.
+%
 %  Examples:
 %    % Load the images
 %    [src, srcUnits] = imRead3D('src.dcm');
@@ -85,10 +88,18 @@ if isempty(ref)
 end
 srcUnits = checkUnits3D(srcUnits, 'srcUnits');
 refUnits = checkUnits3D(refUnits, 'refUnits');
-validateattributes(numIter, {'numeric'}, {'real', '>', 0}, 'numIter')
-validateattributes(nnThresh, {'numeric'}, {'real', '>=', 0, '<', 1}, ...
-    'nnThresh')
-validateattributes(errThresh, {'numeric'}, {'real', '>', 0}, 'errThresh')
+if ~isempty(numIter)
+    validateattributes(numIter, {'numeric'}, ...
+        {'real', 'scalar', '>', 0}, 'numIter')
+end
+if ~isempty(nnThresh)
+    validateattributes(nnThresh, {'numeric'}, ...
+        {'real', 'scalar', '>=', 0, '<', 1}, 'nnThresh')
+end
+if ~isempty(errThresh)
+    validateattributes(errThresh, {'numeric'}, ...
+        {'real', 'scalar', '>', 0}, 'errThresh')
+end
 validateattributes(resample, {'logical'}, {'scalar'}, 'resample')
 
 % Convert the images to single precision and scale to [0, 1]
