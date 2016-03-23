@@ -15,7 +15,7 @@
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
-        const mxArray *mxIm, *mxUnits;
+        const mxArray *mxIm, *mxUnits, *mxOpts;
         Image im;
         Keypoint_store kp;
         const char *errName, *errMsg;
@@ -32,8 +32,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         }
 
 	// Verify the number of inputs
-	if (nrhs != 2)
-                err_msg("main:numInputs", "This function takes 2 inputs.");
+	if (nrhs != 3)
+                err_msg("main:numInputs", "This function takes 3 inputs.");
 
         // Verify the number of outputs
         if (nlhs > 1) 
@@ -42,6 +42,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         // Assign the inputs
         mxIm = prhs[0];
         mxUnits = prhs[1];
+        mxOpts = prhs[2];
+
+        // Set the options
+        if (mex_set_opts_SIFT3D(mxOpts))
+                CLEAN_AND_QUIT("main:setOpts", "Failed to set the options.", 
+                        SIFT3D_FALSE);
 
         // Initialize intermediates
         init_Keypoint_store(&kp);

@@ -658,17 +658,96 @@ int mexHaveGpyr(void) {
         return SIFT3D_have_gpyr(&reg.sift3d);
 }
 
+/* Wrapper to set the options for the SIFT3D struct. The argument mx shall be
+ * a struct with the following fields:
+ *      -firstOctave
+ *      -peakThresh
+ *      -cornerThresh
+ *      -numOctaves
+ *      -numKpLevels
+ *      -sigmaN
+ *      -sigma0
+ *
+ * Any other fields are ignored. Empty fields are replaced with the defaults. 
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
+int mex_set_opts_SIFT3D(const mxArray *const mx) {
+
+        SIFT3D sift3d;
+        const mxArray *mxFirstOctave, *mxPeakThresh, *mxCornerThresh, 
+                *mxNumOctaves, *mxNumKpLevels, *mxSigmaN, *mxSigma0;
+
+        // Verify inputs
+        if (mxIsEmpty(mx) || !mxIsStruct(mx))
+                return SIFT3D_FAILURE;
+
+        // Get the option arrays
+        if ((mxFirstOctave = mxGetField(mx, 0, "firstOctave")) == NULL ||
+                (mxPeakThresh = mxGetField(mx, 0, "peakThresh")) == NULL ||
+                (mxCornerThresh = mxGetField(mx, 0, "cornerThresh")) == NULL ||
+                (mxNumOctaves = mxGetField(mx, 0, "numOctaves")) == NULL ||
+                (mxNumKpLevels = mxGetField(mx, 0, "numKpLevels")) == NULL ||
+                (mxSigmaN = mxGetField(mx, 0, "sigmaN")) == NULL ||
+                (mxSigma0 = mxGetField(mx, 0, "sigma0")) == NULL)
+                return SIFT3D_FAILURE;
+
+        // Initialize intermediates
+        if (init_SIFT3D(&sift3d))
+                return SIFT3D_FAILURE;
+
+        // Set the non-empty options in our new SIFT3D struct
+        if (!mxIsEmpty(mxFirstOctave) && 
+                set_first_octave_SIFT3D(&sift3d, 
+                (int) mxGetScalar(mxFirstOctave)))
+                goto mex_set_opts_SIFT3D_quit;
+        if (!mxIsEmpty(mxPeakThresh) && 
+                set_peak_thresh_SIFT3D(&sift3d, mxGetScalar(mxPeakThresh)))
+                goto mex_set_opts_SIFT3D_quit;
+        if (!mxIsEmpty(mxCornerThresh) &&
+                set_corner_thresh_SIFT3D(&sift3d, mxGetScalar(mxCornerThresh)))
+                goto mex_set_opts_SIFT3D_quit;
+        if (!mxIsEmpty(mxNumOctaves) &&
+                set_num_octaves_SIFT3D(&sift3d, 
+                (int) mxGetScalar(mxNumOctaves)))
+                goto mex_set_opts_SIFT3D_quit;
+        if (!mxIsEmpty(mxNumKpLevels) &&
+                set_num_kp_levels_SIFT3D(&sift3d, 
+                (int) mxGetScalar(mxNumKpLevels)))
+                goto mex_set_opts_SIFT3D_quit;
+        if (!mxIsEmpty(mxSigmaN) &&
+                set_sigma_n_SIFT3D(&sift3d, mxGetScalar(mxSigmaN)))
+                goto mex_set_opts_SIFT3D_quit;
+        if (!mxIsEmpty(mxSigma0) &&
+                set_sigma0_SIFT3D(&sift3d, mxGetScalar(mxSigma0)))
+                goto mex_set_opts_SIFT3D_quit;
+
+        // Set the options in the Reg_SIFT3D struct
+        if (set_SIFT3D_Reg_SIFT3D(&reg, &sift3d))
+                goto mex_set_opts_SIFT3D_quit;
+
+        // Clean up
+        cleanup_SIFT3D(&sift3d);
+
+        return SIFT3D_SUCCESS;
+
+mex_set_opts_SIFT3D_quit:
+        cleanup_SIFT3D(&sift3d);
+        return SIFT3D_FAILURE;
+}
+
 /* Wrapper to set the options for the Reg_SIFT3D struct. The argument mx shall
  * be a struct with the following fields:
  *   -numIter
  *   -errThresh
  *   -nnThresh
  *
- * Any other fields are ignored. Empty fields are replaced with the defaults. */
+ * Any other fields are ignored. Empty fields are replaced with the defaults.
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
 int mex_set_opts_Reg_SIFT3D(const mxArray *const mx) {
 
         Ransac ran;
-        mxArray *mxNumIter, *mxErrThresh, *mxNnThresh;
+        const mxArray *mxNumIter, *mxErrThresh, *mxNnThresh;
         double nn_thresh;
 
         // Verify inputs
@@ -716,12 +795,12 @@ int mex_register_SIFT3D_resample(const Image *const src,
 
 /* Wrapper for set_src_Reg_SIFT3D */
 int mex_set_src_Reg_SIFT3D(const Image *const src) {
-       return set_src_Reg_SIFT3D(&reg, src); 
+        return set_src_Reg_SIFT3D(&reg, src); 
 }
 
 /* Wrapper for set_ref_Reg_SIFT3D */
 int mex_set_ref_Reg_SIFT3D(const Image *const ref) {
-       return set_ref_Reg_SIFT3D(&reg, ref); 
+        return set_ref_Reg_SIFT3D(&reg, ref); 
 }
 
 /* Wrapper for register_SIFT3D */

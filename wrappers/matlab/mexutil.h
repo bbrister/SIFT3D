@@ -63,6 +63,10 @@ int mex_SIFT3D_extract_raw_descriptors(const Image *const im,
 
 int mexHaveGpyr(void);
 
+int mex_set_opts_SIFT3D(const mxArray *const mx);
+
+int mex_set_opts_Reg_SIFT3D(const mxArray *const mx);
+
 int mex_set_nn_thresh_Reg_SIFT3D(const double nn_thresh);
 
 double mex_get_nn_thresh_Reg_SIFT3D(void);
