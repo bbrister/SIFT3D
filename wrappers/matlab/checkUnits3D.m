@@ -16,18 +16,11 @@ end
 % Number of image dimensions
 ndim = 3;
 
-if ~isvector(units) || length(units) > ndim || ~isnumeric(units) || ...
-    ~isreal(units)
+% Validate units
+validateattributes(units, {'numeric'}, {'real', 'vector', 'positive'}, ...
+    name)
+if length(units) > ndim 
     error([name ' must be a [3x1] real numeric vector'])
-end
-
-if any(units <= 0)
-    error([name ' must be positive'])
-end
-
-% Transpose column vectors
-if size(units, 2) > 1
-    units = units';
 end
 
 % Convert to double
@@ -36,6 +29,11 @@ units = double(units);
 % Default for missing values
 if length(units) < ndim
     units(length(units) + 1 : ndim) = 1;
+end
+
+% Transpose column vectors
+if size(units, 2) > 1
+    units = units';
 end
 
 end
