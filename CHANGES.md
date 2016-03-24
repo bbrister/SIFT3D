@@ -29,3 +29,11 @@
 * Changed C interface for descriptor extraction to disallow providing a custom Gaussian scale-space pyramid (SIFT3D_Extract_Descriptors)
 * Allow arbitrary output sizes in im_inv_transform
 * Minor bug fixes
+
+## 1.3.0
+
+* Control parameters for keypoint detection from Matlab
+* Control registration parameters from Matlab and CLI
+* Improved error handling
+* Removed unused, faulty options
+* Print internal error messages to the Matlab command prompt
