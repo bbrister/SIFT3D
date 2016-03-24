@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <getopt.h>
+#include "macros.h"
 #include "imutil.h"
 #include "sift.h"
 
@@ -46,7 +47,7 @@ const char help_msg[] =
 
 /* Print an error message */
 static void err_msg(const char *msg) {
-        fprintf(stderr, "kpSift3D: %s \n"
+        SIFT3D_ERR("kpSift3D: %s \n"
                 "Use \"kpSift3D --help\" for more information. \n", msg);
 }
 

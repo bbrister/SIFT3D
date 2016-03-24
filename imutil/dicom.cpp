@@ -49,7 +49,6 @@
 
 /* Other includes */
 #include <algorithm>
-#include <iostream>
 #include <memory>
 #include <vector>
 #include <cmath>
@@ -67,10 +66,10 @@
         try { \
                 ret = (fun)( __VA_ARGS__ ); \
         } catch (std::exception &e) { \
-                std::cerr << tag << ": " << e.what() << std::endl; \
+                SIFT3D_ERR("%s: %s\n", tag, e.what()); \
                 ret = SIFT3D_FAILURE; \
         } catch (...) { \
-                std::cerr << tag << ": unexpected exception " << std::endl; \
+                SIFT3D_ERR("%s: unexpected exception \n", tag); \
                 ret = SIFT3D_FAILURE; \
         } \
 
@@ -181,9 +180,8 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         DcmFileFormat fileFormat;
         OFCondition status = fileFormat.loadFile(path.c_str());
         if (status.bad()) {
-               std::cerr << "Dicom.Dicom: failed to read DICOM file " <<
-                        path << " (" << status.text() << ")" << 
-                        std::endl; 
+                SIFT3D_ERR("Dicom.Dicom: failed to read DICOM file %s (%s)\n",
+                        path.c_str(), status.text());
                 return;
         }
 
@@ -194,9 +192,8 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         const char *seriesUIDStr;
         status = data->findAndGetString(DCM_SeriesInstanceUID, seriesUIDStr);
         if (status.bad() || seriesUIDStr == NULL) {
-                std::cerr << "Dicom.Dicom: failed to get SeriesInstanceUID " <<
-                        "from file " << path << " (" << status.text() << ")" <<
-                        std::endl;
+                SIFT3D_ERR("Dicom.Dicom: failed to get SeriesInstanceUID "
+                        "from file %s (%s)\n", path.c_str(), status.text());
                 return;
         }
         seriesUID = std::string(seriesUIDStr); 
@@ -236,18 +233,17 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         status = data->findAndGetString(DCM_ImagePositionPatient, 
                 imPosPatientStr);
         if (status.bad() || imPosPatientStr == NULL) {
-                std::cerr << "Dicom.Dicom: failed to get " <<
-                        "ImagePositionPatient" << " (" << status.text() <<
-                        ")" << std::endl;
+                SIFT3D_ERR("Dicom.Dicom: failed to get ImagePositionPatient "
+                        "from file %s (%s)\n", path.c_str(), status.text());
                 return;
         }
 
         // Parse the image position patient vector to get the z coordinate
         double imPosZ;
         if (sscanf(imPosPatientStr, "%*f\\%*f\\%lf", &imPosZ) != 1) {
-                std::cerr << "Dicom.Dicom: failed to parse " <<
-                        "ImagePositionPatient tag " << imPosPatientStr <<
-                        std::endl;
+                SIFT3D_ERR("Dicom.Dicom: failed to parse "
+                        "ImagePositionPatient tag %s from file %s\n", 
+                        imPosPatientStr, path.c_str());
                 return;
         }
 
@@ -258,17 +254,16 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         // Load the DicomImage object
         DicomImage dicomImage(path.c_str());
         if (dicomImage.getStatus() != EIS_Normal) {
-               std::cerr << "Dicom.image: failed to open image " <<
-                        filename << " (" << 
-                        DicomImage::getString(dicomImage.getStatus()) << ")" <<
-                        std::endl; 
+                SIFT3D_ERR("Dicom.Dicom: failed to open image %s (%s)\n",
+                        path.c_str(), 
+                        DicomImage::getString(dicomImage.getStatus()));
                 return;
         }
 
         // Check for color images
         if (!dicomImage.isMonochrome()) {
-                std::cerr << "Dicom.Dicom: reading of color DICOM " <<
-                        "images is not supported at this time" << std::endl;
+                SIFT3D_ERR("Dicom.Dicom: reading of color DICOM images is "
+                        "not supported at this time \n");
                 return;
         }
         nc = 1;
@@ -278,9 +273,8 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         ny = dicomImage.getHeight();
         nz = dicomImage.getFrameCount();
         if (nx < 1 || ny < 1 || nz < 1) {
-                std::cerr << "Dicom.Dicom: invalid dimensions for file "
-                        << filename << "(" << nx << ", " << ny << ", " << 
-                        nz << ")" << std::endl;
+                SIFT3D_ERR("Dicom.Dicom: invalid dimensions for file %s "
+                        "(%d, %d, %d)\n", path.c_str(), nx, ny, nz);
                 return;
         }
 
@@ -288,20 +282,18 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         const char *pixelSpacingStr;
         status = data->findAndGetString(DCM_PixelSpacing, pixelSpacingStr);
         if (status.bad()) {
-                std::cerr << "Dicom.Dicom: failed to get pixel spacing " <<
-                        "from file " << path << " (" << status.text() << ")" <<
-                        std::endl;
+                SIFT3D_ERR("Dicom.Dicom: failed to get pixel spacing from "
+                        "file %s (%s)\n", path.c_str(), status.text());
                 return;
         }
         if (sscanf(pixelSpacingStr, "%lf\\%lf", &ux, &uy) != 2) {
-                std::cerr << "Dicom.Dicom: unable to parse pixel spacing " <<
-                        "from file " << path << std::endl;
+                SIFT3D_ERR("Dicom.Dicom: unable to parse pixel spacing from "
+                        "file %s \n", path.c_str());
                 return;
         }
         if (ux <= 0.0 || uy <= 0.0) {
-                std::cerr << "Dicom.Dicom: file " << path << " has " <<
-                        "invalid pixel spacing: [" << ux << ", " << uy << 
-                        "]" << std::endl;
+                SIFT3D_ERR("Dicom.Dicom: file %s has invalid pixel spacing "
+                        "[%f, %f]\n", path.c_str(), ux, uy);
                 return;
         }
 
@@ -309,17 +301,16 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         Float64 sliceThickness;
         status = data->findAndGetFloat64(DCM_SliceThickness, sliceThickness);
         if (!status.good()) {
-                std::cerr << "Dicom.Dicom: failed to get slice thickness " <<
-                        "from file " << path << " (" << status.text() << ")" <<
-                        std::endl;
+                SIFT3D_ERR("Dicom.Dicom: failed to get slice thickness from "
+                        "file %s (%s)\n", path.c_str(), status.text());
                 return;
         }
 
         // Convert to double 
         uz = sliceThickness;
         if (uz <= 0.0) {
-                std::cerr << "Dicom.Dicom: file " << path << " has " <<
-                        "invalid slice thickness: " << uz << std::endl;
+                SIFT3D_ERR("Dicom.Dicom: file %s has invalid slice "
+                        "thickness: %f \n", path.c_str(), uz);
                 return;
         }
         
@@ -420,10 +411,8 @@ static int read_dcm_cpp(const char *path, Image *const im) {
         // Load the DicomImage object
         DicomImage dicomImage(path);
         if (dicomImage.getStatus() != EIS_Normal) {
-               std::cerr << "read_dcm_cpp: failed to open image " <<
-                        dicom.name() << " (" << 
-                        DicomImage::getString(dicomImage.getStatus()) << ")" <<
-                        std::endl; 
+                SIFT3D_ERR("read_dcm_cpp: failed to open image %s (%s)\n",
+                        path, DicomImage::getString(dicomImage.getStatus()));
                 return SIFT3D_FAILURE;
         }
 
@@ -445,9 +434,8 @@ static int read_dcm_cpp(const char *path, Image *const im) {
         const int bufNBits = 32;
         const int depth = dicomImage.getDepth();
         if (depth > bufNBits) {
-                std::cerr << "read_dcm_cpp: buffer is insufficiently wide " <<
-                        "for " << depth << "-bit data of image " << path <<
-                        std::endl;
+                SIFT3D_ERR("read_dcm_cpp: buffer is insufficiently wide "
+                        "for %d-bit data of image %s \n", depth, path);
                 return SIFT3D_FAILURE;
         }
 
@@ -465,11 +453,9 @@ static int read_dcm_cpp(const char *path, Image *const im) {
                                 dicomImage.getOutputData(
                                         static_cast<int>(bufNBits), i));
                 if (frameData == NULL) {
-                        std::cerr << "read_dcm_cpp: could not get data "
-                                << "from image " << path << " frame " << i <<
-                                " (" << 
-                                DicomImage::getString(dicomImage.getStatus()) <<
-                                ")" << std::endl; 
+                        SIFT3D_ERR("read_dcm_cpp: could not get data from "
+                                "image %s frame %d (%s)\n", path, i, 
+                                DicomImage::getString(dicomImage.getStatus()));
                         return SIFT3D_FAILURE;
                 }
 
@@ -509,19 +495,18 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
 
         // Verify that the directory exists
 	if (stat(path, &st)) {
-                std::cerr << "read_dcm_dir_cpp: cannot find file " << path <<
-                        std::endl;
+                SIFT3D_ERR("read_dcm_dir_cpp: cannot find file %s \n", path);
                 return SIFT3D_FAILURE;
 	} else if (!S_ISDIR(st.st_mode)) {
-                std::cerr << "read_dcm_dir_cpp: file " << path <<
-                        " is not a directory" << std::endl;
+                SIFT3D_ERR("read_dcm_dir_cpp: file %s is not a directory \n",
+                        path);
                 return SIFT3D_FAILURE;
 	}
 
         // Open the directory
         if ((dir = opendir(path)) == NULL) {
-                std::cerr << "read_dcm_dir_cpp: unexpected error opening " <<
-                        "directory" << std::endl;
+                SIFT3D_ERR("read_dcm_dir_cpp: unexpected error opening "
+                        "directory %s \n", path);
                 return SIFT3D_FAILURE;
         }
 
@@ -555,8 +540,8 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
 
         // Verify that dicom files were found
         if (num_files == 0) {
-                std::cerr << "read_dcm_dir_cpp: no dicom files found in " <<
-                        path << std::endl;
+                SIFT3D_ERR("read_dcm_dir_cpp: no DICOM files found in %s \n",
+                        path);
                 return SIFT3D_FAILURE;
         }
 
@@ -567,10 +552,9 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
                 const Dicom &dicom = dicoms[i];
 
                 if (!first.eqSeries(dicom)) {
-                        std::cerr << "read_dcm_dir_cpp: file " << 
-                                dicom.name() << 
-                                " is from a different series than file " <<
-                                first.name() << std::endl;
+                        SIFT3D_ERR("read_dcm_dir_cpp: file %s is from a "
+                                "different series than file %s \n", 
+                                dicom.name().c_str(), first.name().c_str());
                         return SIFT3D_FAILURE;
                 }
         }
@@ -591,13 +575,12 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
                 // Verify the dimensions
                 if (dicom.getNx() != nx || dicom.getNy() != ny || 
                         dicom.getNc() != nc) {
-                        std::cerr << "read_dcm_dir_cpp: slice " << 
-                                dicom.name() <<
-                                " (" << dicom.getNx() << "x, " << 
-                                dicom.getNy() << "y, " << dicom.getNc() << 
-                                "c) does not match the dimensions of slice " <<
-                                first.name() << "(" << nx << "x, " << ny << 
-                                "y, " << nc << "c). " << std::endl;
+                        SIFT3D_ERR("read_dcm_dir_cpp: slice %s "
+                                "(%d, %d, %d) does not match the "
+                                "dimensions of slice %s (%d, %d, %d) \n",
+                                dicom.name().c_str(), dicom.getNx(), 
+                                dicom.getNy(), dicom.getNc(), 
+                                first.name().c_str(), nx, ny, nc);
                         return SIFT3D_FAILURE;
                 }
 
@@ -674,9 +657,9 @@ static int write_dcm_cpp(const char *path, const Image *const im,
 
         // Ensure the image is monochromatic
         if (im->nc != 1) {
-                std::cerr << "write_dcm_cpp: image has " << im->nc <<
-                        " channels. Currently only single-channel images " <<
-                        "are supported." << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: image %s has %d channels. "
+                        "Currently only signle-channel images are supported.\n",
+                         path, im->nc);
                 return SIFT3D_FAILURE;
         }
 
@@ -701,8 +684,7 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         dataset->putAndInsertString(DCM_SOPClassUID, 
                 UID_CTImageStorage);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the SOPClassUID" <<
-                        std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the SOPClassUID\n");
                 return SIFT3D_FAILURE;
         }
 
@@ -713,24 +695,24 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         } else if (im->nc == 3) {
                 photoInterp = "RGB";
         } else {
-                std::cerr << "write_dcm_cpp: Failed to determine the " <<
-                        "photometric representation for " << im->nc << 
-                        "channels" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: failed to determine the "
+                        "photometric representation for %d channels \n", 
+                        im->nc);
                 return SIFT3D_FAILURE;
         }
         dataset->putAndInsertString(DCM_PhotometricInterpretation,
                 photoInterp);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the " <<
-                        "photometric interpretation" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the photometric "
+                        "interpretation \n");
                 return SIFT3D_FAILURE;
         }
 
         // Set the pixel representation to unsigned
         dataset->putAndInsertUint16(DCM_PixelRepresentation, 0);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the " <<
-                        "pixel representation" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the pixel "
+                        "representation \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -748,8 +730,7 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         dataset->putAndInsertUint16(DCM_BitsStored, dcm_bit_width);
         dataset->putAndInsertUint16(DCM_HighBit, dcm_high_bit);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the " <<
-                        "bit widths" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the bit widths \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -757,8 +738,7 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         status = dataset->putAndInsertString(DCM_PatientName, 
                 meta_new.patient_name);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the " <<
-                        "patient name" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the patient name\n");
                 return SIFT3D_FAILURE;
         }
 
@@ -766,8 +746,7 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         status = dataset->putAndInsertString(DCM_PatientID,
                 meta_new.patient_id);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the " <<
-                        "patient ID" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the patient ID \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -775,8 +754,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         status = dataset->putAndInsertString(DCM_StudyInstanceUID,
                 meta_new.study_uid);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the " <<
-                        "StudyInstanceUID" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the "
+                        "StudyInstanceUID \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -784,8 +763,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         status = dataset->putAndInsertString(DCM_SeriesInstanceUID,
                 meta_new.series_uid);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the " <<
-                        "SeriesInstanceUID" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the "
+                        "SeriesInstanceUID \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -793,8 +772,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         status = dataset->putAndInsertString(DCM_SeriesDescription,
                 meta_new.series_descrip);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the " <<
-                        "series description" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the series "
+                        "description \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -802,8 +781,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         status = dataset->putAndInsertString(DCM_SOPInstanceUID, 
                 meta_new.instance_uid);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the " <<
-                        "SOPInstanceUID"  << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: failed to set the "
+                        "SOPInstanceUID \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -814,8 +793,7 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         OFCondition zstatus = dataset->putAndInsertString(DCM_NumberOfFrames,
                 buf);
         if (xstatus.bad() || ystatus.bad() || zstatus.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the dimensions " <<
-                        std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the dimensions \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -823,8 +801,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         snprintf(buf, BUF_LEN, "%u", meta_new.instance_num);
         status = dataset->putAndInsertString(DCM_InstanceNumber, buf);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the instance " <<
-                        "number" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the instance "
+                        "number \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -836,8 +814,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         snprintf(buf, BUF_LEN, "%f\\%f\\%f", imPosX, imPosY, imPosZ);
         status = dataset->putAndInsertString(DCM_ImagePositionPatient, buf);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the "
-                        "ImagePositionPatient vector" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the "
+                        "ImagePositionPatient vector \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -845,8 +823,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         snprintf(buf, BUF_LEN, "%f", imPosZ);
         status = dataset->putAndInsertString(DCM_SliceLocation, buf);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the slice "
-                        "location" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the slice "
+                        "location \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -854,8 +832,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         snprintf(buf, BUF_LEN, "%f\\%f", im->ux, im->uy);
         status = dataset->putAndInsertString(DCM_PixelSpacing, buf);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the pixel " <<
-                        "spacing" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the pixel "
+                        "spacing \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -863,8 +841,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         snprintf(buf, BUF_LEN, "%f\\%f", im->ux, im->uy);
         status = dataset->putAndInsertString(DCM_PixelAspectRatio, buf);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the pixel " <<
-                        "aspect ratio" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the pixel aspect "
+                        "aspect ratio \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -872,8 +850,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         snprintf(buf, BUF_LEN, "%f", im->uz);
         status = dataset->putAndInsertString(DCM_SliceThickness, buf);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the slice " <<
-                        "thickness" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to set the slice "
+                                "thickness \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -898,8 +876,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
                 const float vox = SIFT3D_IM_GET_VOX(im, x, y, z, c);
 
                 if (vox < 0.0f) {
-                        std::cerr << "write_dcm_cpp: Image cannot be " <<
-                                "negative" << std::endl;                
+                        SIFT3D_ERR("write_dcm_cpp: Image cannot be "
+                                "negative \n");
                         return SIFT3D_FAILURE;
                 }
 
@@ -912,8 +890,7 @@ static int write_dcm_cpp(const char *path, const Image *const im,
                 numPixels);
         delete[] pixelData;
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to set the pixel data " <<
-                        std::endl;
+                SIFT3D_ERR("write_dcm_cpp: failed to set the pixel data \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -928,8 +905,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         dataset->chooseRepresentation(xfer, NULL);
 #endif
         if (!dataset->canWriteXfer(xfer)) {
-                std::cerr << "write_dcm_cpp: Failed to choose the encoding " <<
-                        "format " << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: Failed to choose the encoding "
+                        "format \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -940,8 +917,8 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         // Save the file
         status = fileFormat.saveFile(path, xfer);
         if (status.bad()) {
-                std::cerr << "write_dcm_cpp: Failed to write file " <<
-                        path << " (" << status.text() << ")" << std::endl;
+                SIFT3D_ERR("write_dcm_cpp: failed to write file %s (%s) \n",
+                        path, status.text());
                 return SIFT3D_FAILURE;
         }
 

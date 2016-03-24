@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include "macros.h"
 #include "imutil.h"
 #include "sift.h"
 #include "reg.h"
@@ -85,7 +86,7 @@ static void print_help() {
 
 /* Print an error message */
 static void err_msg(const char *msg) {
-        fprintf(stderr, "regSift3D: %s \n"
+        SIFT3D_ERR("regSift3D: %s \n"
                 "Use \"regSift3D --help\" for more information. \n", msg);
 }
 

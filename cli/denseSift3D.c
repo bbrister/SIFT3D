@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include "macros.h"
 #include "imutil.h"
 #include "sift.h"
 
@@ -46,7 +47,7 @@ const char help_msg[] =
           
 /* Print an error message. */      
 void err_msg(const char *msg) {
-        fprintf(stderr, "%s: %s \n"
+        SIFT3D_ERR("%s: %s \n"
                 "Use \"denseSift3d --help\" for more information. \n", tag, 
                 msg);
 }

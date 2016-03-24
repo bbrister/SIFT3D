@@ -9,11 +9,25 @@
 
 #include "types.h"
 
+#ifdef SIFT3D_MEX
+#include "mex.h"
+#else
+#include "stdio.h"
+#endif
+
 #ifndef _MACROS_H
 #define _MACROS_H
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+// Print an error message
+#ifdef SIFT3D_MEX
+#define SIFT3D_ERR(...) \
+        mexWarnMsgIdAndTxt("sift3d:internal", __VA_ARGS__)
+#else
+#define SIFT3D_ERR(...) fprintf(stderr, __VA_ARGS__)
 #endif
 
 // Math macros
@@ -239,7 +253,7 @@ extern "C" {
                         MACRO(int, ## __VA_ARGS__) \
                         break; \
                 default: \
-                        fprintf(stderr, "imutil: unknown matrix type"); \
+                        SIFT3D_ERR("imutil: unknown matrix type \n"); \
                         goto err_label; \
         } \
 

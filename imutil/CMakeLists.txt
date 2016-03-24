@@ -202,9 +202,10 @@ if (${Matlab_FOUND})
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
         )
+        target_include_directories(meximutil PUBLIC ${Matlab_INCLUDE_DIRS})
         target_include_directories (meximutil PRIVATE 
                 ${DCMTK_INCLUDE_DIRS} ${NIFTI_INCLUDE_DIRS} 
-                ${Matlab_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
+                ${ZLIB_INCLUDE_DIRS})
         target_link_libraries (meximutil PUBLIC ${Matlab_MWLAPACK_LIBRARY} 
                 ${Matlab_MWBLAS_LIBRARY} ${Matlab_LIBRARIES} ${DCMTK_LIBRARIES}
                 ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES} ${M_LIBRARY})

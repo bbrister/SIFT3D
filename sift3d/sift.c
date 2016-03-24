@@ -11,7 +11,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include <stdarg.h>
 #include <math.h>
 #include <assert.h>
@@ -508,7 +507,7 @@ static int init_cl_SIFT3D(SIFT3D *sift3d) {
 int set_peak_thresh_SIFT3D(SIFT3D *const sift3d,
                                 const double peak_thresh) {
         if (peak_thresh <= 0.0) {
-                fprintf(stderr, "SIFT3D peak_thresh must be greater than 0."
+                SIFT3D_ERR("SIFT3D peak_thresh must be greater than 0."
                         " Provided: %f \n", peak_thresh);
                 return SIFT3D_FAILURE;
         }
@@ -522,7 +521,7 @@ int set_corner_thresh_SIFT3D(SIFT3D *const sift3d,
                                 const double corner_thresh) {
 
         if (corner_thresh < 0.0 || corner_thresh > 1.0) {
-                fprintf(stderr, "SIFT3D corner_thresh must be in the interval "
+                SIFT3D_ERR("SIFT3D corner_thresh must be in the interval "
                         "[0, 1]. Provided: %f \n", corner_thresh);
                 return SIFT3D_FAILURE;
         }
@@ -562,7 +561,7 @@ int set_sigma_n_SIFT3D(SIFT3D *const sift3d,
         const double sigma0 = sift3d->gpyr.sigma0;
 
         if (sigma_n < 0.0) {
-                fprintf(stderr, "SIFT3D sigma_n must be nonnegative. Provided: "
+                SIFT3D_ERR("SIFT3D sigma_n must be nonnegative. Provided: "
                         "%f \n", sigma_n);
                 return SIFT3D_FAILURE;
         }
@@ -578,7 +577,7 @@ int set_sigma0_SIFT3D(SIFT3D *const sift3d,
         const double sigma_n = sift3d->gpyr.sigma_n;
 
         if (sigma0 < 0.0) {
-                fprintf(stderr, "SIFT3D sigma0 must be nonnegative. Provided: "
+                SIFT3D_ERR("SIFT3D sigma0 must be nonnegative. Provided: "
                         "%f \n", sigma0);
                 return SIFT3D_FAILURE; 
         } 
@@ -799,7 +798,7 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
 
         // Intialize intermediate data
         if ((processed = calloc(argc, sizeof(char *))) == NULL) {
-                fprintf(stderr, "parse_args_SIFT3D: out of memory \n");
+                SIFT3D_ERR("parse_args_SIFT3D: out of memory \n");
                 return -1;
         }
         err = SIFT3D_FALSE;
@@ -835,7 +834,7 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
                         case NUM_OCTAVES:
                                 // Check for errors
                                 if (ival <= 0) {
-                                        fprintf(stderr, "SIFT3D num_octaves "
+                                        SIFT3D_ERR("SIFT3D num_octaves "
                                                 "must be positive. Provided: "
                                                 "%d \n", ival);
                                         goto parse_args_quit;
@@ -851,7 +850,7 @@ int parse_args_SIFT3D(SIFT3D *const sift3d,
                         case NUM_KP_LEVELS:
                                 // Check for errors                        
                                 if (ival <= 0) {
-                                        fprintf(stderr, "SIFT3D num_kp_levels "
+                                        SIFT3D_ERR("SIFT3D num_kp_levels "
                                                 "must be positive. Provided: "
                                                 "%d \n", ival);
                                         goto parse_args_quit;
@@ -990,13 +989,13 @@ static int resize_SIFT3D(SIFT3D *const sift3d, const int num_octaves,
 
                 // Verify octave parameters
                 if (last_octave < first_octave) {
-                        fputs("resize_SIFT3D: input image is too small: must "
-                              "have at least 8 voxels in each dimension \n",
-                              stderr);
+                        SIFT3D_ERR("resize_SIFT3D: input image is too small: "
+                                "must have at least 8 voxels in each "
+                                "dimension \n");
                         return SIFT3D_FAILURE;
                 }
                 if (num_octaves > max_num_octaves) {
-                        fprintf(stderr, "resize_SIFT3D: num_octaves too large "
+                        SIFT3D_ERR("resize_SIFT3D: num_octaves too large "
                                 "for this image. Max allowed: %d \n", 
                                 max_num_octaves);
                         return SIFT3D_FAILURE;
@@ -1586,13 +1585,13 @@ static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
 
     // Verify inputs
     if (!SIFT3D_IM_CONTAINS_CVEC(im, vcenter)) {
-        fprintf(stderr, "assign_eig_ori: vcenter (%f, %f, %f) lies "
+        SIFT3D_ERR("assign_eig_ori: vcenter (%f, %f, %f) lies "
                 "outside the boundaries of im [%d x %d x %d] \n", 
                 vcenter->x, vcenter->y, vcenter->z, im->nx, im->ny, im->nz);
         return SIFT3D_FAILURE;
     }
     if (sigma < 0) {
-        fprintf(stderr, "assign_eig_ori: invalid sigma: %f \n", sigma);
+        SIFT3D_ERR("assign_eig_ori: invalid sigma: %f \n", sigma);
         return SIFT3D_FAILURE;
     }
 
@@ -1832,7 +1831,7 @@ int SIFT3D_detect_keypoints(SIFT3D *const sift3d, const Image *const im,
 
         // Verify inputs
         if (im->nc != 1) {
-                fprintf(stderr, "SIFT3D_detect_keypoints: invalid number "
+                SIFT3D_ERR("SIFT3D_detect_keypoints: invalid number "
                         "of image channels: %d -- only single-channel images "
                         "are supported \n", im->nc);
                 return SIFT3D_FAILURE;
@@ -2168,8 +2167,7 @@ static int scale_Keypoint(const Keypoint *const src,
 
         // Copy the source keypoint
         if (copy_Keypoint(src, dst)) {
-                fputs("scale_Keypoint: failed to convert keypoints", 
-                        stderr);
+                SIFT3D_ERR("scale_Keypoint: failed to convert keypoints \n");
                 return SIFT3D_FAILURE;
         }
       
@@ -2244,9 +2242,9 @@ int SIFT3D_extract_descriptors(SIFT3D *const sift3d,
 
         // Check if a Gaussian scale-space pyramid is available for processing
         if (!SIFT3D_have_gpyr(sift3d)) {
-                fputs("SIFT3D_extract_descriptors: no Gaussian pyramid is "
+                SIFT3D_ERR("SIFT3D_extract_descriptors: no Gaussian pyramid is "
                         "available. Make sure SIFT3D_detect_keypoints was "
-                        "called prior to calling this function. \n", stderr);
+                        "called prior to calling this function. \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -2267,7 +2265,7 @@ static int verify_keys(const Keypoint_store *const kp, const Image *const im) {
 
 	// Check the number of keypoints
 	if (num < 1) {
-		fprintf(stderr, "verify_keys: invalid number of keypoints: "
+		SIFT3D_ERR("verify_keys: invalid number of keypoints: "
 				"%d \n", num);
 		return SIFT3D_FAILURE;
 	}
@@ -2285,7 +2283,7 @@ static int verify_keys(const Keypoint_store *const kp, const Image *const im) {
                         key->xd * octave_factor >= (double) im->nx || 
                         key->yd * octave_factor >= (double) im->ny || 
                         key->zd * octave_factor >= (double) im->nz) {
-                        fprintf(stderr, "verify_keys: keypoint %d (%f, %f, %f) "
+                        SIFT3D_ERR("verify_keys: keypoint %d (%f, %f, %f) "
                                 "octave %d exceeds image dimensions "
                                 "(%d, %d, %d) \n", i, key->xd, key->yd, key->zd,
                                 key->o, im->nx, im->ny, im->nz);
@@ -2293,7 +2291,7 @@ static int verify_keys(const Keypoint_store *const kp, const Image *const im) {
                 }
 
                 if (key->sd <= 0) {
-                        fprintf(stderr, "verify_keys: keypoint %d has invalid "
+                        SIFT3D_ERR("verify_keys: keypoint %d has invalid "
                                 "scale %f \n", i, key->sd);
                         return SIFT3D_FAILURE;
                 }
@@ -2560,7 +2558,7 @@ int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d,
 
         // Verify inputs
         if (in->nc != 1) {
-                fprintf(stderr, "SIFT3D_extract_dense_descriptors: invalid "
+                SIFT3D_ERR("SIFT3D_extract_dense_descriptors: invalid "
                         "number of channels: %d. This function only supports "
                         "single-channel images. \n", in->nc);
                 return SIFT3D_FAILURE;
@@ -3093,23 +3091,23 @@ static int _SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
 
         // Verify inputs
 	if (num < 1) {
-		fprintf(stderr, "_SIFT3D_nn_match: invalid number of "
+		SIFT3D_ERR("_SIFT3D_nn_match: invalid number of "
 			"descriptors in d1: %d \n", num);
 		return SIFT3D_FAILURE;
 	}
         if (have_dist && dist == NULL) {
-                fputs("_SIFT3D_nn_match: have_dist is true but dist is NULL\n",
-                        stderr);
+                SIFT3D_ERR("_SIFT3D_nn_match: have_dist is true but dist is "
+                        "NULL \n");
                 return SIFT3D_FAILURE;
         }
         if (have_dist) {
                 if (dist->type != DOUBLE) {
-                        fputs("_SIFT3D_nn_match: dist must have type double",
-                              stderr);
+                        SIFT3D_ERR("_SIFT3D_nn_match: dist must have type "
+                                "double");
                         return SIFT3D_FAILURE;
                 }
                 if (dist->num_rows != d1->num || dist->num_cols != d2->num) {
-                        fprintf(stderr, "_SIFT3D_nn_match: dist has dimensions "
+                        SIFT3D_ERR("_SIFT3D_nn_match: dist has dimensions "
                                 "[%d x %d], require [%lu x %lu] \n", 
                                 dist->num_rows, dist->num_cols, d1->num, 
                                 d2->num);
@@ -3120,7 +3118,7 @@ static int _SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
 	// Resize the matches array (num cannot be zero)
 	if ((*matches = (int *) SIFT3D_safe_realloc(*matches, 
 		num * sizeof(int))) == NULL) {
-	    fprintf(stderr, "_SIFT3D_nn_match: out of memory! \n");
+	    SIFT3D_ERR("_SIFT3D_nn_match: out of memory! \n");
 	    return SIFT3D_FAILURE;
 	}
 
@@ -3255,26 +3253,26 @@ int draw_matches(const Image *const left, const Image *const right,
 
         // Verify inputs
         if (concat == NULL && keys == NULL && lines == NULL) {
-                fprintf(stderr, "draw_matches: all outputs are NULL \n");
+                SIFT3D_ERR("draw_matches: all outputs are NULL \n");
                 return SIFT3D_FAILURE;
         }
         if (keys_left == NULL && keys != NULL) {
-                fprintf(stderr, "draw_matches: keys_left is NULL but keys is "
+                SIFT3D_ERR("draw_matches: keys_left is NULL but keys is "
                         "not \n");
                 return SIFT3D_FAILURE;
         }
         if (keys_right == NULL && keys != NULL) {
-                fprintf(stderr, "draw_matches: keys_right is NULL but keys is "
+                SIFT3D_ERR("draw_matches: keys_right is NULL but keys is "
                         "not \n");
                 return SIFT3D_FAILURE;
         }
         if (match_left == NULL && lines != NULL) {
-                fprintf(stderr, "draw_matches: match_left is NULL but lines "
+                SIFT3D_ERR("draw_matches: match_left is NULL but lines "
                         "is not \n");
                 return SIFT3D_FAILURE;
         }
         if (match_right == NULL && lines != NULL) {
-                fprintf(stderr, "draw_matches: match_right is NULL but lines "
+                SIFT3D_ERR("draw_matches: match_right is NULL but lines "
                         "is not \n");
                 return SIFT3D_FAILURE;
         }
@@ -3294,13 +3292,13 @@ int draw_matches(const Image *const left, const Image *const right,
 	        init_im_with_dims(&left_padded, left->nx, ny_pad, nz_pad, 1) ||
 	   	im_pad(right, &right_padded) || 
 	    	im_pad(left, &left_padded)) {
-                fprintf(stderr, "draw_matches: unable to pad images \n");
+                SIFT3D_ERR("draw_matches: unable to pad images \n");
                 return SIFT3D_FAILURE;
 	}
 
 	// Draw a concatenated image
 	if (im_concat(&left_padded, &right_padded, 0, concat_arg)) {
-                fprintf(stderr, "draw_matches: Could not concatenate the "
+                SIFT3D_ERR("draw_matches: Could not concatenate the "
                         "images \n");
                 goto draw_matches_quit;
         }

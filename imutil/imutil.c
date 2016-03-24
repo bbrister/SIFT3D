@@ -694,7 +694,7 @@ int concat_Mat_rm(const Mat_rm * const src1, const Mat_rm * const src2,
 
 	// Verify inputs
 	if (dims1[1 - dim] != dims2[1 - dim]) {
-		fprintf(stderr, "concat_Mat_rm: incompatible dimensions: "
+		SIFT3D_ERR("concat_Mat_rm: incompatible dimensions: "
 			"left: [%d x %d] right: [%d x %d] dim: %d \n", 
                         dims1[0], dims1[1], dims2[0], dims2[1], dim);
 		return SIFT3D_FAILURE;
@@ -706,7 +706,7 @@ int concat_Mat_rm(const Mat_rm * const src1, const Mat_rm * const src2,
 		sprint_type_Mat_rm(src1, type1);
 		sprint_type_Mat_rm(src2, type2);
 
-		fprintf(stderr, "concat_Mat_rm: incompatible types: "
+		SIFT3D_ERR("concat_Mat_rm: incompatible types: "
 			"left: <%s> right: <%s> \n", type1, type2);
 
 		return SIFT3D_FAILURE;
@@ -756,7 +756,7 @@ int concat_Mat_rm(const Mat_rm * const src1, const Mat_rm * const src2,
 		COPY_DATA(int);
 		break;
 	default:
-		fprintf(stderr, "concat_Mat_rm: unknown type \n");
+		SIFT3D_ERR("concat_Mat_rm: unknown type \n");
 		return SIFT3D_FAILURE;
 	}
 
@@ -846,7 +846,7 @@ int resize_Mat_rm(Mat_rm *const mat) {
             type_size = sizeof(int);
             break;
         default:
-            fputs("resize_Mat_rm: unknown type! \n", stderr);
+            SIFT3D_ERR("resize_Mat_rm: unknown type! \n");
 		return SIFT3D_FAILURE;
 	}
 
@@ -860,8 +860,7 @@ int resize_Mat_rm(Mat_rm *const mat) {
 
     // Check for static reallocation
     if (mat->static_mem) {
-        fputs("resize_Mat_rm: illegal re-allocation of static matrix \n", 
-                stderr);
+        SIFT3D_ERR("resize_Mat_rm: illegal re-allocation of static matrix \n");
         return SIFT3D_FAILURE;
     }
 
@@ -1198,7 +1197,7 @@ int im_read(const char *path, Image *const im) {
 
         // Ensure the file exists
         if (stat(path, &st) != 0) {
-                fprintf(stderr, "im_read: failed to find file %s \n", path);
+                SIFT3D_ERR("im_read: failed to find file %s \n", path);
                 return SIFT3D_FILE_DOES_NOT_EXIST;
         }
 
@@ -1219,7 +1218,7 @@ int im_read(const char *path, Image *const im) {
                 break;
         case UNKNOWN:
         default:
-                fprintf(stderr, "im_read: unrecognized file extension "
+                SIFT3D_ERR("im_read: unrecognized file extension "
                         "from file %s \n", path);
                 ret = SIFT3D_UNSUPPORTED_FILE_TYPE;
         }
@@ -1250,7 +1249,7 @@ static int read_nii(const char *path, Image *const im)
 
 	// Read NIFTI file
 	if ((nifti = nifti_image_read(path, 1)) == NULL) {
-		fprintf(stderr, "read_nii: failure loading file %s", path);
+		SIFT3D_ERR("read_nii: failure loading file %s", path);
                 return SIFT3D_FAILURE;
 	}
 
@@ -1264,7 +1263,7 @@ static int read_nii(const char *path, Image *const im)
 
         // Check the dimensionality
 	if (dim_counter > 3) {
-		fprintf(stderr, "read_nii: file %s has unsupported "
+		SIFT3D_ERR("read_nii: file %s has unsupported "
 			"dimensionality %d\n", path, dim_counter);
 		goto read_nii_quit;
 	}
@@ -1330,7 +1329,7 @@ static int read_nii(const char *path, Image *const im)
 	case NIFTI_TYPE_COMPLEX256:
 	case NIFTI_TYPE_COMPLEX64:
 	default:
-		fprintf(stderr, "read_nii: unsupported datatype %s \n",
+		SIFT3D_ERR("read_nii: unsupported datatype %s \n",
 			nifti_datatype_string(nifti->datatype));
                 goto read_nii_quit;
 	}
@@ -1377,7 +1376,7 @@ int im_write(const char *path, const Image *const im) {
 
                 // Create the directory
                 if (do_mkdir(path, out_mode)) {
-                        fprintf(stderr, "im_write: failed to create directory "
+                        SIFT3D_ERR("im_write: failed to create directory "
                                 "%s \n", path);
                         return SIFT3D_FAILURE;
                 }
@@ -1386,7 +1385,7 @@ int im_write(const char *path, const Image *const im) {
         case UNKNOWN:
         default:
                 // Otherwise, the file extension was not found
-                fprintf(stderr, "im_write: unrecognized file extension "
+                SIFT3D_ERR("im_write: unrecognized file extension "
                         "from file %s \n", path);
 
                 return SIFT3D_UNSUPPORTED_FILE_TYPE;
@@ -1409,7 +1408,7 @@ static int write_nii(const char *path, const Image *const im)
 
 	// Verify inputs
 	if (im->nc != 1) {
-		fprintf(stderr, "write_nii: unsupported number of "
+		SIFT3D_ERR("write_nii: unsupported number of "
 			"channels: %d. This function only supports single-"
 			"channel images.", im->nc);
 		return SIFT3D_FAILURE;
@@ -1676,12 +1675,12 @@ int im_resize(Image *const im)
 		if (dim > 0)
 			continue;
 
-		fprintf(stderr, "im_resize: invalid dimension %d: %d \n", i,
+		SIFT3D_ERR("im_resize: invalid dimension %d: %d \n", i,
 			dim);
 		return SIFT3D_FAILURE;
 	}
 	if (im->nc < 1) {
-		fprintf(stderr, "im_resize: invalid number of channels: %d \n",
+		SIFT3D_ERR("im_resize: invalid number of channels: %d \n",
 			im->nc);
 		return SIFT3D_FAILURE;
 	}
@@ -1764,14 +1763,14 @@ int im_concat(const Image * const src1, const Image * const src2, const int dim,
 		if (i == dim)
 			continue;
 		if (src1d != src2d) {
-			fprintf(stderr, "im_concat: dimension %d must be "
+			SIFT3D_ERR("im_concat: dimension %d must be "
 				"equal in input images. src1: %d src2: %d \n",
 				i, src1d, src2d);
 			return SIFT3D_FAILURE;
 		}
 	}
 	if (src1->nc != src2->nc) {
-		fprintf(stderr, "im_concat: images must have an equal number "
+		SIFT3D_ERR("im_concat: images must have an equal number "
 			"of channels. src1: %d src2: %d \n", src1->nc,
 			src2->nc);
 		return SIFT3D_FAILURE;
@@ -2072,7 +2071,7 @@ int im_channel(const Image * const src, Image * const dst,
 
 	// Verify inputs
 	if (c >= src->nc) {
-		fprintf(stderr, "im_channel: invalid channel: %d, image has "
+		SIFT3D_ERR("im_channel: invalid channel: %d, image has "
 			"%d channels", c, src->nc);
 		return SIFT3D_FAILURE;
 	}
@@ -2205,7 +2204,7 @@ int im_inv_transform(const void *const tform, const Image * const src,
 		IMUTIL_RESAMPLE(lanczos2)
 		    break;
 	default:
-		fprintf(stderr, "im_inv_transform: unrecognized "
+		SIFT3D_ERR("im_inv_transform: unrecognized "
 			"interpolation type");
 		return SIFT3D_FAILURE;
 	}
@@ -2749,7 +2748,7 @@ static int copy_Affine(const void *const src, void *const dst)
 /* Deep copy of one TPS to another. Both must be initialized. */
 static int copy_Tps(const void *const src, void *const dst)
 {
-	fputs("copy_Tps has not yet been implemented!", stderr);
+	SIFT3D_ERR("copy_Tps has not yet been implemented!");
 	return SIFT3D_FAILURE;
 }
 
@@ -2953,7 +2952,7 @@ size_t tform_type_get_size(const tform_type type)
 	case TPS:
 		return Tps_vtable.get_size();
 	default:
-		fprintf(stderr, "tform_type_get_size: unrecognized " "type \n");
+		SIFT3D_ERR("tform_type_get_size: unrecognized " "type \n");
 		return 0;
 	}
 }
@@ -2991,7 +2990,7 @@ static int write_Tps(const char *path, const void *const tform)
 SIFT3D_IGNORE_UNUSED
 	const Tps *const tps = tform;
 
-	fputs("write_Tps: this function has not yet been implemented.", stderr);
+	SIFT3D_ERR("write_Tps: this function has not yet been implemented.");
 	return SIFT3D_FAILURE;
 }
 
@@ -3596,7 +3595,7 @@ int apply_Sep_FIR_filter(const Image * const src, Image * const dst,
 
         // Verify inputs
         if (unit < 0 && unit != unit_default) {
-                fprintf(stderr, "apply_Sep_FIR_filter: invalid unit: %f, use "
+                SIFT3D_ERR("apply_Sep_FIR_filter: invalid unit: %f, use "
                         "%f for default \n", unit, unit_default);
                 return SIFT3D_FAILURE;
         }
@@ -3690,7 +3689,7 @@ int init_Sep_FIR_filter(Sep_FIR_filter *const f, const int dim, const int width,
 
         // Allocate the kernel memory
         if ((f->kernel = (float *) malloc(kernel_size)) == NULL) {
-                fputs("init_Sep_FIT_filter: out of memory! \n", stderr);
+                SIFT3D_ERR("init_Sep_FIT_filter: out of memory! \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -3847,7 +3846,7 @@ int init_Gauss_incremental_filter(Gauss_filter * const gauss,
 	double sigma;
 
 	if (s_cur > s_next) {
-                fprintf(stderr, "init_Gauss_incremental_filter: "
+                SIFT3D_ERR("init_Gauss_incremental_filter: "
                                 "s_cur (%f) > s_next (%f) \n", s_cur, s_next);
                 return SIFT3D_FAILURE;
         }
@@ -3893,7 +3892,7 @@ int make_gss(GSS_filters * const gss, const Pyramid * const pyr)
 
 	// Verify inputs
 	if (num_filters < 1) {
-		fprintf(stderr, "make_gss: pyr has only %d levels, must have "
+		SIFT3D_ERR("make_gss: pyr has only %d levels, must have "
 				"at least 2", pyr->num_levels);
 		return SIFT3D_FAILURE;
 	}
@@ -4002,7 +4001,7 @@ int resize_Pyramid(const Image *const im, const int first_level,
 
         // Verify inputs
         if (num_levels < num_kp_levels) {
-                fprintf(stderr, "resize_Pyramid: num_levels (%u) < "
+                SIFT3D_ERR("resize_Pyramid: num_levels (%u) < "
                         "num_kp_levels (%d)", num_levels, num_kp_levels);
                 return SIFT3D_FAILURE;
         }
@@ -4103,7 +4102,7 @@ int set_scales_Pyramid(const double sigma0, const double sigma_n,
                 // Verify that sigma_n is not too large
                 if (o == pyr->first_octave && s == pyr->first_level && 
                         scale < sigma_n) {
-                        fprintf(stderr, "set_scales_Pyramid: sigma_n too large "
+                        SIFT3D_ERR("set_scales_Pyramid: sigma_n too large "
                                 "for these settings. Max allowed: %f \n", 
                                 scale - DBL_EPSILON);
                         return SIFT3D_FAILURE;
@@ -4239,7 +4238,7 @@ int write_pyramid(const char *path, Pyramid * pyr)
 /* Exit and print a message to stdout. */
 void err_exit(const char *str)
 {
-	fprintf(stderr, "Error! Exiting at %s \n", str);
+	SIFT3D_ERR("Error! Exiting at %s \n", str);
 	exit(1);
 }
 
@@ -4374,7 +4373,7 @@ int set_err_thresh_Ransac(Ransac *const ran, double err_thresh)
 {
 
 	if (err_thresh < 0.0) {
-		fprintf(stderr, "set_err_thresh_Ransac: invalid error "
+		SIFT3D_ERR("set_err_thresh_Ransac: invalid error "
 			"threshold: %f \n", err_thresh);
 		return SIFT3D_FAILURE;
 	}
@@ -4388,7 +4387,7 @@ int set_err_thresh_Ransac(Ransac *const ran, double err_thresh)
 int set_num_iter_Ransac(Ransac *const ran, int num_iter)
 {
         if (num_iter < 1) {
-                fprintf(stderr, "set_num_iter_Ransac: invalid number of "
+                SIFT3D_ERR("set_num_iter_Ransac: invalid number of "
                                 "iterations: %d \n", num_iter);
                 return SIFT3D_FAILURE;
         }
@@ -5153,5 +5152,5 @@ int parse_gnu(const int argc, char *const *argv)
 /* Print the bug message to stderr. */
 void print_bug_msg()
 {
-	fputs(bug_msg, stderr);
+	SIFT3D_ERR(bug_msg);
 }

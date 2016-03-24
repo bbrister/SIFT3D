@@ -7,7 +7,6 @@
  * -----------------------------------------------------------------------------
  */
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -44,11 +43,11 @@ static int im2mm(const Mat_rm *const im, const double *const units,
 
         // Verify inputs
         if (im->num_cols != IM_NDIMS) {
-                fputs("im2mm: input must have IM_NDIMS columns. \n", stderr);
+                SIFT3D_ERR("im2mm: input must have IM_NDIMS columns. \n");
                 return SIFT3D_FAILURE;
         }
         if (im->type != DOUBLE) {
-                fputs("im2mm: input must have type double. \n", stderr);
+                SIFT3D_ERR("im2mm: input must have type double. \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -88,7 +87,7 @@ static int mm2im(const double *const src_units, const double *const ref_units,
 
                         // Verify the dimensions
                         if (A->num_rows != IM_NDIMS) {
-                                fprintf(stderr, "mm2im: Invalid transform "
+                                SIFT3D_ERR("mm2im: Invalid transform "
                                         "dimensionality: %d \n", A->num_rows);
                                 return SIFT3D_FAILURE;
                         }
@@ -106,7 +105,7 @@ static int mm2im(const double *const src_units, const double *const ref_units,
                 }
                 break; 
         default:
-                fputs("mm2im: unsupported transform type. \n", stderr);
+                SIFT3D_ERR("mm2im: unsupported transform type. \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -127,7 +126,7 @@ int init_Reg_SIFT3D(Reg_SIFT3D *const reg) {
 	if (init_SIFT3D(&reg->sift3d) ||
                 init_Mat_rm(&reg->match_src, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 		init_Mat_rm(&reg->match_ref, 0, 0, DOUBLE, SIFT3D_FALSE)) {
-                fprintf(stderr, "register_SIFT3D: unexpected error \n");
+                SIFT3D_ERR("register_SIFT3D: unexpected error \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -154,7 +153,7 @@ void cleanup_Reg_SIFT3D(Reg_SIFT3D *const reg) {
 int set_nn_thresh_Reg_SIFT3D(Reg_SIFT3D *const reg, const double nn_thresh) {
 
         if (nn_thresh <= 0 || nn_thresh > 1) {
-                fprintf(stderr, "set_nn_thresh_Reg_SIFT3D: invalid threshold: "
+                SIFT3D_ERR("set_nn_thresh_Reg_SIFT3D: invalid threshold: "
                         "%f \n", nn_thresh);
                 return SIFT3D_FAILURE;
         }
@@ -188,14 +187,14 @@ int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const src) {
 
         // Detect keypoints
 	if (SIFT3D_detect_keypoints(sift3d, src, kp_src)) {
-		fprintf(stderr, "set_src_Reg_SIFT3D: failed to detect source "
+		SIFT3D_ERR("set_src_Reg_SIFT3D: failed to detect source "
                         "keypoints\n");
                 return SIFT3D_FAILURE;
         }
 
         // Extract descriptors
 	if (SIFT3D_extract_descriptors(sift3d, kp_src, desc_src)) {
-                fprintf(stderr, "set_ref_Reg_SIFT3D: failed to extract source "
+                SIFT3D_ERR("set_ref_Reg_SIFT3D: failed to extract source "
                                 "descriptors \n");
                 return SIFT3D_FAILURE;
         }
@@ -216,14 +215,14 @@ int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const ref) {
 
         // Detect keypoints
         if (SIFT3D_detect_keypoints(sift3d, ref, kp_ref)) {
-		fprintf(stderr, "set_ref_Reg_SIFT3D: failed to detect "
+		SIFT3D_ERR("set_ref_Reg_SIFT3D: failed to detect "
 			"reference keypoints\n");
                 return SIFT3D_FAILURE;
         }
 
         // Extract descriptors
 	if (SIFT3D_extract_descriptors(sift3d, kp_ref, desc_ref)) {
-		fprintf(stderr, "set_ref_Reg_SIFT3D: failed to extract "
+		SIFT3D_ERR("set_ref_Reg_SIFT3D: failed to extract "
 			"reference descriptors\n");
                 return SIFT3D_FAILURE;
         }
@@ -254,28 +253,28 @@ int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
 
 	// Verify inputs
 	if (desc_src->num <= 0) {
-		fprintf(stderr, "register_SIFT3D: no source image descriptors "
+		SIFT3D_ERR("register_SIFT3D: no source image descriptors "
 			"are available \n");
 		return SIFT3D_FAILURE;
 	}
 	if (desc_ref->num <= 0) {
-		fprintf(stderr, "register_SIFT3D: no reference image "
+		SIFT3D_ERR("register_SIFT3D: no reference image "
 			"descriptors are available \n");
 		return SIFT3D_FAILURE;
 	}
 
 	// Match features
 	if (SIFT3D_nn_match_fb(desc_src, desc_ref, nn_thresh, matches)) {
-		fprintf(stderr, "register_SIFT3D: failed to match "
-                                "descriptors \n");
+		SIFT3D_ERR("register_SIFT3D: failed to match "
+                        "descriptors \n");
                 return SIFT3D_FAILURE;
         }
 
         // Convert matches to coordinate matrices
 	if (SIFT3D_matches_to_Mat_rm(desc_src, desc_ref, *matches,
 				     match_src, match_ref)) {
-		fprintf(stderr, "register_SIFT3D: failed to extract "
-                                "coordinate matrices \n");
+		SIFT3D_ERR("register_SIFT3D: failed to extract "
+                        "coordinate matrices \n");
                 return SIFT3D_FAILURE;
         }
 
@@ -286,7 +285,7 @@ int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
         // Initialize intermediates
         if (init_Mat_rm(&match_src_mm, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 	        init_Mat_rm(&match_ref_mm, 0, 0, DOUBLE, SIFT3D_FALSE)) {
-                fprintf(stderr, "register_SIFT3D: failed initialization \n");
+                SIFT3D_ERR("register_SIFT3D: failed initialization \n");
                 return SIFT3D_FAILURE;
         }
 
