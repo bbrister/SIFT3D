@@ -45,30 +45,12 @@ function keys = detectSift3D(im, varargin)
 
 % Option names
 unitsStr = 'units';
-peakThreshStr = 'peakThresh';
-cornerThreshStr = 'cornerThresh';
-numOctavesStr = 'numOctaves';
-numKpLevelsStr = 'numKpLevels';
-sigmaNStr = 'sigmaN';
-sigma0Str = 'sigma0';
 
 % Parse options
-parser = inputParser;
+parser = Sift3DParser;
 parser.addParamValue(unitsStr, [])
-parser.addParamValue(peakThreshStr, [])
-parser.addParamValue(cornerThreshStr, [])
-parser.addParamValue(numOctavesStr, [])
-parser.addParamValue(numKpLevelsStr, [])
-parser.addParamValue(sigmaNStr, [])
-parser.addParamValue(sigma0Str, [])
-parse(parser, varargin{:})
+optStruct = parser.parseAndVerify(varargin{:});
 units = parser.Results.units;
-peakThresh = parser.Results.peakThresh;
-cornerThresh = parser.Results.cornerThresh;
-numOctaves = parser.Results.numOctaves;
-numKpLevels = parser.Results.numKpLevels;
-sigmaN = parser.Results.sigmaN;
-sigma0 = parser.Results.sigma0;
 
 % Verify inputs
 narginchk(1, inf)
@@ -79,46 +61,10 @@ if ndims(im) ~= 3
     error(['im must have 3 dimensions, detected ' num2str(ndims(im))]);
 end
 units = checkUnits3D(units);
-if ~isempty(peakThresh)
-    validateattributes(peakThresh, {'numeric'}, ...
-        {'real', 'positive', 'scalar'}, 'peakThresh')
-end
-if ~isempty(cornerThresh)
-    validateattributes(cornerThresh, {'numeric'}, ...
-        {'real', 'nonnegative', 'scalar', '<=', 1}, 'cornerThresh')
-end
-if ~isempty(numOctaves)
-    validateattributes(numOctaves, {'numeric'}, ...
-        {'real', 'integer', 'scalar', 'positive'}, 'numOctaves')
-end
-if ~isempty(numKpLevels)
-    validateattributes(numKpLevels, {'numeric'}, ...
-        {'real', 'integer', 'scalar', 'positive'}, 'numKpLevels')
-end
-if ~isempty(sigmaN)
-    validateattributes(sigmaN, {'numeric'}, ...
-        {'real', 'positive', 'scalar'}, 'sigmaN')
-end
-if ~isempty(sigma0)
-    validateattributes(sigma0, {'numeric'}, ...
-        {'real', 'positive', 'scalar'}, 'sigma0')
-end
-if sigmaN >= sigma0
-    error('Cannot have sigmaN >= sigma0')
-end
 
 % Scale and convert the image to single precision
 im = single(im);
 im = im / (max(im(:)) + eps);
-
-% Collect the options in a struct
-optStruct = struct( ...
-    peakThreshStr, peakThresh, ...
-    cornerThreshStr, cornerThresh, ...
-    numOctavesStr, numOctaves, ...
-    numKpLevelsStr, numKpLevels, ...
-    sigmaNStr, sigmaN, ...
-    sigma0Str, sigma0);
 
 % Detect features
 keys = mexDetectSift3D(im, units, optStruct);

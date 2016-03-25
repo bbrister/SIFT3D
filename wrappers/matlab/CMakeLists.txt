@@ -7,7 +7,7 @@
 # Enumerate the Matlab scripts for testing and installation
 set (INSTALL_SCRIPTS setupSift3D.m imRead3D.m imWrite3D.m detectSift3D.m
         extractSift3D.m orientation3D.m keypoint3D.m registerSift3D.m 
-        checkUnits3D.m)
+        checkUnits3D.m Sift3DParser.m)
 set (TEST_SCRIPTS Sift3DTest.m)
 
 # Build the mex utility library
