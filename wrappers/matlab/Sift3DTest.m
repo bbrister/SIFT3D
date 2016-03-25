@@ -90,7 +90,7 @@ classdef Sift3DTest < TestCase
             [im1, units1] = imRead3D(self.im1Name);
             
             % Detect keypoints using matlab
-            keys = detectSift3D(im1, units1);
+            keys = detectSift3D(im1, 'units', units1);
             
             % Check the dimensions
             assertEqual(size(kpCli, 1), length(keys));
@@ -143,7 +143,7 @@ classdef Sift3DTest < TestCase
                 [im1, units1] = imRead3D(self.im1Name);
                 
                 % Extract descriptors using matlab
-                keys = detectSift3D(im1, units1);
+                keys = detectSift3D(im1, 'units', units1);
                 [desc, coords] = extractSift3D(keys);
                 
                 % Check the dimensions
@@ -182,7 +182,7 @@ classdef Sift3DTest < TestCase
             [im1, units1] = imRead3D(self.im1Name);
             
             % Detect keypoints
-            keys = detectSift3D(im1, units1);
+            keys = detectSift3D(im1, 'units', units1);
             
             % Extract descriptors using the pyramid
             [descPyr, coordsPyr] = extractSift3D(keys);
@@ -207,7 +207,7 @@ classdef Sift3DTest < TestCase
            [im, units] = imRead3D(self.im1Name);
            
            % Detect keypoints
-           keys = detectSift3D(im, units);
+           keys = detectSift3D(im, 'units', units);
            
            % Assign orientations to those same keypoints
            keysRaw = orientation3D(keys, im, units);
@@ -247,7 +247,7 @@ classdef Sift3DTest < TestCase
             [im, units] = imRead3D(self.im1Name);
             
             % Extract keypoints
-            keys = detectSift3D(im, units);
+            keys = detectSift3D(im, 'units', units);
             
             % Check the keypoints
             for i = 1 : length(keys)
@@ -340,7 +340,7 @@ classdef Sift3DTest < TestCase
             
             % Register the original to the anisotropic image
             A = registerSift3D(im, imAniso, 'srcUnits', units, ...
-                'refUnits', unitsAniso);
+                'refUnits', unitsAniso, 'resample', true);
             
             % Form the reference (ground truth) transformation
             refA = [eye(3) zeros(3, 1)];
@@ -838,7 +838,7 @@ function status = runCmd(cmd)
 
 % The CLI is not supported on Windows
 if ispc
-    warning(['The command-line interface is not supported in the '...
+    warning(['The command-line interface is not supported in the ' ...
         'Windows version of SIFT3D'])
 end
 
