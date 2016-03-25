@@ -17,7 +17,7 @@
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
         const mxArray *mxSrc, *mxRef, *mxSrcUnits, *mxRefUnits, *mxResample,
-                *mxOpts;
+                *mxRegOpts, *mxSIFT3DOpts;
         Image src, ref;
         Affine aff;
         Mat_rm match_src, match_ref;
@@ -38,8 +38,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         }
 
 	// Verify the number of inputs
-	if (nrhs != 6)
-                err_msg("main:numInputs", "This function takes 6 inputs.");
+	if (nrhs != 7)
+                err_msg("main:numInputs", "This function takes 7 inputs.");
 
         // Verify the number of outputs
         if (nlhs > 3)
@@ -51,7 +51,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mxSrcUnits = prhs[2];
         mxRefUnits = prhs[3];
         mxResample = prhs[4];
-        mxOpts = prhs[5];
+        mxRegOpts = prhs[5];
+        mxSIFT3DOpts = prhs[6];
 
         // Verify the resampling option
         if (!mxIsLogicalScalar(mxResample))
@@ -75,9 +76,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                         "reference image.", SIFT3D_TRUE);
 
         // Set the options
-        if (mex_set_opts_Reg_SIFT3D(mxOpts))
-                CLEAN_AND_QUIT("main:setOpts", "Failed to set the options.", 
-                        SIFT3D_FALSE);
+        if (mex_set_opts_Reg_SIFT3D(mxRegOpts))
+                CLEAN_AND_QUIT("main:setOpts", "Failed to set the registration "
+                                "options.", SIFT3D_FALSE);
+        if (mex_set_opts_SIFT3D(mxSIFT3DOpts))
+                CLEAN_AND_QUIT("main:setOpts", "Failed to set the SIFT3D "
+                                "options.", SIFT3D_FALSE);
 
         // Register the images
         if (mxIsLogicalScalarTrue(mxResample)) {

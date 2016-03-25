@@ -63,14 +63,14 @@ errThreshStr = 'errThresh';
 resampleStr = 'resample';
 
 % Parse options
-parser = inputParser;
+parser = Sift3DParser;
 parser.addParamValue(srcUnitsStr, [])
 parser.addParamValue(refUnitsStr, [])
 parser.addParamValue(numIterStr, [])
 parser.addParamValue(nnThreshStr, [])
 parser.addParamValue(errThreshStr, [])
 parser.addOptional(resampleStr, false)
-parse(parser, varargin{:})
+sift3DOpts = parser.parseAndVerify(varargin{:});
 srcUnits = parser.Results.srcUnits;
 refUnits = parser.Results.refUnits;
 numIter = parser.Results.numIter;
@@ -107,13 +107,13 @@ src = imFormat(src);
 ref = imFormat(ref);
 
 % Collect the options in a struct
-optStruct = struct(numIterStr, numIter, ...
+regOpts = struct(numIterStr, numIter, ...
     nnThreshStr, nnThresh, ...
     errThreshStr, errThresh);
 
 % Register
 [A, matchSrc, matchRef] = mexRegisterSift3D(src, ref, srcUnits, ...
-    refUnits, resample, optStruct);
+    refUnits, resample, regOpts, sift3DOpts);
 end
 
 % Helper function to convert images to single precision and scale to [0,1]
