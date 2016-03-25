@@ -20,9 +20,9 @@ function [A, matchSrc, matchRef] = registerSift3D(src, ref, varargin)
 %       This is a threshold on the squared Euclidean distance in real-world
 %       units. (Default: 5.0)
 %    numIter - The number of RANSAC iterations. (Default: 500)
-%    resample - If given, resamples src and ref to have the same resolution
+%    resample - If true, resamples src and ref to have the same resolution
 %       prior to registration. This is slow. Use it when the inputs have
-%       vastly different units.
+%       vastly different units. (Default: false)
 %
 %  Return values:
 %    A - A [4x3] matrix giving an affine transformation from the
@@ -44,10 +44,11 @@ function [A, matchSrc, matchRef] = registerSift3D(src, ref, varargin)
 %
 %    % Register with units
 %    [A, matchSrc, matchRef] = registerSift3D(src, ref, 'srcUnits', ...
-%       [1 1 1], 'refUnits', [1 1 5], 'resample');
+%       [1 1 1], 'refUnits', [1 1 5], 'resample', true);
 %
 %    % Register without units
-%    [A, matchSrc, matchRef] = registerSift3D(src, ref, 'resample');
+%    [A, matchSrc, matchRef] = registerSift3D(src, ref);
+%
 %
 %  See also:
 %    imRead3D, imWrite3D, setupSift3D
@@ -69,7 +70,7 @@ parser.addParamValue(refUnitsStr, [])
 parser.addParamValue(numIterStr, [])
 parser.addParamValue(nnThreshStr, [])
 parser.addParamValue(errThreshStr, [])
-parser.addOptional(resampleStr, false)
+parser.addParamValue(resampleStr, false)
 sift3DOpts = parser.parseAndVerify(varargin{:});
 srcUnits = parser.Results.srcUnits;
 refUnits = parser.Results.refUnits;

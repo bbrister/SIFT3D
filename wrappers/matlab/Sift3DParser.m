@@ -35,7 +35,7 @@ classdef Sift3DParser < inputParser
         function optStruct = parseAndVerify(self, varargin)
             
             % Parse the input
-            parse(self, varargin{:})
+            self.parse(varargin{:})
               
             % Retrieve the results
             peakThresh = self.Results.peakThresh;
