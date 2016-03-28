@@ -506,9 +506,9 @@ static int init_cl_SIFT3D(SIFT3D *sift3d) {
 /* Sets the peak threshold, checking that it is in the interval (0, inf) */
 int set_peak_thresh_SIFT3D(SIFT3D *const sift3d,
                                 const double peak_thresh) {
-        if (peak_thresh <= 0.0) {
-                SIFT3D_ERR("SIFT3D peak_thresh must be greater than 0."
-                        " Provided: %f \n", peak_thresh);
+        if (peak_thresh <= 0.0 || peak_thresh > 1) {
+                SIFT3D_ERR("SIFT3D peak_thresh must be in the interval (0, 1]. "
+                        "Provided: %f \n", peak_thresh);
                 return SIFT3D_FAILURE;
         }
 
@@ -1205,6 +1205,7 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 			dogmax = SIFT3D_MAX(dogmax, 
                                 fabsf(SIFT3D_IM_GET_VOX(cur, x, y, z, 0)));
 		SIFT3D_IM_LOOP_END
+
 		// Adjust threshold
 		peak_thresh = sift3d->peak_thresh * dogmax;
 
