@@ -48,7 +48,7 @@ classdef Sift3DParser < inputParser
             % Verify the results
             if ~isempty(peakThresh)
                 validateattributes(peakThresh, {'numeric'}, ...
-                    {'real', 'positive', 'scalar'}, 'peakThresh', '<=', 1)
+                    {'real', 'positive', 'scalar', '<=', 1}, 'peakThresh')
             end
             if ~isempty(cornerThresh)
                 validateattributes(cornerThresh, {'numeric'}, ...
