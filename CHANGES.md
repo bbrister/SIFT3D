@@ -32,8 +32,9 @@
 
 ## 1.3.0
 
-* Control parameters for keypoint detection from Matlab
-* Control registration parameters from Matlab and CLI
+* Add parameters for keypoint detection to Matlab interface
+* Add registration parameters to Matlab and CLI
+* Default in Matlab to faster version of image registration that avoids resampling
 * Improved error handling
 * Removed unused, faulty options
 * Print internal error messages to the Matlab command prompt
