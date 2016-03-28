@@ -24,6 +24,18 @@ function [A, matchSrc, matchRef] = registerSift3D(src, ref, varargin)
 %       prior to registration. This is slow. Use it when the inputs have
 %       vastly different units. (Default: false)
 %
+%  SIFT3D options:
+%    This function also accepts the following options controlling keypoint
+%    detection:
+%      peakThresh
+%      cornerThresh
+%      numOctaves
+%      numKpLevels
+%      sigmaN
+%      sigma0
+%
+%    See detectSift3D.m for the meaning and format of these options. 
+%
 %  Return values:
 %    A - A [4x3] matrix giving an affine transformation from the
 %      coordinates of ref to those of src. The transformation can be
@@ -44,7 +56,7 @@ function [A, matchSrc, matchRef] = registerSift3D(src, ref, varargin)
 %
 %    % Register with units
 %    [A, matchSrc, matchRef] = registerSift3D(src, ref, 'srcUnits', ...
-%       [1 1 1], 'refUnits', [1 1 5], 'resample', true);
+%       srcUnits, 'refUnits', refUnits, 'resample', true);
 %
 %    % Register without units
 %    [A, matchSrc, matchRef] = registerSift3D(src, ref);
