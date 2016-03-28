@@ -11,3 +11,6 @@
 % Register
 [A, matchSrc, matchRef] = registerSift3D(src, ref, 'srcUnits', ...
     srcUnits, 'refUnits', refUnits);
+
+% Clear MEX memory
+clear mex

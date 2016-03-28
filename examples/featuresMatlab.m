@@ -8,7 +8,10 @@
 [im, units] = imRead3D('data/1.nii.gz');
 
 % Detect keypoints
-keys = detectSift3D(im, units);
+keys = detectSift3D(im, 'units', units);
 
 % Extract descriptors
 [desc, coords] = extractSift3D(keys);
+
+% Clear MEX memory
+clear mex
