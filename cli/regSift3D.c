@@ -78,7 +78,8 @@ static void print_help() {
 	" --resample - Internally resample the images to have the same \n"
 	"	physical resolution. This is slow. Use it when the images \n"
 	"	have very different resolutions, for example registering 5mm \n"
-	"	to 1mm slices. \n",
+	"	to 1mm slices. \n"
+        "\n",
         SIFT3D_nn_thresh_default, SIFT3D_err_thresh_default, 
         SIFT3D_num_iter_default);
         print_opts_SIFT3D();
