@@ -201,7 +201,7 @@ static int rand_rows(const Mat_rm *const in1, const Mat_rm *const in2,
         const int num_rows, Mat_rm *const out1, Mat_rm *const out2);
 static int make_spline_matrix(Mat_rm * src, Mat_rm * src_in, Mat_rm * sp_src,
 			      int K_terms, int *r, int dim);
-static int make_affine_matrix(const Mat_rm const* pts_in, const int dim, 
+static int make_affine_matrix(const Mat_rm *const pts_in, const int dim, 
         Mat_rm *const mat_out);
 static Mat_rm *extract_ctrl_pts(void *tform, tform_type type);
 static Mat_rm *extract_ctrl_pts_Tps(Tps * tps);
@@ -4675,7 +4675,7 @@ static int make_spline_matrix(Mat_rm * src, Mat_rm * src_in, Mat_rm * sp_src,
 }
 
 //make the system matrix for affine
-static int make_affine_matrix(const Mat_rm const* pts_in, const int dim, 
+static int make_affine_matrix(const Mat_rm *const pts_in, const int dim, 
         Mat_rm *const mat_out)
 {
 
