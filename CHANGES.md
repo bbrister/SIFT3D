@@ -30,7 +30,7 @@
 * Allow arbitrary output sizes in im_inv_transform
 * Minor bug fixes
 
-## 1.3.0
+## 1.3.0 March 28, 2016
 
 * Add parameters for keypoint detection to Matlab interface
 * Add registration parameters to Matlab and CLI
