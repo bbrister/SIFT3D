@@ -3,10 +3,9 @@
 % Run this script to set up the paths for the SIFT3D matlab toolbox. For 
 % example, add the following line to your startup.m file:
 % 
-%   run('/path/to/SIFT3D/build/setupSift3D.m')
+%   run('/path/to/sift3d/lib/wrappers/matlab/setupSift3D.m')
 %
-% where /path/to/SIFT3D/build is the path to the build directory of your
-% SIFT3D installation.
+% where /path/to/sift3d/ is the path to the your SIFT3D installation.
 %
 % See also:
 %   imRead3D, imWrite3D, detectSift3D, extractSift3D, keypoint3D
