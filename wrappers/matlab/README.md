@@ -13,8 +13,6 @@ This is a Matlab toolbox wrapping SIFT3D. It contains the following functions:
 - imRead3D.m - Read 2D and 3D images in DICOM and NIFTI formats.
 - imWrite3D.m - Write 2D and 3D images in DICOM and NIFTI formats.
 
-This toobox does not include all of SIFT3D's functionality, but we are adding more soon.
-
 ## Installation instructions
 
 If you installed SIFT3D from binaries, a Matlab toolbox is included in the lib/wrappers/matlab subdirectory of your installation. If you compiled SIFT3D from source, the toolbox will be built only if Matlab was detected in your system.
