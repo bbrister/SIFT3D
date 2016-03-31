@@ -29,7 +29,6 @@ function [A, matchSrc, matchRef] = registerSift3D(src, ref, varargin)
 %    detection:
 %      peakThresh
 %      cornerThresh
-%      numOctaves
 %      numKpLevels
 %      sigmaN
 %      sigma0

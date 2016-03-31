@@ -662,7 +662,6 @@ int mexHaveGpyr(void) {
  * a struct with the following fields:
  *      -peakThresh
  *      -cornerThresh
- *      -numOctaves
  *      -numKpLevels
  *      -sigmaN
  *      -sigma0
@@ -674,7 +673,7 @@ int mex_set_opts_SIFT3D(const mxArray *const mx) {
 
         SIFT3D sift3d;
         const mxArray *mxFirstOctave, *mxPeakThresh, *mxCornerThresh, 
-                *mxNumOctaves, *mxNumKpLevels, *mxSigmaN, *mxSigma0;
+                *mxNumKpLevels, *mxSigmaN, *mxSigma0;
 
         // Verify inputs
         if (mxIsEmpty(mx) || !mxIsStruct(mx))
@@ -683,7 +682,6 @@ int mex_set_opts_SIFT3D(const mxArray *const mx) {
         // Get the option arrays
         if ((mxPeakThresh = mxGetField(mx, 0, "peakThresh")) == NULL ||
                 (mxCornerThresh = mxGetField(mx, 0, "cornerThresh")) == NULL ||
-                (mxNumOctaves = mxGetField(mx, 0, "numOctaves")) == NULL ||
                 (mxNumKpLevels = mxGetField(mx, 0, "numKpLevels")) == NULL ||
                 (mxSigmaN = mxGetField(mx, 0, "sigmaN")) == NULL ||
                 (mxSigma0 = mxGetField(mx, 0, "sigma0")) == NULL)
@@ -699,10 +697,6 @@ int mex_set_opts_SIFT3D(const mxArray *const mx) {
                 goto mex_set_opts_SIFT3D_quit;
         if (!mxIsEmpty(mxCornerThresh) &&
                 set_corner_thresh_SIFT3D(&sift3d, mxGetScalar(mxCornerThresh)))
-                goto mex_set_opts_SIFT3D_quit;
-        if (!mxIsEmpty(mxNumOctaves) &&
-                set_num_octaves_SIFT3D(&sift3d, 
-                (int) mxGetScalar(mxNumOctaves)))
                 goto mex_set_opts_SIFT3D_quit;
         if (!mxIsEmpty(mxNumKpLevels) &&
                 set_num_kp_levels_SIFT3D(&sift3d, 

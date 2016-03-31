@@ -8,7 +8,6 @@ classdef Sift3DParser < inputParser
         % Option names
         peakThreshStr = 'peakThresh';
         cornerThreshStr = 'cornerThresh';
-        numOctavesStr = 'numOctaves';
         numKpLevelsStr = 'numKpLevels';
         sigmaNStr = 'sigmaN';
         sigma0Str = 'sigma0';
@@ -25,7 +24,6 @@ classdef Sift3DParser < inputParser
             % Add the SIFT3D options
             self.addParamValue(self.peakThreshStr, [])
             self.addParamValue(self.cornerThreshStr, [])
-            self.addParamValue(self.numOctavesStr, [])
             self.addParamValue(self.numKpLevelsStr, [])
             self.addParamValue(self.sigmaNStr, [])
             self.addParamValue(self.sigma0Str, [])
@@ -40,7 +38,6 @@ classdef Sift3DParser < inputParser
             % Retrieve the results
             peakThresh = self.Results.peakThresh;
             cornerThresh = self.Results.cornerThresh;
-            numOctaves = self.Results.numOctaves;
             numKpLevels = self.Results.numKpLevels;
             sigmaN = self.Results.sigmaN;
             sigma0 = self.Results.sigma0;
@@ -54,11 +51,6 @@ classdef Sift3DParser < inputParser
                 validateattributes(cornerThresh, {'numeric'}, ...
                     {'real', 'nonnegative', 'scalar', '<=', 1}, ...
                     'cornerThresh')
-            end
-            if ~isempty(numOctaves)
-                validateattributes(numOctaves, {'numeric'}, ...
-                    {'real', 'integer', 'scalar', 'positive'}, ...
-                    'numOctaves')
             end
             if ~isempty(numKpLevels)
                 validateattributes(numKpLevels, {'numeric'}, ...
@@ -81,7 +73,6 @@ classdef Sift3DParser < inputParser
             optStruct = struct( ...
                 self.peakThreshStr, peakThresh, ...
                 self.cornerThreshStr, cornerThresh, ...
-                self.numOctavesStr, numOctaves, ...
                 self.numKpLevelsStr, numKpLevels, ...
                 self.sigmaNStr, sigmaN, ...
                 self.sigma0Str, sigma0);

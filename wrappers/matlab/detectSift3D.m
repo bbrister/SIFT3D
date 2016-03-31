@@ -10,8 +10,6 @@ function keys = detectSift3D(im, varargin)
 %       of the largest. Must be in the interval (0, 1]. (default: 0.10)
 %    cornerThresh - The smalled allowed corner score, on the interval
 %       [0, 1]. (default: 0.5)
-%    numOctaves - The number of octaves to process. Must be an integer.
-%       (default: process as many as we can)
 %    numKpLevels - The number of pyramid levels per octave in which
 %       keypoints are found. Must be a positive integer. (default: 3)
 %    sigmaN - The nominal scale parameter of the input data, on the

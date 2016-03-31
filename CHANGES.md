@@ -38,3 +38,7 @@
 * Improved error handling
 * Removed unused, faulty options
 * Print internal error messages to the Matlab command prompt
+
+## 1.3.1 March 31, 2015
+
+* Removed option to set the number of octaves, which was causing bugs 

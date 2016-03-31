@@ -36,9 +36,6 @@ int set_peak_thresh_SIFT3D(SIFT3D *const sift3d,
 int set_corner_thresh_SIFT3D(SIFT3D *const sift3d,
                                 const double corner_thresh);
 
-int set_num_octaves_SIFT3D(SIFT3D *const sift3d,
-                                const unsigned int num_octaves);
-
 int set_num_kp_levels_SIFT3D(SIFT3D *const sift3d,
                                 const unsigned int num_kp_levels);
 
