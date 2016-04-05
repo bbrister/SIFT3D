@@ -81,7 +81,6 @@ set (RELEASE_FLAGS "-O3 -DNDEBUG")
 if (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR 
     CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set (DEBUG_FLAGS "${DEBUG_FLAGS} -ggdb3")
-    set (RELEASE_FLAGS "${RELEASE_FLAGS} -ffast-math")
 endif ()
 
 # OS-specific build flags
