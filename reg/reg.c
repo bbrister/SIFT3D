@@ -264,7 +264,7 @@ int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
 	}
 
 	// Match features
-	if (SIFT3D_nn_match_fb(desc_src, desc_ref, nn_thresh, matches)) {
+	if (SIFT3D_nn_match(desc_src, desc_ref, nn_thresh, matches)) {
 		SIFT3D_ERR("register_SIFT3D: failed to match "
                         "descriptors \n");
                 return SIFT3D_FAILURE;

@@ -79,10 +79,6 @@ int SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
 		    const SIFT3D_Descriptor_store *const d2,
 		    const float nn_thresh, int **const matches);
 
-int SIFT3D_nn_match_fb(const SIFT3D_Descriptor_store *const d1,
-		       const SIFT3D_Descriptor_store *const d2,
-		       const float nn_thresh, int **const matches);
-
 int Keypoint_store_to_Mat_rm(const Keypoint_store *const kp, Mat_rm *const mat);
 
 int SIFT3D_Descriptor_store_to_Mat_rm(const SIFT3D_Descriptor_store *const store, 

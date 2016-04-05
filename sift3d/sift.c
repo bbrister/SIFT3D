@@ -222,10 +222,8 @@ static void vox2hist(const Image *const im, const int x, const int y,
         const int z, Hist *const hist);
 static void hist2vox(Hist *const hist, const Image *const im, const int x, 
         const int y, const int z);
-static int _SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
-		    const SIFT3D_Descriptor_store *const d2,
-		    const float nn_thresh, int **const matches, 
-                    Mat_rm *const dist, const int have_dist);
+static int match_desc(const SIFT3D_Descriptor *const desc,
+        const SIFT3D_Descriptor_store *const store, const float nn_thresh);
 
 /* Initialize geometry tables. */
 static int init_geometry(SIFT3D *sift3d) {
@@ -2928,60 +2926,6 @@ int SIFT3D_matches_to_Mat_rm(SIFT3D_Descriptor_store *d1,
     return SIFT3D_SUCCESS;
 }
 
-/* Like SIFT3D_nn_match, but also tests for forward-backward consistency.
- * That is, matching is performed from d1 to d2, and then d2 to d1, and
- * any matches that do not have the same result in each pass are rejected. 
- *
- * See SIFT3D_nn_match for descriptions of the parameters. */
-int SIFT3D_nn_match_fb(const SIFT3D_Descriptor_store *const d1,
-		       const SIFT3D_Descriptor_store *const d2,
-		       const float nn_thresh, int **const matches) {
-
-        Mat_rm dist12, dist21; 
-        int *matches2; 
-        int i;
-
-        // Initialize intermediates
-        matches2 = NULL;
-        if (init_Mat_rm(&dist12, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-                init_Mat_rm(&dist21, 0, 0, DOUBLE, SIFT3D_FALSE))
-                return SIFT3D_FAILURE;
-
-        // Run the first matching pass, initializing the distance matrix 
-        if (_SIFT3D_nn_match(d1, d2, nn_thresh, matches, &dist12, SIFT3D_FALSE))
-                goto match_fb_quit;
-
-        // Transpose the distance matrix
-        if (transpose_Mat_rm(&dist12, &dist21))
-                goto match_fb_quit;
-
-        // Run the second matching pass, using the distance matrix
-        if (_SIFT3D_nn_match(d2, d1, nn_thresh, &matches2, &dist21, SIFT3D_TRUE))
-                goto match_fb_quit;
-
-        // Enforce forward-backward consistency
-        for (i = 0; i < d1->num; i++) {
-
-                int *const match1 = *matches + i;
-
-                if (*match1 >= 0 && matches2[*match1] != i) {
-                    *match1 = -1;
-                }
-        }
-
-        // Clean up
-        cleanup_Mat_rm(&dist12);
-        cleanup_Mat_rm(&dist21);
-        free(matches2);
-        return SIFT3D_SUCCESS;
-
-match_fb_quit:
-        cleanup_Mat_rm(&dist12);
-        cleanup_Mat_rm(&dist21);
-        free(matches2);
-        return SIFT3D_FAILURE;
-}
-
 /* Perform nearest neighbor matching on two sets of 
  * SIFT descriptors.
  *
@@ -2997,44 +2941,10 @@ match_fb_quit:
 int SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
 		    const SIFT3D_Descriptor_store *const d2,
 		    const float nn_thresh, int **const matches) {
-        return _SIFT3D_nn_match(d1, d2, nn_thresh, matches, NULL, SIFT3D_FALSE);
-}
 
-/* Helper function for SIFT3D_nn_match, which stores the distance matrix
- * for internal reuse, in the matrix dist. All other parameters are the same. 
- * If dist is NULL, the matches are not stored. Otherwise, dist must be
- * initialized before calling this function. 
- *
- * Format of dist: element (row, col) = (i, j) has the distance between the 
- * the ith descriptor of d1 and the jth descriptor of d2. dist shall have type
- * double.
- *
- * If have_dist evaluates to true, the values in dist are used, rather than 
- * being computed from the descriptors
- *
- * Note: dist stores the squared Euclidean distance. */
-static int _SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
-		    const SIFT3D_Descriptor_store *const d2,
-		    const float nn_thresh, int **const matches, 
-                    Mat_rm *const dist, const int have_dist) {
-
-	const SIFT3D_Descriptor *desc_best;
-	double ssd, ssd_best, ssd_nearest;
-	int i, j, k, a, p, desc2_idx;
+	int i;
 
 	const int num = d1->num;
-
-#ifdef SIFT3D_MATCH_MAX_DIST
-		Cvec dims, dmatch;
-		double dist_match;
-				
-		// Compute spatial distance rejection threshold
-		dims.x = (float) d1->nx;	
-		dims.y = (float) d1->ny;	
-		dims.z = (float) d1->nz;	
-		const double diag = SIFT3D_CVEC_L2_NORM(&dims);	
-		const double dist_thresh = diag * SIFT3D_MATCH_MAX_DIST;
-#endif
 
         // Verify inputs
 	if (num < 1) {
@@ -3042,25 +2952,6 @@ static int _SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
 			"descriptors in d1: %d \n", num);
 		return SIFT3D_FAILURE;
 	}
-        if (have_dist && dist == NULL) {
-                SIFT3D_ERR("_SIFT3D_nn_match: have_dist is true but dist is "
-                        "NULL \n");
-                return SIFT3D_FAILURE;
-        }
-        if (have_dist) {
-                if (dist->type != DOUBLE) {
-                        SIFT3D_ERR("_SIFT3D_nn_match: dist must have type "
-                                "double");
-                        return SIFT3D_FAILURE;
-                }
-                if (dist->num_rows != d1->num || dist->num_cols != d2->num) {
-                        SIFT3D_ERR("_SIFT3D_nn_match: dist has dimensions "
-                                "[%d x %d], require [%lu x %lu] \n", 
-                                dist->num_rows, dist->num_cols, d1->num, 
-                                d2->num);
-                        return SIFT3D_FAILURE;
-                }
-        }
 
 	// Resize the matches array (num cannot be zero)
 	if ((*matches = (int *) SIFT3D_safe_realloc(*matches, 
@@ -3069,99 +2960,110 @@ static int _SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
 	    return SIFT3D_FAILURE;
 	}
 
-        // Optionally resize the distance matrix
-        if (dist != NULL && !have_dist) {
-
-                dist->num_rows = d1->num;
-                dist->num_cols = d2->num;
-                dist->type = DOUBLE;
-                if (resize_Mat_rm(dist))
-                        return SIFT3D_FAILURE;
-        }
-
 	for (i = 0; i < d1->num; i++) {
 	    // Mark -1 to signal there is no match
 	    (*matches)[i] = -1;
 	}
 	
 	// Exhaustive search for matches
-	for (i = 0; i < d1->num; i++) {
+	for (i = 0; i < num; i++) {
 
-	    const SIFT3D_Descriptor *const desc1 = d1->buf + i;
+                const SIFT3D_Descriptor *const desc1 = d1->buf + i;
+                int *const match = *matches + i;
 
-	    // Linear search for the best and second-best SSD matches 
-	    ssd_best = ssd_nearest = 1e30f;
-	    desc_best = NULL;
-	    for (j = 0; j < d2->num; j++) { 
+                // Forward matching pass
+                *match = match_desc(desc1, d2, nn_thresh);
 
-		    const SIFT3D_Descriptor *const desc2 = d2->buf + j;
+                // We are done if there was no match
+                if (*match < 0)
+                        continue;
 
-                    // Use the precomputed SSDs, if available
-                    if (have_dist) {
-                        ssd = SIFT3D_MAT_RM_GET(dist, i, j, double);
-                    } else {
-
-                            // Compute the SSD of the two descriptors
-                            ssd = 0.0;
-                            for (k = 0; k < DESC_NUM_TOTAL_HIST; k++) {
-
-                                    const Hist *const hist1 = &desc1->hists[k];
-                                    const Hist *const hist2 = &desc2->hists[k];
-
-                                    HIST_LOOP_START(a, p)
-                                            const double diff = 
-                                                    (double) 
-                                                    HIST_GET(hist1, a, p) -
-                                                    (double) 
-                                                    HIST_GET(hist2, a, p);
-                                            ssd += diff * diff;
-                                    HIST_LOOP_END
-                            }
-
-                            // Optionally save the SSD
-                            if (dist != NULL) {
-                                    SIFT3D_MAT_RM_GET(dist, i, j, double) = 
-                                        ssd;
-                            }
-                    }
-
-		    // Compare to the best matches
-		    if (ssd < ssd_best) {
-			    desc_best = desc2; 
-			    ssd_nearest = ssd_best;
-			    ssd_best = ssd;
-		    } else  {
-			    ssd_nearest = SIFT3D_MIN(ssd_nearest, ssd);
-                    }
-	    }
-
-	    // Reject a match if the nearest neighbor is too close
-	    if (ssd_best / ssd_nearest > nn_thresh * nn_thresh)
-		    goto match_reject;
-
-	    desc2_idx = desc_best - d2->buf;
-
-#ifdef SIFT3D_MATCH_MAX_DIST
-	    // Compute the spatial distance of the match
-	    dmatch.x = (float) desc_best->xd - desc1->xd; 
-	    dmatch.y = (float) desc_best->yd - desc1->yd; 
-	    dmatch.z = (float) desc_best->zd - desc1->zd; 
-	    dist_match = (double) SIFT3D_CVEC_L2_NORM(&dmatch);
-
-	    // Reject matches of great distance
-	    if (dist_match > dist_thresh)
-		    goto match_reject;
-#endif
-			
-	    // Save the match
-	    (*matches)[i] = desc2_idx;
-
-match_reject: ;
-	}
+                // Check for forward-backward consistency
+                if (match_desc(d2->buf + *match, d1, nn_thresh) != i) {
+                        *match = -1;
+                }
+        }
 
 	return SIFT3D_SUCCESS;
 }
 
+/* Helper function to match desc against the descriptors in store. Returns the
+ * index of the match, or -1 if none was found. */
+static int match_desc(const SIFT3D_Descriptor *const desc,
+        const SIFT3D_Descriptor_store *const store, const float nn_thresh) {
+
+	const SIFT3D_Descriptor *desc_best;
+        double ssd_best, ssd_nearest;
+        int i;
+
+#ifdef SIFT3D_MATCH_MAX_DIST
+        Cvec dims, dmatch;
+        double dist_match;
+				
+        // Compute spatial distance rejection threshold
+        dims.x = (float) store->nx;	
+        dims.y = (float) store->ny;	
+        dims.z = (float) store->nz;	
+        const double diag = SIFT3D_CVEC_L2_NORM(&dims);	
+        const double dist_thresh = diag * SIFT3D_MATCH_MAX_DIST;
+#endif
+
+        // Linear search for the best and second-best SSD matches 
+        ssd_best = ssd_nearest = DBL_MAX;
+        desc_best = NULL;
+        for (i = 0; i < store->num; i++) { 
+
+                double ssd;
+                int j;
+
+                const SIFT3D_Descriptor *const desc2 = store->buf + i;
+
+                // Compute the SSD of the two descriptors
+                ssd = 0.0;
+                for (j = 0; j < DESC_NUM_TOTAL_HIST; j++) {
+
+                        int a, p;
+
+                        const Hist *const hist1 = desc->hists + j;
+                        const Hist *const hist2 = desc2->hists + j;
+
+                        HIST_LOOP_START(a, p)
+                                const double diff = 
+                                        (double) HIST_GET(hist1, a, p) -
+                                        (double) HIST_GET(hist2, a, p);
+                                        ssd += diff * diff;
+                        HIST_LOOP_END
+                }
+
+                // Compare to the best matches
+                if (ssd < ssd_best) {
+                        desc_best = desc2; 
+                        ssd_nearest = ssd_best;
+                        ssd_best = ssd;
+                } else  {
+                        ssd_nearest = SIFT3D_MIN(ssd_nearest, ssd);
+                }
+        }
+
+        // Reject a match if the nearest neighbor is too close
+        if (ssd_best / ssd_nearest > nn_thresh * nn_thresh)
+                        return -1;
+
+#ifdef SIFT3D_MATCH_MAX_DIST
+        // Compute the spatial distance of the match
+        dmatch.x = (float) desc_best->xd - desc1->xd; 
+        dmatch.y = (float) desc_best->yd - desc1->yd; 
+        dmatch.z = (float) desc_best->zd - desc1->zd; 
+        dist_match = (double) SIFT3D_CVEC_L2_NORM(&dmatch);
+
+        // Reject matches of great distance
+        if (dist_match > dist_thresh)
+                return -1;
+#endif
+        // The match was a success
+        return desc_best - store->buf;
+}
+			
 /* Draw the matches. 
  * 
  * Inputs:
