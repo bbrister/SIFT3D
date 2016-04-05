@@ -42,3 +42,9 @@
 ## 1.3.1 March 31, 2015
 
 * Removed option to set the number of octaves, which was causing bugs 
+
+## 1.3.2
+
+* Fixed bugs to improve keypoint and registration accuracy
+* Dramatically reduced memory consumption of keypoint matching
+* Refactored SIFT3D_nn_match_fb into SIFT3D_nn_match, as there is now no reason to prefer forward to forward-backward matching
