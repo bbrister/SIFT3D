@@ -776,8 +776,8 @@ int copy_Mat_rm(const Mat_rm * const src, Mat_rm * const dst)
 	if (resize_Mat_rm(dst))
 		return SIFT3D_FAILURE;
 
-	// Copy the data
-	memcpy(dst->u.data_double, src->u.data_double, src->size);
+	// Copy the data (use memmove because of static mode)
+	memmove(dst->u.data_double, src->u.data_double, src->size);
 
 	return SIFT3D_SUCCESS;
 }
