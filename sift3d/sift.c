@@ -108,24 +108,25 @@ const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientation elements
         const float uxf = (float) (im)->ux; \
         const float uyf = (float) (im)->uy; \
         const float uzf = (float) (im)->uz; \
-        const int r = rad + 0.5; \
-        const int x_center = (int) (vcenter)->x; \
-        const int y_center = (int) (vcenter)->y; \
-        const int z_center = (int) (vcenter)->z; \
+        const int r = lround(rad); \
+        const int x_center = lround((vcenter)->x); \
+        const int y_center = lround((vcenter)->y); \
+        const int z_center = lround((vcenter)->z); \
 	const int x_start = SIFT3D_MAX(x_center - r, 1); \
 	const int x_end   = SIFT3D_MIN(x_center + r, im->nx - 2); \
 	const int y_start = SIFT3D_MAX(y_center - r, 1); \
 	const int y_end   = SIFT3D_MIN(y_center + r, im->ny - 2); \
 	const int z_start = SIFT3D_MAX(z_center - r, 1); \
 	const int z_end   = SIFT3D_MIN(z_center + r, im->nz - 2); \
+        assert(r > 0); \
 	SIFT3D_IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, y_start, \
                  y_end, z_start, z_end) \
                 const int dx = x - x_center; \
                 const int dy = y - y_center; \
                 const int dz = z - z_center; \
-                (vdisp)->x = (((float) x + 0.5f) - (vcenter)->x) * uxf; \
-                (vdisp)->y = (((float) y + 0.5f) - (vcenter)->y) * uyf; \
-                (vdisp)->z = (((float) z + 0.5f) - (vcenter)->z) * uzf; \
+                (vdisp)->x = ((float) x - (vcenter)->x) * uxf; \
+                (vdisp)->y = ((float) y - (vcenter)->y) * uyf; \
+                (vdisp)->z = ((float) z - (vcenter)->z) * uzf; \
                 (sq_dist) = SIFT3D_CVEC_L2_NORM_SQ(vdisp); \
 	        if (dx * dx + dy * dy + dz * dz > r * r) \
 	                continue; \
@@ -1187,9 +1188,9 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
                                         return SIFT3D_FAILURE;
                                 key->o = o;
                                 key->s = s;
-				key->xd = (double) x + 0.5;
-				key->yd = (double) y + 0.5;
-				key->zd = (double) z + 0.5;
+				key->xd = (double) x;
+				key->yd = (double) y;
+				key->zd = (double) z;
                         }
 		SIFT3D_IM_LOOP_END
 	SIFT3D_PYR_LOOP_END
@@ -1228,31 +1229,31 @@ SIFT3D_IGNORE_UNUSED
                         SIFT3D_PYR_IM_GET(&sift3d->dog, o, s + 1);
 
 		// Bound the translation to all non-boundary pixels
-		const double xmin = 1;
-		const double ymin = 1;
-		const double zmin = 1;
-		const double xmax = cur->nx - 2 - DBL_EPSILON;
-		const double ymax = cur->ny - 2 - DBL_EPSILON;
-		const double zmax = cur->nz - 2 - DBL_EPSILON;
+		const double xmin = 0.5 + FLT_EPSILON;
+		const double ymin = 0.5 + FLT_EPSILON; 
+		const double zmin = 0.5 + FLT_EPSILON;
+		const double xmax = cur->nx - 1.5 - FLT_EPSILON; 
+		const double ymax = cur->ny - 1.5 - FLT_EPSILON;
+		const double zmax = cur->nz - 1.5 - FLT_EPSILON;
 	    
 		// Bound the scale to that of the neighboring levels
 		const double smin = prev->s;
 		const double smax = next->s;
 	
 		// Initialize mutable data	
-		x = (int) key->xd;
-		y = (int) key->yd;
-		z = (int) key->zd;
-		xd = (double) x + 0.5;
-		yd = (double) y + 0.5;
-		zd = (double) z + 0.5;
+		x = lround(key->xd);
+		y = lround(key->yd);
+		z = lround(key->zd);
+		xd = key->xd;
+		yd = key->yd;
+		zd = key->zd;
 		sd = cur->s; 
 
 		// Refine the keypoint for a fixed number of iterations
 		for (l = 0; l < 5; l++) {
 
 		assert(x >= 1 && y >= 1 && z >= 1 && x <= cur->nx - 2 &&
-		       y <= cur->ny -2 && z <= cur->nz - 2); 
+		       y <= cur->ny - 2 && z <= cur->nz - 2); 
 
 #define PARABOLA
 #ifndef PARABOLA 
@@ -1354,9 +1355,9 @@ SIFT3D_IGNORE_UNUSED
                                 SIFT3D_MAT_RM_GET(&X, 3, 0, double), smax), smin);
 
 			// Compute the new pixel indices	
-			xnew = (int) floor(xd);
-			ynew = (int) floor(yd);
-			znew = (int) floor(zd);
+			xnew = lround(xd);
+			ynew = lround(yd);
+			znew = lround(zd);
 
 			// We are done if the pixel has not moved
 			if (x == xnew && y == ynew && z == znew)
@@ -2688,9 +2689,7 @@ static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
         // Iterate over each voxel
         SIFT3D_IM_LOOP_START(in, x, y, z)
 
-                const Cvec vcenter = {(float) x + 0.5f, 
-                                      (float) y + 0.5f, 
-                                      (float) z + 0.5f};
+                const Cvec vcenter = {x, y, z}; 
 
                 const double ori_sigma = sift3d->gpyr.sigma0 * ori_sig_fctr;
                 const double desc_sigma = sift3d->gpyr.sigma0 * 
