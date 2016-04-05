@@ -108,25 +108,26 @@ const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientation elements
         const float uxf = (float) (im)->ux; \
         const float uyf = (float) (im)->uy; \
         const float uzf = (float) (im)->uz; \
+        const int r = rad + 0.5; \
 	const int x_start = \
-                (int) SIFT3D_MAX((int) (vcenter)->x - (int) ((rad) + 0.5), 1); \
+                (int) SIFT3D_MAX((int) (vcenter)->x - r, 1); \
 	const int x_end   = \
-                (int) SIFT3D_MIN((int) (vcenter)->x + (int) ((rad) + 0.5), im->nx - 2); \
+                (int) SIFT3D_MIN((int) (vcenter)->x + (int) r, im->nx - 2); \
 	const int y_start = \
-                (int) SIFT3D_MAX((int) (vcenter)->y - (int) ((rad) + 0.5), 1); \
+                (int) SIFT3D_MAX((int) (vcenter)->y - (int) r, 1); \
 	const int y_end   = \
-                (int) SIFT3D_MIN((int) (vcenter)->y + (int) ((rad) + 0.5), im->ny - 2); \
+                (int) SIFT3D_MIN((int) (vcenter)->y + (int) r, im->ny - 2); \
 	const int z_start = \
-                (int) SIFT3D_MAX((int) (vcenter)->z - (int) ((rad) + 0.5), 1); \
+                (int) SIFT3D_MAX((int) (vcenter)->z - (int) r, 1); \
 	const int z_end   = \
-                (int) SIFT3D_MIN((int) (vcenter)->z + (int) ((rad) + 0.5), im->nz - 2); \
+                (int) SIFT3D_MIN((int) (vcenter)->z + (int) r, im->nz - 2); \
 	SIFT3D_IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, y_start, \
                  y_end, z_start, z_end) \
 	    (vdisp)->x = (((float) x + 0.5f) - (vcenter)->x) * uxf; \
 	    (vdisp)->y = (((float) y + 0.5f) - (vcenter)->y) * uyf; \
 	    (vdisp)->z = (((float) z + 0.5f) - (vcenter)->z) * uzf; \
 	    (sq_dist) = SIFT3D_CVEC_L2_NORM_SQ(vdisp); \
-	    if ((sq_dist) > (rad) * (rad)) \
+	    if ((sq_dist) > r * r) \
 		continue; \
 
 #define IM_LOOP_SPHERE_END SIFT3D_IM_LOOP_END }
