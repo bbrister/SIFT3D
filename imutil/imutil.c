@@ -4205,7 +4205,8 @@ void init_Slab(Slab *const slab) {
  * calling this function, unless re-initialized. */
 void cleanup_Slab(Slab * const slab)
 {
-	free(slab->buf);
+        if (slab->buf != NULL)
+	        free(slab->buf);
 }
 
 /* Write the levels of a pyramid to separate files
