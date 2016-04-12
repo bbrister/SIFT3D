@@ -116,7 +116,6 @@ static int mm2im(const double *const src_units, const double *const ref_units,
  * called before the struct can be used. */
 int init_Reg_SIFT3D(Reg_SIFT3D *const reg) {
 
-	reg->matches = NULL;
         reg->nn_thresh = SIFT3D_nn_thresh_default;
 	init_Keypoint_store(&reg->kp_src);
 	init_Keypoint_store(&reg->kp_ref);
@@ -136,9 +135,6 @@ int init_Reg_SIFT3D(Reg_SIFT3D *const reg) {
 /* Free all memory associated with a Reg_SIFT3D struct. reg cannot be reused
  * unless it is reinitialized. */
 void cleanup_Reg_SIFT3D(Reg_SIFT3D *const reg) {
-
-        if (reg->matches != NULL)
-                free(reg->matches);
 
         cleanup_Keypoint_store(&reg->kp_src);
         cleanup_Keypoint_store(&reg->kp_ref);
@@ -241,12 +237,12 @@ int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const ref) {
 int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
 
         Mat_rm match_src_mm, match_ref_mm;
+        int *matches;
         int i, j;
 
         Ransac *const ran = &reg->ran;
         Mat_rm *const match_src = &reg->match_src;
         Mat_rm *const match_ref = &reg->match_ref;
-        int **const matches = &reg->matches;
         const double nn_thresh = reg->nn_thresh;
         SIFT3D_Descriptor_store *const desc_src = &reg->desc_src;
         SIFT3D_Descriptor_store *const desc_ref = &reg->desc_ref;
@@ -263,31 +259,32 @@ int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
 		return SIFT3D_FAILURE;
 	}
 
-	// Match features
-	if (SIFT3D_nn_match(desc_src, desc_ref, nn_thresh, matches)) {
-		SIFT3D_ERR("register_SIFT3D: failed to match "
-                        "descriptors \n");
-                return SIFT3D_FAILURE;
-        }
-
-        // Convert matches to coordinate matrices
-	if (SIFT3D_matches_to_Mat_rm(desc_src, desc_ref, *matches,
-				     match_src, match_ref)) {
-		SIFT3D_ERR("register_SIFT3D: failed to extract "
-                        "coordinate matrices \n");
-                return SIFT3D_FAILURE;
-        }
-
-        // Quit if no tform was provided
-        if (tform == NULL)
-                return SIFT3D_SUCCESS;
-
         // Initialize intermediates
+        matches = NULL;
         if (init_Mat_rm(&match_src_mm, 0, 0, DOUBLE, SIFT3D_FALSE) ||
 	        init_Mat_rm(&match_ref_mm, 0, 0, DOUBLE, SIFT3D_FALSE)) {
                 SIFT3D_ERR("register_SIFT3D: failed initialization \n");
                 return SIFT3D_FAILURE;
         }
+
+	// Match features
+	if (SIFT3D_nn_match(desc_src, desc_ref, nn_thresh, &matches)) {
+		SIFT3D_ERR("register_SIFT3D: failed to match "
+                        "descriptors \n");
+                goto register_SIFT3D_quit;
+        }
+
+        // Convert matches to coordinate matrices
+	if (SIFT3D_matches_to_Mat_rm(desc_src, desc_ref, matches,
+				     match_src, match_ref)) {
+		SIFT3D_ERR("register_SIFT3D: failed to extract "
+                        "coordinate matrices \n");
+                goto register_SIFT3D_quit;
+        }
+
+        // Quit if no tform was provided
+        if (tform == NULL)
+                goto register_SIFT3D_success;
 
         // Convert the coordinate matrices to real-world units
         if (im2mm(match_src, reg->src_units, &match_src_mm) ||
@@ -302,13 +299,16 @@ int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
         if (mm2im(reg->src_units, reg->ref_units, tform))
                 goto register_SIFT3D_quit;
 
+register_SIFT3D_success:
         // Clean up
+        free(matches);
         cleanup_Mat_rm(&match_src_mm);
         cleanup_Mat_rm(&match_ref_mm);
 
 	return SIFT3D_SUCCESS;
 
 register_SIFT3D_quit:
+        free(matches);
         cleanup_Mat_rm(&match_src_mm); 
         cleanup_Mat_rm(&match_ref_mm); 
         return SIFT3D_FAILURE;
@@ -453,10 +453,6 @@ register_interp_quit:
  * the last call to register_SIFT3D() on this Reg_SIFT3D struct. */
 int get_matches_Reg_SIFT3D(const Reg_SIFT3D *const reg, Mat_rm *const match_src,
         Mat_rm *const match_ref) {
-
-        // Check if we have any matches
-        if (reg->matches == NULL)
-                return SIFT3D_FAILURE;
 
         // Copy the matches
         return copy_Mat_rm(&reg->match_src, match_src) ||

@@ -28,7 +28,6 @@ typedef struct _Reg_SIFT3D {
         Keypoint_store kp_src, kp_ref;
         SIFT3D_Descriptor_store desc_src, desc_ref;
         Mat_rm match_src, match_ref;
-        int *matches;
         double nn_thresh;
         int verbose;
 
