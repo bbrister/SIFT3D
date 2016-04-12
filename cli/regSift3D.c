@@ -423,9 +423,11 @@ int main(int argc, char *argv[]) {
                         return 1;
                 }
 
-                // Convert the keypoints to matrices
-                if (Keypoint_store_to_Mat_rm(&reg.kp_src, &keys_src) ||
-                    Keypoint_store_to_Mat_rm(&reg.kp_ref, &keys_ref)) {
+                // Convert the keypoint coordinates to matrices
+                if (SIFT3D_Descriptor_coords_to_Mat_rm(&reg.desc_src, 
+                        &keys_src) ||
+                    SIFT3D_Descriptor_coords_to_Mat_rm(&reg.desc_ref, 
+                        &keys_ref)) {
                         err_msgu("Failed to convert the keypoints to "
                                  "matrices.");
                         return 1;

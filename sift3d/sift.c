@@ -2766,6 +2766,44 @@ int Keypoint_store_to_Mat_rm(const Keypoint_store *const kp, Mat_rm *const mat) 
     return SIFT3D_SUCCESS;
 }
 
+/* Convert SIFT3D desriptors to a coordinate matrix. This function has the same
+ * output format as Keypoint_store_to_Mat_rm */
+int SIFT3D_Descriptor_coords_to_Mat_rm(
+        const SIFT3D_Descriptor_store *const store, 
+        Mat_rm *const mat) {
+
+        int i;
+
+	const int num_rows = store->num;
+        const int num_cols = IM_NDIMS;
+
+	// Verify inputs
+	if (num_rows < 1) {
+		printf("SIFT3D_Descriptor_coords_to_Mat_rm: invalid number of "
+		       "descriptors: %d \n", num_rows);
+		return SIFT3D_FAILURE;
+	}
+
+        // Resize the output
+        mat->type = DOUBLE;
+        mat->num_rows = num_rows;
+        mat->num_cols = num_cols;
+        if (resize_Mat_rm(mat))
+                return SIFT3D_FAILURE;
+
+        // Copy the data
+        for (i = 0; i < num_rows; i++) {
+
+		const SIFT3D_Descriptor *const desc = store->buf + i;
+
+                SIFT3D_MAT_RM_GET(mat, i, 0, double) = desc->xd;
+                SIFT3D_MAT_RM_GET(mat, i, 1, double) = desc->yd;
+                SIFT3D_MAT_RM_GET(mat, i, 2, double) = desc->zd;
+        }
+
+        return SIFT3D_SUCCESS;
+}
+
 /* Convert SIFT3D descriptors to a matrix.
  *
  * Output format:

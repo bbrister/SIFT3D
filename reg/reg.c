@@ -16,12 +16,16 @@
 #include "sift.h"
 #include "imutil.h"
 
+/* Stringify a macro */
+#define _SIFT3D_TO_STR(s) #s
+#define SIFT3D_TO_STR(s) _SIFT3D_TO_STR(s)
+
 /* Default parameters */
 const double SIFT3D_nn_thresh_default = 0.8; // Default matching threshold
 
 /* Internal helper routines */
 static void scale_SIFT3D(const double *const factors, 
-	Keypoint_store *const kp, SIFT3D_Descriptor_store *const d);
+	SIFT3D_Descriptor_store *const d);
 static int im2mm(const Mat_rm *const im, const double *const units, 
         Mat_rm *const mm);
 static int mm2im(const double *const src_units, const double *const ref_units,
@@ -117,8 +121,6 @@ static int mm2im(const double *const src_units, const double *const ref_units,
 int init_Reg_SIFT3D(Reg_SIFT3D *const reg) {
 
         reg->nn_thresh = SIFT3D_nn_thresh_default;
-	init_Keypoint_store(&reg->kp_src);
-	init_Keypoint_store(&reg->kp_ref);
 	init_SIFT3D_Descriptor_store(&reg->desc_src);
 	init_SIFT3D_Descriptor_store(&reg->desc_ref);
 	init_Ransac(&reg->ran);
@@ -136,8 +138,6 @@ int init_Reg_SIFT3D(Reg_SIFT3D *const reg) {
  * unless it is reinitialized. */
 void cleanup_Reg_SIFT3D(Reg_SIFT3D *const reg) {
 
-        cleanup_Keypoint_store(&reg->kp_src);
-        cleanup_Keypoint_store(&reg->kp_ref);
         cleanup_SIFT3D_Descriptor_store(&reg->desc_src);
         cleanup_SIFT3D_Descriptor_store(&reg->desc_ref);
         cleanup_SIFT3D(&reg->sift3d); 
@@ -169,61 +169,61 @@ int set_SIFT3D_Reg_SIFT3D(Reg_SIFT3D *const reg, const SIFT3D *const sift3d) {
         return copy_SIFT3D(sift3d, &reg->sift3d);
 }
 
+/* Helper function for set_src_Reg_SIFT3D and set_ref_Reg_SIFT3D.
+ * 
+ * Parameters:
+ *   reg - The Reg_SIFT3D struct.
+ *   im - The image, either source or reference.
+ *   units - The units array in Reg_SIFT3D to be modified.
+ *   desc - The descriptor store in Reg_SIFT3D to be modified.
+ * 
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
+static int set_im_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const im,
+        double *const units, SIFT3D_Descriptor_store *const desc) {
+
+        Keypoint_store kp; 
+
+        SIFT3D *const sift3d = &reg->sift3d; 
+
+        /* Initialize intermediates */ 
+        init_Keypoint_store(&kp); 
+
+        /* Save the units */ 
+        memcpy(units, SIFT3D_IM_GET_UNITS(im), IM_NDIMS * sizeof(double));
+
+        /* Detect keypoints */ 
+	if (SIFT3D_detect_keypoints(sift3d, im, &kp)) { 
+		SIFT3D_ERR("set_" SIFT3D_TO_STR(type)  
+                        "_Reg_SIFT3D: failed to detect keypoints\n"); 
+                goto set_im_quit; 
+        } 
+
+        /* Extract descriptors */ 
+	if (SIFT3D_extract_descriptors(sift3d, &kp, desc)) { 
+                SIFT3D_ERR("set_" SIFT3D_TO_STR(type) 
+                        "_Reg_SIFT3D: failed to extract descriptors \n"); 
+                goto set_im_quit; 
+        } 
+
+        /* Clean up */ 
+        cleanup_Keypoint_store(&kp); 
+
+        return SIFT3D_SUCCESS; 
+
+set_im_quit: 
+        cleanup_Keypoint_store(&kp); 
+        return SIFT3D_FAILURE; 
+} 
+
 /* Set the source image. This makes a deep copy of the data, so you are free
  * to modify src after calling this function. */
 int set_src_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const src) {
-
-        SIFT3D *const sift3d = &reg->sift3d;
-        Keypoint_store *const kp_src = &reg->kp_src;
-        SIFT3D_Descriptor_store *const desc_src = &reg->desc_src;
-
-        // Save the units
-        memcpy(reg->src_units, SIFT3D_IM_GET_UNITS(src), 
-                IM_NDIMS * sizeof(double));
-
-        // Detect keypoints
-	if (SIFT3D_detect_keypoints(sift3d, src, kp_src)) {
-		SIFT3D_ERR("set_src_Reg_SIFT3D: failed to detect source "
-                        "keypoints\n");
-                return SIFT3D_FAILURE;
-        }
-
-        // Extract descriptors
-	if (SIFT3D_extract_descriptors(sift3d, kp_src, desc_src)) {
-                SIFT3D_ERR("set_ref_Reg_SIFT3D: failed to extract source "
-                                "descriptors \n");
-                return SIFT3D_FAILURE;
-        }
-
-        return SIFT3D_SUCCESS;
+        return set_im_Reg_SIFT3D(reg, src, reg->src_units, &reg->desc_src);
 }
 
 /* The same as set_source_Reg_SIFT3D, but sets the reference image. */
 int set_ref_Reg_SIFT3D(Reg_SIFT3D *const reg, const Image *const ref) {
-
-        SIFT3D *const sift3d = &reg->sift3d;
-        Keypoint_store *const kp_ref = &reg->kp_ref;
-        SIFT3D_Descriptor_store *const desc_ref = &reg->desc_ref;
-
-        // Save the units
-        memcpy(reg->ref_units, SIFT3D_IM_GET_UNITS(ref), 
-                IM_NDIMS * sizeof(double));
-
-        // Detect keypoints
-        if (SIFT3D_detect_keypoints(sift3d, ref, kp_ref)) {
-		SIFT3D_ERR("set_ref_Reg_SIFT3D: failed to detect "
-			"reference keypoints\n");
-                return SIFT3D_FAILURE;
-        }
-
-        // Extract descriptors
-	if (SIFT3D_extract_descriptors(sift3d, kp_ref, desc_ref)) {
-		SIFT3D_ERR("set_ref_Reg_SIFT3D: failed to extract "
-			"reference descriptors\n");
-                return SIFT3D_FAILURE;
-        }
-
-        return SIFT3D_SUCCESS;
+        return set_im_Reg_SIFT3D(reg, ref, reg->ref_units, &reg->desc_ref);
 }
 
 /* Run the registration procedure. 
@@ -314,10 +314,9 @@ register_SIFT3D_quit:
         return SIFT3D_FAILURE;
 }
 
-/* Helper function to scale the keypoints and descriptors by the given 
- * factors */
+/* Helper function to scale the descriptors by the given factors */
 static void scale_SIFT3D(const double *const factors, 
-	Keypoint_store *const kp, SIFT3D_Descriptor_store *const d) {
+	SIFT3D_Descriptor_store *const d) {
 
 	double det, scale_factor;
 	int i, j, k;
@@ -331,27 +330,6 @@ static void scale_SIFT3D(const double *const factors,
 	// Compute the scale parameter factor from the determinant
 	scale_factor = pow(det, -1.0 / (double) IM_NDIMS);
 	
-	// Scale the keypoints
-	for (k = 0; k < kp->slab.num; k++) {
-
-		Keypoint *const key = kp->buf + k;
-		Mat_rm *const R = &key->R;
-
-		// Scale the coordinates
-		key->xd *= factors[0];
-		key->yd *= factors[1];
-		key->zd *= factors[2];
-
-		// Adjust the scale parameter
-		key->sd *= scale_factor;
-
-		// Adjust the orientation matrix
-		SIFT3D_MAT_RM_LOOP_START(R, i, j)
-			SIFT3D_MAT_RM_GET(R, i, j, float) *= 
-				(float) (factors[j] / det);
-		SIFT3D_MAT_RM_LOOP_END
-	}
-
 	// Scale the descriptors
 	for (i = 0; i < d->num; i++) {
 
@@ -429,8 +407,8 @@ int register_SIFT3D_resample(Reg_SIFT3D *const reg, const Image *const src,
 		goto register_interp_quit;
 
 	// Convert the keypoints and descriptors to the original units
-	scale_SIFT3D(factors_src, &reg->kp_src, &reg->desc_src);
-	scale_SIFT3D(factors_ref, &reg->kp_ref, &reg->desc_ref);
+	scale_SIFT3D(factors_src, &reg->desc_src);
+	scale_SIFT3D(factors_ref, &reg->desc_ref);
 
 	// Register the images
 	if (register_SIFT3D(reg, tform))

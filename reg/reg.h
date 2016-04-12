@@ -25,7 +25,6 @@ typedef struct _Reg_SIFT3D {
         double src_units[IM_NDIMS], ref_units[IM_NDIMS];
         SIFT3D sift3d;
         Ransac ran;
-        Keypoint_store kp_src, kp_ref;
         SIFT3D_Descriptor_store desc_src, desc_ref;
         Mat_rm match_src, match_ref;
         double nn_thresh;

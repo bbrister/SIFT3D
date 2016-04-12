@@ -81,6 +81,10 @@ int SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
 
 int Keypoint_store_to_Mat_rm(const Keypoint_store *const kp, Mat_rm *const mat);
 
+int SIFT3D_Descriptor_coords_to_Mat_rm(
+        const SIFT3D_Descriptor_store *const store, 
+        Mat_rm *const mat);
+
 int SIFT3D_Descriptor_store_to_Mat_rm(const SIFT3D_Descriptor_store *const store, 
 				      Mat_rm *const mat);
 
