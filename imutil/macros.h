@@ -49,17 +49,17 @@ extern "C" {
 #define SIFT3D_IM_GET_DIMS(im) \
         (&(im)->nx)
 
-// Get a pointer to the [x_stride, y_stride, z_stride] array of an image
+// Get a pointer to the [xs, ys, zs] array of an image
 #define SIFT3D_IM_GET_STRIDES(im) \
-        (&(im)->x_stride)
+        (&(im)->xs)
 
 // Get a pointer to the [ux, uy, uz] array of an image
 #define SIFT3D_IM_GET_UNITS(im) \
         (&(im)->ux)
 
 // Get the index of an [x,y,z] pair in an image 
-#define SIFT3D_IM_GET_IDX(im, x, y, z, c) ((x) * (im)->x_stride + \
-        (y) * (im)->y_stride + (z) * (im)->z_stride + (c))
+#define SIFT3D_IM_GET_IDX(im, x, y, z, c) ((size_t) (x) * (im)->xs + \
+        (size_t) (y) * (im)->ys + (size_t) (z) * (im)->zs + (size_t) (c))
 
 // Get the value of voxel [x,y,z] in an image 
 #define SIFT3D_IM_GET_VOX(im, x, y, z, c) ((im)->data[ \

@@ -1589,9 +1589,10 @@ int init_im_with_dims(Image *const im, const int nx, const int ny, const int nz,
 void im_default_stride(Image *const im)
 {
 
-	int i, prod;
+        size_t prod;
+	int i;
 
-	prod = im->nc;
+	prod = (size_t) im->nc;
 	SIFT3D_IM_GET_STRIDES(im)[0] = prod;
 
 	for (i = 1; i < IM_NDIMS; i++) {
@@ -1650,9 +1651,9 @@ int im_pad(const Image * const im, Image * const pad)
  * -ny
  * -nz
  * -nc
- * -x_stride (can be set by im_default_stride(im)) 
- * -y_stride (can be set by im_default_stride(im)) 
- * -z_stride (can be set by im_default_stride(im)) 
+ * -xs (can be set by im_default_stride(im)) 
+ * -ys (can be set by im_default_stride(im)) 
+ * -zs (can be set by im_default_stride(im)) 
  *
  * All of this initialization can also be done with
  * init_im_with_dims(), which calls this function.
@@ -1713,7 +1714,7 @@ int im_resize(Image *const im)
 							       &cl_data.
 							       image_format,
 							       im->nx, im->ny,
-							       im->y_stride,
+							       im->ys,
 							       im->data, &err);
 			} else {
 				im->cl_image = clCreateImage3D(cl_data.context,
@@ -1723,8 +1724,8 @@ int im_resize(Image *const im)
 							       image_format,
 							       im->nx, im->ny,
 							       im->nz,
-							       im->y_stride,
-							       im->z_stride,
+							       im->ys,
+							       im->zs,
 							       im->data, &err);
 			}
 
@@ -1953,7 +1954,7 @@ int im_load_cl(Image * im, int blocking)
 	const size_t region[] = { im->nx, im->ny, im->nz };
 	const cl_bool cl_blocking = (blocking) ? CL_TRUE : CL_FALSE;
 	return clEnqueueWriteImage(cl_data.queues[0], im->cl_image, cl_blocking,
-				   origin, region, im->y_stride, im->z_stride,
+				   origin, region, im->ys, im->zs,
 				   im->data, 0, NULL, NULL);
 #else
 	printf("im_load_cl: This version was not compiled with OpenCL!\n");
@@ -1970,7 +1971,7 @@ int im_read_back(Image * im, int blocking)
 	const size_t region[] = { im->nx, im->ny, im->nz };
 	const cl_bool cl_blocking = (blocking) ? CL_TRUE : CL_FALSE;
 	return clEnqueueReadImage(cl_data.queues[0], im->cl_image, cl_blocking,
-				  origin, region, im->y_stride, im->z_stride,
+				  origin, region, im->ys, im->zs,
 				  im->data, 0, NULL, NULL);
 #else
 	printf("im_read_back: This version was not compiled with OpenCL!\n");
@@ -2013,9 +2014,9 @@ int im_copy_dims(const Image * const src, Image * dst)
 	dst->nx = src->nx;
 	dst->ny = src->ny;
 	dst->nz = src->nz;
-	dst->x_stride = src->x_stride;
-	dst->y_stride = src->y_stride;
-	dst->z_stride = src->z_stride;
+	dst->xs = src->xs;
+	dst->ys = src->ys;
+	dst->zs = src->zs;
 	dst->nc = src->nc;
         dst->ux = src->ux;
         dst->uy = src->uy;
@@ -2666,7 +2667,7 @@ int im_permute(const Image * const src, const int dim1, const int dim2,
  *  -dst: The destination image. Must be initialized
  * 
  * Return: SIFT3D_SUCCESS (0) on success, nonzero otherwise. */
-int im_restride(const Image * const src, const int *const strides,
+int im_restride(const Image * const src, const size_t *const strides,
 		Image * const dst)
 {
 
@@ -2675,7 +2676,7 @@ int im_restride(const Image * const src, const int *const strides,
 	// Resize the output
 	memcpy(SIFT3D_IM_GET_DIMS(dst), SIFT3D_IM_GET_DIMS(src), 
                 IM_NDIMS * sizeof(int));
-	memcpy(SIFT3D_IM_GET_STRIDES(dst), strides, IM_NDIMS * sizeof(int));
+	memcpy(SIFT3D_IM_GET_STRIDES(dst), strides, IM_NDIMS * sizeof(size_t));
 	dst->nc = src->nc;
 	if (im_resize(dst))
 		return SIFT3D_FAILURE;
@@ -3775,7 +3776,7 @@ void init_im(Image *const im)
 	im->size = 0;
 	im->s = -1.0;
 	memset(SIFT3D_IM_GET_DIMS(im), 0, IM_NDIMS * sizeof(int));
-	memset(SIFT3D_IM_GET_STRIDES(im), 0, IM_NDIMS * sizeof(int));
+	memset(SIFT3D_IM_GET_STRIDES(im), 0, IM_NDIMS * sizeof(size_t));
 }
 
 /* Initialize a normalized Gaussian filter, of the given sigma.

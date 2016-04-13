@@ -170,9 +170,7 @@ typedef struct _Image {
 	size_t size;		// Total size in pixels
 	int nx, ny, nz;		// Dimensions in x, y, and z
 	double ux, uy, uz;	// Real world dimensions in x, y, and z
-	int x_stride;		// Stride in x direction
-	int y_stride;		// Stride in y direction
-	int z_stride;		// Stride in z direction
+        size_t xs, ys, zs;      // Stride in x, y, and z
         int nc;                 // The number of channels
 	int cl_valid;		// If TRUE, cl_image is valid
 
