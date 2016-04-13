@@ -2487,7 +2487,7 @@ static int convolve_sep_gen(const Image * const src,
         // Second pass: process the boundaries
         SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
 
-                int i_coords[] = { x, y, z };
+                const int i_coords[] = { x, y, z };
 
                 // Skip pixels we have already processed
                 if (i_coords[dim] >= start[dim] && i_coords[dim] <= end[dim]) 
@@ -2608,12 +2608,7 @@ static int convolve_sep_sym(const Image * const src, Image * const dst,
 int im_permute(const Image * const src, const int dim1, const int dim2,
 		 Image * const dst)
 {
-
-	int strides[IM_NDIMS];
-	register int x, y, z, c, temp;
-
-	const float *const data = src->data;
-	int *const dims = SIFT3D_IM_GET_DIMS(dst);
+	register int x, y, z, c;
 
 	// Verify inputs
 	if (dim1 < 0 || dim2 < 0 || dim1 > 3 || dim2 > 3) {
@@ -2634,27 +2629,30 @@ int im_permute(const Image * const src, const int dim1, const int dim2,
         SIFT3D_IM_GET_UNITS(dst)[dim2] = SIFT3D_IM_GET_UNITS(src)[dim1];
 
 	// Resize the output
-	memcpy(dims, SIFT3D_IM_GET_DIMS(src), IM_NDIMS * sizeof(int));
-	temp = dims[dim1];
-	dims[dim1] = dims[dim2];
-	dims[dim2] = temp;
+	memcpy(SIFT3D_IM_GET_DIMS(dst), SIFT3D_IM_GET_DIMS(src), 
+                IM_NDIMS * sizeof(int));
+        SIFT3D_IM_GET_DIMS(dst)[dim1] = SIFT3D_IM_GET_DIMS(src)[dim2];
+        SIFT3D_IM_GET_DIMS(dst)[dim2] = SIFT3D_IM_GET_DIMS(src)[dim1];
 	dst->nc = src->nc;
 	im_default_stride(dst);
 	if (im_resize(dst))
 		return SIFT3D_FAILURE;
 
-	// Make a copy of the source strides
-	memcpy(strides, SIFT3D_IM_GET_STRIDES(src), IM_NDIMS * sizeof(int));
-
-	// Swap the strides
-	temp = strides[dim1];
-	strides[dim1] = strides[dim2];
-	strides[dim2] = temp;
-
 	// Transpose the data
 	SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
-	    SIFT3D_IM_GET_VOX(dst, x, y, z, c) =
-	    data[c + x * strides[0] + y * strides[1] + z * strides[2]];
+
+                int src_coords[] = {x, y, z};
+                int temp;
+
+                // Permute the coordinates
+                temp = src_coords[dim1];
+                src_coords[dim1] = src_coords[dim2];
+                src_coords[dim2] = temp;
+
+                // Copy the datum
+                SIFT3D_IM_GET_VOX(dst, x, y, z, c) = SIFT3D_IM_GET_VOX(src, 
+                        src_coords[0], src_coords[1], src_coords[2], c);
+
 	SIFT3D_IM_LOOP_END_C 
 
         return SIFT3D_SUCCESS;
