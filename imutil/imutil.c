@@ -213,16 +213,16 @@ static int ransac(const Mat_rm *const src, const Mat_rm *const ref,
         const Ransac *const ran, void *tform, int **const cset, int *const len);
 static int convolve_sep(const Image * const src,
 			Image * const dst, const Sep_FIR_filter * const f,
-			int dim, const double unit);
+			const int dim, const double unit);
 static int convolve_sep_gen(const Image * const src,
 			Image * const dst, const Sep_FIR_filter * const f,
-			int dim, const double unit);
+			const int dim, const double unit);
 static int convolve_sep_cl(const Image * const src,
 			Image * const dst, const Sep_FIR_filter * const f,
 			int dim, const double unit);
-static int convolve_sep_sym(const Image * const src,
-			Image * const dst, const Sep_FIR_filter * const f,
-			int dim, const double unit);
+static int convolve_sep_sym(const Image * const src, Image * const dst,
+			    const Sep_FIR_filter * const f, const int dim,
+                            const double unit);
 static const char *get_file_name(const char *path);
 static const char *get_file_ext(const char *name);
 static int read_nii(const char *path, Image *const im);
@@ -1004,7 +1004,7 @@ int draw_points(const Mat_rm * const in, const int *const dims, int radius,
 		return SIFT3D_FAILURE;
 
 	// Resize the output
-	memcpy(out->dims, dims, IM_NDIMS * sizeof(int));
+	memcpy(SIFT3D_IM_GET_DIMS(out), dims, IM_NDIMS * sizeof(int));
 	out->nc = 1;
 	im_default_stride(out);
 	if (im_resize(out))
@@ -1067,7 +1067,7 @@ int draw_lines(const Mat_rm * const points1, const Mat_rm * const points2,
 		return SIFT3D_FAILURE;
 
 	// Resize the output image
-	memcpy(out->dims, dims, IM_NDIMS * sizeof(int));
+	memcpy(SIFT3D_IM_GET_DIMS(out), dims, IM_NDIMS * sizeof(int));
 	out->nc = 1;
 	im_default_stride(out);
 	if (im_resize(out))
@@ -1270,7 +1270,7 @@ static int read_nii(const char *path, Image *const im)
 
         // Fill the trailing dimensions with 1
         for (i = dim_counter; i < IM_NDIMS; i++) {
-                im->dims[i] = 1;
+                SIFT3D_IM_GET_DIMS(im)[i] = 1;
         }
 
 	// Store the real world coordinates
@@ -1595,7 +1595,7 @@ void im_default_stride(Image *const im)
 	im->strides[0] = prod;
 
 	for (i = 1; i < IM_NDIMS; i++) {
-		prod *= im->dims[i - 1];
+		prod *= SIFT3D_IM_GET_DIMS(im)[i - 1];
 		im->strides[i] = prod;
 	}
 }
@@ -1670,7 +1670,7 @@ int im_resize(Image *const im)
 	// Verify inputs
 	for (i = 0; i < IM_NDIMS; i++) {
 
-		const int dim = im->dims[i];
+		const int dim = SIFT3D_IM_GET_DIMS(im)[i];
 
 		if (dim > 0)
 			continue;
@@ -1757,8 +1757,8 @@ int im_concat(const Image * const src1, const Image * const src2, const int dim,
 	// Verify inputs
 	for (i = 0; i < IM_NDIMS; i++) {
 
-		const int src1d = src1->dims[i];
-		const int src2d = src2->dims[i];
+		const int src1d = SIFT3D_IM_GET_DIMS(src1)[i];
+		const int src2d = SIFT3D_IM_GET_DIMS(src2)[i];
 
 		if (i == dim)
 			continue;
@@ -1778,15 +1778,15 @@ int im_concat(const Image * const src1, const Image * const src2, const int dim,
 	// Get the output dimensions and offsets
 	for (i = 0; i < IM_NDIMS; i++) {
 
-		const int src1d = src1->dims[i];
-		const int src2d = src2->dims[i];
+		const int src1d = SIFT3D_IM_GET_DIMS(src1)[i];
+		const int src2d = SIFT3D_IM_GET_DIMS(src2)[i];
 
                 dims_out[i] = dim == i ? src1d + src2d : src1d;
                 off[i] = dim == i ? src1d : 0;
 	}
 
 	// Resize dst 
-	memcpy(dst->dims, dims_out, IM_NDIMS * sizeof(int));
+	memcpy(SIFT3D_IM_GET_DIMS(dst), dims_out, IM_NDIMS * sizeof(int));
 	dst->nc = nc;
 	im_default_stride(dst);
 	if (im_resize(dst))
@@ -1830,10 +1830,10 @@ int im_upsample_2x(const Image *const src, Image *const dst)
 
 	// Resize the output 
 	for (i = 0; i < IM_NDIMS; i++) {
-		dims[i] = src->dims[i] * 2;	
+		dims[i] = SIFT3D_IM_GET_DIMS(src)[i] * 2;	
 		units[i] = SIFT3D_IM_GET_UNITS(src)[i] / 2.0;
 	}
-	memcpy(dst->dims, dims, IM_NDIMS * sizeof(int));
+	memcpy(SIFT3D_IM_GET_DIMS(dst), dims, IM_NDIMS * sizeof(int));
 	memcpy(SIFT3D_IM_GET_UNITS(dst), units, IM_NDIMS * sizeof(float));
 	dst->nc = nc;
 	im_default_stride(dst);
@@ -2076,7 +2076,8 @@ int im_channel(const Image * const src, Image * const dst,
 		return SIFT3D_FAILURE;
 	}
 	// Resize the output
-	memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));
+	memcpy(SIFT3D_IM_GET_DIMS(dst), SIFT3D_IM_GET_DIMS(src), 
+                IM_NDIMS * sizeof(int));
 	dst->nc = 1;
 	im_default_stride(dst);
 	if (im_resize(dst))
@@ -2350,7 +2351,8 @@ int im_resample(const Image *const src, const double *const units,
 	// Set the output dimensions
 	dst->nc = src->nc;
 	for (i = 0; i < IM_NDIMS; i++) {
-		dst->dims[i] = (int) ceil((double) src->dims[i] * factors[i]);
+		SIFT3D_IM_GET_DIMS(dst)[i] = (int) ceil((double) 
+                        SIFT3D_IM_GET_DIMS(src)[i] * factors[i]);
 	}
 	im_default_stride(dst);	
         if (im_resize(dst))
@@ -2391,7 +2393,7 @@ im_resample_quit:
  */
 static int convolve_sep(const Image * const src,
 			Image * const dst, const Sep_FIR_filter * const f,
-			int dim, const double unit) {
+			const int dim, const double unit) {
 
 #ifdef SIFT3D_USE_OPENCL
         return convolve_sep_cl(src, dst, f, dim, unit);
@@ -2405,7 +2407,7 @@ static int convolve_sep(const Image * const src,
 /* Convolve_sep for general filters */
 static int convolve_sep_gen(const Image * const src,
 			Image * const dst, const Sep_FIR_filter * const f,
-			int dim, const double unit)
+			const int dim, const double unit)
 {
 	register int x, y, z, c, d;
 
@@ -2413,16 +2415,18 @@ static int convolve_sep_gen(const Image * const src,
 	register const int nx = src->nx;
 	register const int ny = src->ny;
 	register const int nz = src->nz;
-        register const float conv_eps = FLT_EPSILON * 1E2f;
-	register const float dim_end = (float) src->dims[dim] - 1.0f;
+        register const float conv_eps = 0.1f;
+	register const int dim_end = SIFT3D_IM_GET_DIMS(src)[dim] - 1;
         register const float unit_factor =  unit /
-                (double) SIFT3D_IM_GET_UNITS(src)[dim];
+                SIFT3D_IM_GET_UNITS(src)[dim];
+        register const int unit_half_width = 
+                (int) ceilf(half_width * unit_factor);
         int start[] = {0, 0, 0};
         int end[] = {nx - 1, ny - 1, nz - 1};
 
         // Compute starting and ending points for the convolution dimension
-        start[dim] += half_width;
-        end[dim] -= half_width + 1;
+        start[dim] += unit_half_width;
+        end[dim] -= unit_half_width + 1;
 
 	//TODO: Convert this to convolve_x, which only convolves in x,
 	// then make a wrapper to restride, transpose, convolve x, and transpose 
@@ -2466,15 +2470,16 @@ static int convolve_sep_gen(const Image * const src,
                 for (d = -half_width; d <= half_width; d++) {
 
                         const float tap = f->kernel[d + half_width];
+                        const float step = d * unit_factor;
 
                         // Adjust the sampling coordinates
-                        coords[dim] -= d * unit_factor;
+                        coords[dim] -= step;
 
                         // Sample
                         SAMP_AND_ACC(src, dst, tap, coords, c);
 
                         // Reset the sampling coordinates
-                        coords[dim] += d * unit_factor;
+                        coords[dim] += step;
                 }
 
 	SIFT3D_IM_LOOP_END_C
@@ -2482,37 +2487,38 @@ static int convolve_sep_gen(const Image * const src,
         // Second pass: process the boundaries
         SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
 
-                float coords[] = { x, y, z };
+                int i_coords[] = { x, y, z };
 
                 // Skip pixels we have already processed
-                if (coords[dim] >= start[dim] && coords[dim] <= end[dim]) 
+                if (i_coords[dim] >= start[dim] && i_coords[dim] <= end[dim]) 
                         continue;
 
                 // Process the boundary pixel
                 for (d = -half_width; d <= half_width; d++) {
 
+                        float coords[] = { x, y, z };
                         const float tap = f->kernel[d + half_width];
+                        const float step = d * unit_factor;
 
                         // Adjust the sampling coordinates
-                        coords[dim] -= d * unit_factor;
+                        coords[dim] -= step;
 
-                        // Clamp coordinates to the edge
-                        if (coords[dim] < 0) {
-                                coords[dim] = 0;
-                        } else if (coords[dim] > dim_end - conv_eps) {
-                                coords[dim] = dim_end - conv_eps;
+                        // Mirror coordinates
+                        if ((int) coords[dim] < 0) {
+                                coords[dim] = -coords[dim];
+                                assert((int) coords[dim] >= 0);
+                        } else if ((int) coords[dim] >= dim_end) {
+                                coords[dim] = 2.0f * dim_end - coords[dim] -    
+                                        conv_eps;
+                                assert((int) coords[dim] < dim_end);
                         }
 
                         // Sample
                         SAMP_AND_ACC(src, dst, tap, coords, c);
-
-                        // Reset the sampling coordinates
-                        coords[dim] += d * unit_factor;
                 }
 
 	SIFT3D_IM_LOOP_END_C 
 
-        // Final pass: process the last 
 #undef SAMP_AND_ACC
 
         return SIFT3D_SUCCESS;
@@ -2607,7 +2613,7 @@ int im_permute(const Image * const src, const int dim1, const int dim2,
 	register int x, y, z, c, temp;
 
 	const float *const data = src->data;
-	int *const dims = dst->dims;
+	int *const dims = SIFT3D_IM_GET_DIMS(dst);
 
 	// Verify inputs
 	if (dim1 < 0 || dim2 < 0 || dim1 > 3 || dim2 > 3) {
@@ -2628,7 +2634,7 @@ int im_permute(const Image * const src, const int dim1, const int dim2,
         SIFT3D_IM_GET_UNITS(dst)[dim2] = SIFT3D_IM_GET_UNITS(src)[dim1];
 
 	// Resize the output
-	memcpy(dims, src->dims, IM_NDIMS * sizeof(int));
+	memcpy(dims, SIFT3D_IM_GET_DIMS(src), IM_NDIMS * sizeof(int));
 	temp = dims[dim1];
 	dims[dim1] = dims[dim2];
 	dims[dim2] = temp;
@@ -2669,7 +2675,8 @@ int im_restride(const Image * const src, const int *const strides,
 	int x, y, z, c;
 
 	// Resize the output
-	memcpy(dst->dims, src->dims, IM_NDIMS * sizeof(int));
+	memcpy(SIFT3D_IM_GET_DIMS(dst), SIFT3D_IM_GET_DIMS(src), 
+                IM_NDIMS * sizeof(int));
 	memcpy(dst->strides, strides, IM_NDIMS * sizeof(int));
 	dst->nc = src->nc;
 	if (im_resize(dst))
@@ -3761,7 +3768,6 @@ void cleanup_Sep_FIR_filter(Sep_FIR_filter *const f)
 void init_im(Image *const im)
 {
 	im->data = NULL;
-	im->dims = &im->nx;
 	im->strides = &im->x_stride;
 	im->cl_valid = SIFT3D_FALSE;
 
@@ -3771,7 +3777,7 @@ void init_im(Image *const im)
 
 	im->size = 0;
 	im->s = -1.0;
-	memset(im->dims, 0, IM_NDIMS * sizeof(int));
+	memset(SIFT3D_IM_GET_DIMS(im), 0, IM_NDIMS * sizeof(int));
 	memset(im->strides, 0, IM_NDIMS * sizeof(int));
 }
 
@@ -4042,7 +4048,7 @@ int resize_Pyramid(const Image *const im, const int first_level,
 	// Calculate base image dimensions and units
 	factor = pow(2.0, -first_octave);
         for (i = 0; i < IM_NDIMS; i++) {
-                dims[i] = (int) ((double) im->dims[i] * factor);
+                dims[i] = (int) ((double) SIFT3D_IM_GET_DIMS(im)[i] * factor);
                 units[i] = SIFT3D_IM_GET_UNITS(im)[i] * factor;
         }
 
@@ -4050,7 +4056,8 @@ int resize_Pyramid(const Image *const im, const int first_level,
 	SIFT3D_PYR_LOOP_START(pyr, o, s)
                         // Initialize Image fields
                         Image *const level = SIFT3D_PYR_IM_GET(pyr, o, s);
-                        memcpy(level->dims, dims, IM_NDIMS * sizeof(int));
+                        memcpy(SIFT3D_IM_GET_DIMS(level), dims, 
+                                IM_NDIMS * sizeof(int));
                         memcpy(SIFT3D_IM_GET_UNITS(level), units, 
                                 IM_NDIMS * sizeof(double));
 	                level->nc = im->nc;

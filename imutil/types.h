@@ -165,7 +165,6 @@ typedef struct _Mat_rm {
 typedef struct _Image {
 
 	float *data;		// Raster of voxel values ~16MB
-	int *dims;		// Array-style access to {nx, ...}
 	int *strides;		// Array-style access to {x_stride, ...}
 	cl_mem cl_image;	// Same-sized OpenCL image object
 	double s;		// scale-space location

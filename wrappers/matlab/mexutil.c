@@ -110,7 +110,7 @@ mxArray *im2mx(const Image *const im) {
 
         // Initialize the dimensions
         for (i = 0; i < IM_NDIMS; i++) {
-                dims[i] = im->dims[i];
+                dims[i] = SIFT3D_IM_GET_DIMS(im)[i];
         }
         dims[IM_NDIMS] = im->nc;
 
@@ -152,12 +152,12 @@ int mx2im(const mxArray *const mx, Image *const im) {
         mxNSpaceDims = SIFT3D_MIN((int) mxNDims, MX_IM_NDIMS - 1);
         mxDims = mxGetDimensions(mx);
         for (i = 0; i < mxNSpaceDims; i++) {
-                im->dims[i] = (int) mxDims[i];
+                SIFT3D_IM_GET_DIMS(im)[i] = (int) mxDims[i];
         }
 
         // Pad the unfilled dimensions with 1
         for (i = mxNSpaceDims; i < MX_IM_NDIMS - 1; i++) {
-                im->dims[i] = 1; 
+                SIFT3D_IM_GET_DIMS(im)[i] = 1; 
         } 
 
         // Copy the number of channels, defaulting to 1

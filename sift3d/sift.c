@@ -883,7 +883,7 @@ static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im) {
 
         // Make a temporary copy the previous image dimensions
         for (i = 0; i < IM_NDIMS; i++) {
-                dims_old[i] = sift3d->im.dims[i];
+                dims_old[i] = SIFT3D_IM_GET_DIMS(&sift3d->im)[i];
         }
 
         // Make a copy of the input image
@@ -892,7 +892,8 @@ static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im) {
 
         // Resize the internal data, if necessary
         if ((data_old == NULL || 
-                memcmp(dims_old, sift3d->im.dims, IM_NDIMS * sizeof(int))) &&
+                memcmp(dims_old, SIFT3D_IM_GET_DIMS(&sift3d->im), 
+                        IM_NDIMS * sizeof(int))) &&
                 resize_SIFT3D(sift3d, num_kp_levels))
                 return SIFT3D_FAILURE;
 
@@ -2517,7 +2518,8 @@ int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d,
                 extract_dense_descriptors_no_rotate;
 
         // Resize the output image
-        memcpy(desc->dims, in->dims, IM_NDIMS * sizeof(int));
+        memcpy(SIFT3D_IM_GET_DIMS(desc), SIFT3D_IM_GET_DIMS(in), 
+                IM_NDIMS * sizeof(int));
         desc->nc = HIST_NUMEL;
         im_default_stride(desc);
         if (im_resize(desc))
@@ -3210,7 +3212,8 @@ int draw_matches(const Image *const left, const Image *const right,
                         goto draw_matches_quit;
 
                 // Draw the points
-                if (draw_points(&keys_draw, concat_arg->dims, 1, keys))
+                if (draw_points(&keys_draw, SIFT3D_IM_GET_DIMS(concat_arg), 
+                        1, keys))
                         goto draw_matches_quit;
         }
 
@@ -3228,8 +3231,8 @@ int draw_matches(const Image *const left, const Image *const right,
                 }
 
                 // Draw the lines
-                if (draw_lines(match_left, &match_right_draw, concat_arg->dims,
-                        lines))
+                if (draw_lines(match_left, &match_right_draw, 
+                        SIFT3D_IM_GET_DIMS(concat_arg), lines))
                         goto draw_matches_quit;
         }
 

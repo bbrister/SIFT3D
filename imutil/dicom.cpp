@@ -856,9 +856,9 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         }
 
         // Count the number of pixels in the image
-        unsigned long numPixels = im->dims[0];
+        unsigned long numPixels = SIFT3D_IM_GET_DIMS(im)[0];
         for (int i = 1; i < IM_NDIMS; i++) {
-                numPixels *= im->dims[i];
+                numPixels *= SIFT3D_IM_GET_DIMS(im)[i];
         }
 
         // Get the image scaling factor

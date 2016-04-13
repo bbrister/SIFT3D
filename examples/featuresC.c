@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 /* SIFT3D headers */
+#include "macros.h"
 #include "imutil.h"
 #include "sift.h"
 
@@ -70,7 +71,7 @@ int demo(void) {
                 goto demo_quit;
 
         // Draw the keypoints
-        if (draw_points(&keys, im.dims, 1, &draw))
+        if (draw_points(&keys, SIFT3D_IM_GET_DIMS(&im), 1, &draw))
                 goto demo_quit;
 
         // Write the drawn keypoints to a file

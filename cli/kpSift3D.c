@@ -204,7 +204,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 // Draw the points
-                if (draw_points(&keys, im.dims, 1, &draw)) {
+                if (draw_points(&keys, SIFT3D_IM_GET_DIMS(&im), 1, &draw)) {
                         err_msgu("Failed to draw the points.");
                         return 1;
                 }

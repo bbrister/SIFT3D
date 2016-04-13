@@ -45,6 +45,10 @@ extern "C" {
 	 "warnings or sub-optimal performance. \n")
 #endif
 
+// Get a pointer to the [nx, ny, nz] array of an image
+#define SIFT3D_IM_GET_DIMS(im) \
+        (&(im)->nx)
+
 // Get a pointer to the [ux, uy, uz] array of an image
 #define SIFT3D_IM_GET_UNITS(im) \
         (&(im)->ux)
