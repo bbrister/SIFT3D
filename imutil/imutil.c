@@ -1592,11 +1592,11 @@ void im_default_stride(Image *const im)
 	int i, prod;
 
 	prod = im->nc;
-	im->strides[0] = prod;
+	SIFT3D_IM_GET_STRIDES(im)[0] = prod;
 
 	for (i = 1; i < IM_NDIMS; i++) {
 		prod *= SIFT3D_IM_GET_DIMS(im)[i - 1];
-		im->strides[i] = prod;
+		SIFT3D_IM_GET_STRIDES(im)[i] = prod;
 	}
 }
 
@@ -2644,7 +2644,7 @@ int im_permute(const Image * const src, const int dim1, const int dim2,
 		return SIFT3D_FAILURE;
 
 	// Make a copy of the source strides
-	memcpy(strides, src->strides, IM_NDIMS * sizeof(int));
+	memcpy(strides, SIFT3D_IM_GET_STRIDES(src), IM_NDIMS * sizeof(int));
 
 	// Swap the strides
 	temp = strides[dim1];
@@ -2677,7 +2677,7 @@ int im_restride(const Image * const src, const int *const strides,
 	// Resize the output
 	memcpy(SIFT3D_IM_GET_DIMS(dst), SIFT3D_IM_GET_DIMS(src), 
                 IM_NDIMS * sizeof(int));
-	memcpy(dst->strides, strides, IM_NDIMS * sizeof(int));
+	memcpy(SIFT3D_IM_GET_STRIDES(dst), strides, IM_NDIMS * sizeof(int));
 	dst->nc = src->nc;
 	if (im_resize(dst))
 		return SIFT3D_FAILURE;
@@ -3768,7 +3768,6 @@ void cleanup_Sep_FIR_filter(Sep_FIR_filter *const f)
 void init_im(Image *const im)
 {
 	im->data = NULL;
-	im->strides = &im->x_stride;
 	im->cl_valid = SIFT3D_FALSE;
 
 	im->ux = 1;
@@ -3778,7 +3777,7 @@ void init_im(Image *const im)
 	im->size = 0;
 	im->s = -1.0;
 	memset(SIFT3D_IM_GET_DIMS(im), 0, IM_NDIMS * sizeof(int));
-	memset(im->strides, 0, IM_NDIMS * sizeof(int));
+	memset(SIFT3D_IM_GET_STRIDES(im), 0, IM_NDIMS * sizeof(int));
 }
 
 /* Initialize a normalized Gaussian filter, of the given sigma.

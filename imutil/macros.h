@@ -49,6 +49,10 @@ extern "C" {
 #define SIFT3D_IM_GET_DIMS(im) \
         (&(im)->nx)
 
+// Get a pointer to the [x_stride, y_stride, z_stride] array of an image
+#define SIFT3D_IM_GET_STRIDES(im) \
+        (&(im)->x_stride)
+
 // Get a pointer to the [ux, uy, uz] array of an image
 #define SIFT3D_IM_GET_UNITS(im) \
         (&(im)->ux)
