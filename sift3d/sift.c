@@ -108,27 +108,22 @@ const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientation elements
         const float uxf = (float) (im)->ux; \
         const float uyf = (float) (im)->uy; \
         const float uzf = (float) (im)->uz; \
-        const int r = lround(rad); \
-        const int x_center = lround((vcenter)->x); \
-        const int y_center = lround((vcenter)->y); \
-        const int z_center = lround((vcenter)->z); \
-	const int x_start = SIFT3D_MAX(x_center - r, 1); \
-	const int x_end   = SIFT3D_MIN(x_center + r, im->nx - 2); \
-	const int y_start = SIFT3D_MAX(y_center - r, 1); \
-	const int y_end   = SIFT3D_MIN(y_center + r, im->ny - 2); \
-	const int z_start = SIFT3D_MAX(z_center - r, 1); \
-	const int z_end   = SIFT3D_MIN(z_center + r, im->nz - 2); \
-        assert(r > 0); \
+	const int x_start = SIFT3D_MAX(floorf((vcenter)->x - (rad) / uxf), 1); \
+	const int x_end   = SIFT3D_MIN(ceilf((vcenter)->x + (rad) / uxf),  \
+                im->nx - 2); \
+	const int y_start = SIFT3D_MAX(floorf((vcenter)->y - (rad) / uyf), 1); \
+	const int y_end   = SIFT3D_MIN(ceilf((vcenter)->y + (rad) / uyf), \
+                im->ny - 2); \
+	const int z_start = SIFT3D_MAX(floorf((vcenter)->z - (rad) / uzf), 1); \
+	const int z_end   = SIFT3D_MIN(ceilf((vcenter)->z + (rad) / uzf), \
+                im->nz - 2); \
 	SIFT3D_IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, y_start, \
                  y_end, z_start, z_end) \
-                const int dx = x - x_center; \
-                const int dy = y - y_center; \
-                const int dz = z - z_center; \
                 (vdisp)->x = ((float) x - (vcenter)->x) * uxf; \
                 (vdisp)->y = ((float) y - (vcenter)->y) * uyf; \
                 (vdisp)->z = ((float) z - (vcenter)->z) * uzf; \
                 (sq_dist) = SIFT3D_CVEC_L2_NORM_SQ(vdisp); \
-	        if (dx * dx + dy * dy + dz * dz > r * r) \
+                if ((sq_dist) > (rad) * (rad)) \
 	                continue; \
 
 #define IM_LOOP_SPHERE_END SIFT3D_IM_LOOP_END }
@@ -1926,7 +1921,7 @@ void SIFT3D_desc_acc_interp(const SIFT3D * const sift3d,
                         ((dy == 0) ? (1.0f - dvbins.y) : dvbins.y) *
                         ((dz == 0) ? (1.0f - dvbins.z) : dvbins.z);
 
-				/* Add the value into the histogram */
+                /* Add the value into the histogram */
 #ifdef ICOS_HIST
                 assert(HIST_NUMEL == ICOS_NVERT);
                 assert(bin >= 0 && bin < ICOS_NFACES);
