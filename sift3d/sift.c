@@ -2009,8 +2009,8 @@ static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
 	// Compute basic parameters 
         const float sigma = key->sd * desc_sig_fctr;
 	const float win_radius = desc_rad_fctr * sigma;
-	const float desc_width = win_radius / sqrt(2);
-	const float desc_hw = desc_width / 2.0f;
+	const float desc_hw = win_radius / sqrt(2);
+	const float desc_width = 2.0f * desc_hw;
 	const float desc_bin_fctr = (float) NHIST_PER_DIM / desc_width;
 	const double coord_factor = pow(2.0, key->o);
 
