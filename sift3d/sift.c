@@ -202,7 +202,7 @@ static void SIFT3D_desc_acc_interp(const SIFT3D * const sift3d,
 				   const Cvec * const vbins, 
 				   const Cvec * const grad,
 				   SIFT3D_Descriptor * const desc);
-static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
+static int extract_descrip(SIFT3D *const sift3d, const Image *const im,
 	   const Keypoint *const key, SIFT3D_Descriptor *const desc);
 static int argv_remove(const int argc, char **argv, 
                         const unsigned char *processed);
@@ -210,7 +210,7 @@ static int extract_dense_descriptors_no_rotate(SIFT3D *const sift3d,
         const Image *const in, Image *const desc);
 static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
         const Image *const in, Image *const desc);
-static void extract_dense_descrip_rotate(SIFT3D *const sift3d, 
+static int extract_dense_descrip_rotate(SIFT3D *const sift3d, 
            const Image *const im, const Cvec *const vcenter, 
            const double sigma, const Mat_rm *const R, Hist *const hist);
 static void vox2hist(const Image *const im, const int x, const int y,
@@ -1998,9 +1998,11 @@ static void hist_zero(Hist *hist) {
 }
 
 /* Helper routine to extract a single SIFT3D descriptor */
-static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
+static int extract_descrip(SIFT3D *const sift3d, const Image *const im,
 	   const Keypoint *const key, SIFT3D_Descriptor *const desc) {
 
+        float buf[IM_NDIMS * IM_NDIMS];
+        Mat_rm Rt;
 	Cvec vcenter, vim, vkp, vbins, grad, grad_rot;
 	Hist *hist;
 	float weight, sq_dist;
@@ -2013,6 +2015,11 @@ static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
 	const float desc_width = 2.0f * desc_hw;
 	const float desc_bin_fctr = (float) NHIST_PER_DIM / desc_width;
 	const double coord_factor = pow(2.0, key->o);
+
+        // Invert the rotation matrix
+        if (init_Mat_rm_p(&Rt, buf, IM_NDIMS, IM_NDIMS, FLOAT, SIFT3D_FALSE) ||
+                transpose_Mat_rm(&key->R, &Rt))
+                return SIFT3D_FAILURE;
 
 	// Zero the descriptor
 	for (i = 0; i < DESC_NUM_TOTAL_HIST; i++) {
@@ -2027,7 +2034,7 @@ static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
 	IM_LOOP_SPHERE_START(im, x, y, z, &vcenter, win_radius, &vim, sq_dist)
 
 		// Rotate to keypoint space
-		SIFT3D_MUL_MAT_RM_CVEC(&key->R, &vim, &vkp);		
+		SIFT3D_MUL_MAT_RM_CVEC(&Rt, &vim, &vkp);		
 
 		// Compute spatial bins
 		vbins.x = (vkp.x + desc_hw) * desc_bin_fctr;
@@ -2049,7 +2056,7 @@ static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
 		SIFT3D_CVEC_SCALE(&grad, weight);
 
                 // Rotate the gradient to keypoint space
-		SIFT3D_MUL_MAT_RM_CVEC(&key->R, &grad, &grad_rot);
+		SIFT3D_MUL_MAT_RM_CVEC(&Rt, &grad, &grad_rot);
 
 		// Finally, accumulate bins by 5x linear interpolation
 		SIFT3D_desc_acc_interp(sift3d, &vbins, &grad_rot, desc);
@@ -2081,6 +2088,8 @@ static void extract_descrip(SIFT3D *const sift3d, const Image *const im,
 	desc->yd = key->yd * coord_factor;
 	desc->zd = key->zd * coord_factor;
 	desc->sd = key->sd;
+
+        return SIFT3D_SUCCESS;
 }
 
 /* Check if the Gaussian scale-space pyramid in a SIFT3D struct is valid. This
@@ -2387,7 +2396,8 @@ static int _SIFT3D_extract_descriptors(SIFT3D *const sift3d,
 		const Image *const level = 
                         SIFT3D_PYR_IM_GET(gpyr, key->o, key->s);
 
-		extract_descrip(sift3d, level, key, descrip);
+		if (extract_descrip(sift3d, level, key, descrip))
+                        return SIFT3D_FAILURE;
 	}	
 
 	return SIFT3D_SUCCESS;
@@ -2443,10 +2453,12 @@ static void postproc_Hist(Hist *const hist, const float norm) {
 }
 
 /* Helper routine to extract a single SIFT3D histogram, with rotation. */
-static void extract_dense_descrip_rotate(SIFT3D *const sift3d, 
+static int extract_dense_descrip_rotate(SIFT3D *const sift3d, 
            const Image *const im, const Cvec *const vcenter, 
            const double sigma, const Mat_rm *const R, Hist *const hist) {
 
+        float buf[IM_NDIMS * IM_NDIMS];
+        Mat_rm Rt;
 	Cvec grad, grad_rot, bary, vim;
 	float sq_dist, mag, weight;
 SIFT3D_IGNORE_UNUSED
@@ -2454,6 +2466,11 @@ SIFT3D_IGNORE_UNUSED
 
         const Mesh *const mesh = &sift3d->mesh;
 	const float win_radius = desc_rad_fctr * sigma;
+
+        // Invert the rotation matrix
+        if (init_Mat_rm_p(&Rt, buf, IM_NDIMS, IM_NDIMS, FLOAT, SIFT3D_FALSE) ||
+                transpose_Mat_rm(R, &Rt))
+                return SIFT3D_FAILURE;
 
 	// Zero the descriptor
         hist_zero(hist);
@@ -2463,7 +2480,7 @@ SIFT3D_IGNORE_UNUSED
 
 		// Take the gradient and rotate
 		IM_GET_GRAD_ISO(im, x, y, z, 0, &grad);
-		SIFT3D_MUL_MAT_RM_CVEC(R, &grad, &grad_rot);
+		SIFT3D_MUL_MAT_RM_CVEC(&Rt, &grad, &grad_rot);
 
                 // Get the index of the intersecting face
                 if (icos_hist_bin(sift3d, &grad_rot, &bary, &bin))
@@ -2481,6 +2498,8 @@ SIFT3D_IGNORE_UNUSED
                 MESH_HIST_GET(mesh, hist, bin, 2) += mag * weight * bary.z;
 
 	IM_LOOP_SPHERE_END
+
+        return SIFT3D_SUCCESS;
 }
 
 /* Get a descriptor with a single histogram at each voxel of an image.
@@ -2707,8 +2726,9 @@ static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
                 }
 
                 // Extract the descriptor
-                extract_dense_descrip_rotate(sift3d, in, &vcenter, desc_sigma,
-                        ori, &hist);
+                if (extract_dense_descrip_rotate(sift3d, in, &vcenter, 
+                        desc_sigma, ori, &hist))
+                        goto dense_rotate_quit;
 
                 // Copy the descriptor to the image channels
                 hist2vox(&hist, desc, x, y, z);
