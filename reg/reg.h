@@ -7,7 +7,7 @@
  * -----------------------------------------------------------------------------
  */
 
-#include "types.h"
+#include "imtypes.h"
 
 #ifndef _REG_H
 #define _REG_H

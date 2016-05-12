@@ -8,7 +8,7 @@
  */
 
 #include <sys/types.h>
-#include "types.h"
+#include "imtypes.h"
 
 #ifndef _IMUTIL_H
 #define _IMUTIL_H

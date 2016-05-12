@@ -8,7 +8,7 @@
  */
 
 #include "mex.h"
-#include "types.h"
+#include "imtypes.h"
 
 #ifndef _MEXUTIL_H
 #define _MEXUTIL_H

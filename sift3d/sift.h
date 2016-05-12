@@ -7,7 +7,7 @@
  * -----------------------------------------------------------------------------
  */
 
-#include "types.h"
+#include "imtypes.h"
 
 #ifndef _SIFT_H
 #define _SIFT_H

@@ -1,5 +1,5 @@
 /* -----------------------------------------------------------------------------
- * macros.h
+ * immacros.h
  * -----------------------------------------------------------------------------
  * Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
  * -----------------------------------------------------------------------------
@@ -7,7 +7,7 @@
  * -----------------------------------------------------------------------------
  */
 
-#include "types.h"
+#include "imtypes.h"
 
 #ifdef SIFT3D_MEX
 #include "mex.h"
@@ -15,8 +15,8 @@
 #include "stdio.h"
 #endif
 
-#ifndef _MACROS_H
-#define _MACROS_H
+#ifndef _IMMACROS_H
+#define _IMMACROS_H
 
 #ifdef __cplusplus
 extern "C" {

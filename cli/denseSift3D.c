@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include "macros.h"
+#include "immacros.h"
 #include "imutil.h"
 #include "sift.h"
 

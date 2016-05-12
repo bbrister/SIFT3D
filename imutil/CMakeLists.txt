@@ -106,7 +106,7 @@ target_compile_definitions (imutil PRIVATE
 if (DCMTK_HAVE_CONFIG_FILE)
         target_compile_definitions (imutil PRIVATE "HAVE_CONFIG_H")
 endif ()
-install (FILES types.h macros.h imutil.h kernels.cl
+install (FILES imtypes.h immacros.h imutil.h kernels.cl
         DESTINATION ${INSTALL_INCLUDE_DIR})
 
 # Link to system libraries

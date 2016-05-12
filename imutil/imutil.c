@@ -22,8 +22,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <nifti1_io.h>
-#include "macros.h"
-#include "types.h"
+#include "immacros.h"
+#include "imtypes.h"
 #include "dicom.h"
 #include "imutil.h"
 

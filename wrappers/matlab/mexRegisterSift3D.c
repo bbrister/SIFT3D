@@ -9,7 +9,7 @@
 
 #include "imutil.h"
 #include "reg.h"
-#include "macros.h"
+#include "immacros.h"
 #include "mexutil.h"
 #include "mex.h"
 #include "matrix.h"

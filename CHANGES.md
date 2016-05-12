@@ -49,3 +49,4 @@
 * Fixed bug that caused crashing on some large images
 * Dramatically reduced memory consumption of keypoint matching
 * Refactored SIFT3D_nn_match_fb into SIFT3D_nn_match, as there is now no reason to prefer forward to forward-backward matching
+* Renamed headers macros.h and types.h to immacros.h and imtypes.h, respectively

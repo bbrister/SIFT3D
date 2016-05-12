@@ -9,7 +9,7 @@
 
 #include "imutil.h"
 #include "sift.h"
-#include "macros.h"
+#include "immacros.h"
 #include "mexutil.h"
 #include "mex.h"
 

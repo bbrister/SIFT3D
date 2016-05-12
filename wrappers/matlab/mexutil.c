@@ -12,8 +12,8 @@
 #include <math.h>
 
 /* SIFT3D headers */
-#include "types.h"
-#include "macros.h"
+#include "imtypes.h"
+#include "immacros.h"
 #include "imutil.h"
 #include "sift.h"
 #include "reg.h"

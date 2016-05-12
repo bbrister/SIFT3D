@@ -56,7 +56,7 @@
 #include <stdint.h>
 #include <dirent.h>
 #include "imutil.h"
-#include "macros.h"
+#include "immacros.h"
 #include "dicom.h"
 
 /* Macro to call a C++ function and catch any exceptions it throws,

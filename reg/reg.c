@@ -11,8 +11,8 @@
 #include <string.h>
 #include <math.h>
 #include "reg.h"
-#include "types.h"
-#include "macros.h"
+#include "imtypes.h"
+#include "immacros.h"
 #include "sift.h"
 #include "imutil.h"
 

@@ -1,5 +1,5 @@
 /* -----------------------------------------------------------------------------
- * types.h
+ * imtypes.h
  * -----------------------------------------------------------------------------
  * Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
  * -----------------------------------------------------------------------------
@@ -9,8 +9,8 @@
 
 #include <time.h>
 
-#ifndef _TYPES_H
-#define _TYPES_H
+#ifndef _IMTYPES_H
+#define _IMTYPES_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -222,7 +222,7 @@ typedef struct _Pyramid {
 	double sigma0;
 	int num_kp_levels;
 
-	// Indexing information -- see macros.h
+	// Indexing information -- see immacros.h
 	int first_octave;
 	int num_octaves;
 	int first_level;

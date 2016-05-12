@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
-#include "macros.h"
+#include "immacros.h"
 #include "imutil.h"
 #include "sift.h"
 #include "reg.h"

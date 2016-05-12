@@ -16,8 +16,8 @@
 #include <assert.h>
 #include <float.h>
 #include <getopt.h>
-#include "types.h"
-#include "macros.h"
+#include "imtypes.h"
+#include "immacros.h"
 #include "imutil.h"
 
 #include "sift.h"

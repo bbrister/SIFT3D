@@ -11,7 +11,7 @@
 #include <stdio.h>
 
 /* SIFT3D headers */
-#include "macros.h"
+#include "immacros.h"
 #include "imutil.h"
 #include "sift.h"
 
