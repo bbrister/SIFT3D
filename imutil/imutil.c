@@ -555,7 +555,7 @@ void cleanup_Mesh(Mesh * const mesh)
  * 
  * All matrices must be initialized prior to calling this function. */
 int convert_Mat_rm(const Mat_rm * const in, Mat_rm * const out,
-		   const data_type type)
+		   const Mat_rm_type type)
 {
 
 	int i, j;
@@ -608,11 +608,18 @@ int convert_Mat_rm(const Mat_rm * const in, Mat_rm * const out,
 	return SIFT3D_SUCCESS;
 }
 
-/* Shortcut function to initalize a matrix. data_type is the type
- * of matrix elements. If set_zero == TRUE, sets all elements to 
- * zero. */ 
+/* Shortcut function to initalize a matrix.
+ * 
+ * Parameters:
+ *      mat - The matrix to be initialized
+ *      num_rows - The number of rows
+ *      num_cols - The number of columns
+ *      type - The data type 
+ *      set_zero - If true, initializes the elements to zero.
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
 int init_Mat_rm(Mat_rm *const mat, const int num_rows, const int num_cols,
-                const data_type type, const int set_zero) {
+                const Mat_rm_type type, const int set_zero) {
 
         mat->type = type;
         mat->num_rows = num_rows;
@@ -630,13 +637,13 @@ int init_Mat_rm(Mat_rm *const mat, const int num_rows, const int num_cols,
         return SIFT3D_SUCCESS;
 }
 
-/* As above, but aliases data memory with pointer p. The flag mat->static_mem
- * is set, and the matrix does not need to be freed with cleanup_Mat_rm. But, 
- * an error will be thrown if the user attempts to resize the memory. That is,
- * resize_Mat_rm will only return success if the size of the matrix does not
- * change. */ 
+/* As init_Mat_rm, but aliases data memory with pointer p. The flag 
+ * mat->static_mem is set, and the matrix does not need to be freed with 
+ * cleanup_Mat_rm. But, an error will be thrown if the user attempts to resize
+ * the memory. That is, resize_Mat_rm will only return success if the size of 
+ * the matrix does not change. */ 
 int init_Mat_rm_p(Mat_rm *const mat, const void *const p, const int num_rows, 
-                  const int num_cols, const data_type type, 
+                  const int num_cols, const Mat_rm_type type, 
                   const int set_zero) {
 
         // Perform normal initialization
@@ -832,7 +839,7 @@ int resize_Mat_rm(Mat_rm *const mat) {
     const int num_cols = mat->num_cols;
     double **const data = &mat->u.data_double;
     const size_t numel = num_rows * num_cols;
-    const data_type type = mat->type;
+    const Mat_rm_type type = mat->type;
 
     // Get the size of the underyling datatype
     switch (type) {

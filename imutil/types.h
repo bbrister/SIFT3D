@@ -116,11 +116,11 @@ typedef enum _im_format {
 } im_format;
 
 /* Possible data types for matrix elements */ 
-typedef enum _data_type {
+typedef enum _Mat_rm_type {
 	DOUBLE,
 	FLOAT,
 	INT
-} data_type;
+} Mat_rm_type;
 
 /* Struct to hold OpenCL programs for this library */
 typedef struct _kernels {
@@ -152,7 +152,7 @@ typedef struct _Mat_rm {
 	int num_cols;           // Number of columns 
 	int num_rows;           // Number of rows	
         int static_mem;         // Flag for statically-allocated memory
-	data_type type;         // DOUBLE, FLOAT, or INT
+	Mat_rm_type type;       // DOUBLE, FLOAT, or INT
 
 } Mat_rm;
 

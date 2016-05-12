@@ -44,13 +44,13 @@ void init_Mesh(Mesh * const mesh);
 void cleanup_Mesh(Mesh * const mesh);
 
 int convert_Mat_rm(const Mat_rm *const in, Mat_rm *const out, 
-        const data_type type);
+        const Mat_rm_type type);
 
 int init_Mat_rm(Mat_rm *const mat, const int num_rows, const int num_cols,
-                const data_type type, const int set_zero);
+                const Mat_rm_type type, const int set_zero);
 
 int init_Mat_rm_p(Mat_rm *const mat, const void *const p, const int num_rows, 
-                  const int num_cols, const data_type type, 
+                  const int num_cols, const Mat_rm_type type, 
                   const int set_zero);
 
 void sprint_type_Mat_rm(const Mat_rm *const mat, char *const str);
