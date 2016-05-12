@@ -39,13 +39,13 @@
 * Removed unused, faulty options
 * Print internal error messages to the Matlab command prompt
 
-## 1.3.1 March 31, 2015
+## 1.3.1 March 31, 2016
 
 * Removed option to set the number of octaves, which was causing bugs 
 
-## 1.4.0
+## 1.4.0 May 11, 2016
 
-* Fixed bugs to improve keypoint and registration accuracy
+* Fixed bugs to improve keypoint and registration accuracy, especially concerning rotations
 * Fixed bug that caused crashing on some large images
 * Dramatically reduced memory consumption of keypoint matching
 * Refactored SIFT3D_nn_match_fb into SIFT3D_nn_match, as there is now no reason to prefer forward to forward-backward matching
