@@ -19,7 +19,6 @@
 #include "imtypes.h"
 #include "immacros.h"
 #include "imutil.h"
-
 #include "sift.h"
 
 /* Implementation options */
@@ -176,7 +175,6 @@ static int resize_SIFT3D(SIFT3D *const sift3d, const int num_kp_levels);
 static int build_gpyr(SIFT3D *sift3d);
 static int build_dog(SIFT3D *dog);
 static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp);
-static int refine_keypoints(SIFT3D *sift3d, Keypoint_store *kp);
 static int assign_orientations(SIFT3D *sift3d, Keypoint_store *kp);
 static int assign_orientation_thresh(const Image *const im, 
         const Cvec *const vcenter, const double sigma, const double thresh,
@@ -1182,6 +1180,7 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
                                         return SIFT3D_FAILURE;
                                 key->o = o;
                                 key->s = s;
+                                key->sd = cur->s;
 				key->xd = (double) x;
 				key->yd = (double) y;
 				key->zd = (double) z;
@@ -1191,204 +1190,6 @@ static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp) {
 #undef CMP_NEIGHBORS
 
 	return SIFT3D_SUCCESS;
-}
-
-/* Refine keypoint locations to sub-pixel accuracy. */
-static int refine_keypoints(SIFT3D *sift3d, Keypoint_store *kp) {
-
-	Mat_rm B, Hi, Hs, X;
-SIFT3D_IGNORE_UNUSED
-	Cvec vd;
-	double xd, yd, zd, sd;
-SIFT3D_IGNORE_UNUSED
-	int x, y, z, c, xnew, ynew, znew, i, j, k, l;
-
-	// Initialize intermediates
-	init_Mat_rm(&B, 4, 1, DOUBLE, SIFT3D_FALSE);
-	init_Mat_rm(&X, 4, 1, DOUBLE, SIFT3D_FALSE);
-	init_Mat_rm(&Hi, 3, 3, DOUBLE, SIFT3D_FALSE);
-	init_Mat_rm(&Hs, 4, 4, DOUBLE, SIFT3D_FALSE);
-
-	for (k = 0; k < kp->slab.num; k++) {
-
-		// Misc. constant data
-		Keypoint *const key = kp->buf + k;
-		const int o = key->o;
-		const int s = key->s;
-		const Image *const prev = 
-                        SIFT3D_PYR_IM_GET(&sift3d->dog, o, s - 1);
-		const Image *const cur = 
-                        SIFT3D_PYR_IM_GET(&sift3d->dog, o, s);
-		const Image *const next = 
-                        SIFT3D_PYR_IM_GET(&sift3d->dog, o, s + 1);
-
-		// Bound the translation to all non-boundary pixels
-		const double xmin = 0.5 + FLT_EPSILON;
-		const double ymin = 0.5 + FLT_EPSILON; 
-		const double zmin = 0.5 + FLT_EPSILON;
-		const double xmax = cur->nx - 1.5 - FLT_EPSILON; 
-		const double ymax = cur->ny - 1.5 - FLT_EPSILON;
-		const double zmax = cur->nz - 1.5 - FLT_EPSILON;
-	    
-		// Bound the scale to that of the neighboring levels
-		const double smin = prev->s;
-		const double smax = next->s;
-	
-		// Initialize mutable data	
-		x = lround(key->xd);
-		y = lround(key->yd);
-		z = lround(key->zd);
-		xd = key->xd;
-		yd = key->yd;
-		zd = key->zd;
-		sd = cur->s; 
-
-		// Refine the keypoint for a fixed number of iterations
-		for (l = 0; l < 5; l++) {
-
-		assert(x >= 1 && y >= 1 && z >= 1 && x <= cur->nx - 2 &&
-		       y <= cur->ny - 2 && z <= cur->nz - 2); 
-
-#define PARABOLA
-#ifndef PARABOLA 
-		// Form the gradient
-		SIFT3D_IM_GET_GRAD(cur, x, y, z, 0, &vd);
-
-		// Form the response vector as the negative gradient
-		SIFT3D_MAT_RM_GET(&B, 0, 0, double) = (double) -vd.x;
-		SIFT3D_MAT_RM_GET(&B, 1, 0, double) = (double) -vd.y;
-		SIFT3D_MAT_RM_GET(&B, 2, 0, double) = (double) -vd.z;
-		SIFT3D_MAT_RM_GET(&B, 3, 0, double) = 
-		   (double) - 0.5 * (SIFT3D_IM_GET_VOX(next, x, y, z, 0) - 
-			      SIFT3D_IM_GET_VOX(prev, x, y, z, 0));
-
-		// Form the Hessian
-		SIFT3D_IM_GET_HESSIAN(cur, x, y, z, c, 0, &Hi, double);
-		SIFT3D_MAT_RM_LOOP_START(&Hi, i, j)
-			SIFT3D_MAT_RM_GET(&Hs, i, j, double) = 
-				SIFT3D_MAT_RM_GET(&Hi, i, j, double);
-		SIFT3D_MAT_RM_LOOP_END
-
-		// Dsx
-		SIFT3D_MAT_RM_GET(&Hs, 0, 3, double) = 
-		SIFT3D_MAT_RM_GET(&Hs, 3, 0, double) =
-			(double) 0.25 * (SIFT3D_IM_GET_VOX(next, x + 1, y, z, 0) -
-			 SIFT3D_IM_GET_VOX(prev, x + 1, y, z, 0) + 
-			 SIFT3D_IM_GET_VOX(prev, x - 1, y, z, 0) - 
-			 SIFT3D_IM_GET_VOX(next, x - 1, y, z, 0)); 
-
-		// Dsy 
-		SIFT3D_MAT_RM_GET(&Hs, 1, 3, double) = 
-		SIFT3D_MAT_RM_GET(&Hs, 3, 1, double) = 
-			(double) 0.25 * (SIFT3D_IM_GET_VOX(next, x, y + 1, z, 0) -
-			 SIFT3D_IM_GET_VOX(prev, x, y + 1, z, 0) + 
-			 SIFT3D_IM_GET_VOX(prev, x, y - 1, z, 0) - 
-			 SIFT3D_IM_GET_VOX(next, x, y - 1, z, 0)); 
-
-		// Dsz 
-		SIFT3D_MAT_RM_GET(&Hs, 2, 3, double) = 
-		SIFT3D_MAT_RM_GET(&Hs, 3, 2, double) = 
-			(double) 0.25 * (SIFT3D_IM_GET_VOX(next, x, y, z + 1) -
-			 SIFT3D_IM_GET_VOX(prev, x, y, z + 1) + 
-			 SIFT3D_IM_GET_VOX(prev, x, y, z - 1) - 
-			 SIFT3D_IM_GET_VOX(next, x, y, z - 1)); 
-
-		// Dss  
-		SIFT3D_MAT_RM_GET(&Hs, 3, 3, double) = 
-			(double) 0.25 * (SIFT3D_IM_GET_VOX(next, x, y, z, 0) -
-			2 * SIFT3D_IM_GET_VOX(cur, x, y, z, 0) +
-			SIFT3D_IM_GET_VOX(prev, x, y, z, 0));
-
-		// Solve the system
-		switch(solve_Mat_rm(&Hs, &B, -1.0, &X)) {
-		    case SIFT3D_SUCCESS:
-			break;
-		    case SINGULAR:
-			// The system is singular: give up
-			goto refine_quit;
-		    default:
-			puts("refine_keypoint: error solving system! \n");
-                        goto refine_error;
-		}
-	
-#else
-		// Parabolic interpolation
-		SIFT3D_MAT_RM_GET(&X, 0, 0, double) = -0.5 * ( 
-		    SIFT3D_IM_GET_VOX(cur, x + 1, y, z, 0) -
-		    SIFT3D_IM_GET_VOX(cur, x - 1, y, z, 0)) / (
-		    SIFT3D_IM_GET_VOX(cur, x + 1, y, z, 0) -
-		    SIFT3D_IM_GET_VOX(cur, x - 1, y, z, 0) +
-		    2 * SIFT3D_IM_GET_VOX(cur, x, y, z, 0));
-		SIFT3D_MAT_RM_GET(&X, 1, 0, double) = -0.5 * ( 
-		    SIFT3D_IM_GET_VOX(cur, x, y + 1, z, 0) -
-		    SIFT3D_IM_GET_VOX(cur, x, y - 1, z, 0)) / (
-		    SIFT3D_IM_GET_VOX(cur, x, y + 1, z, 0) -
-		    SIFT3D_IM_GET_VOX(cur, x, y - 1, z, 0) +
-		    2 * SIFT3D_IM_GET_VOX(cur, x, y, z, 0));
-		SIFT3D_MAT_RM_GET(&X, 2, 0, double) = -0.5 * ( 
-		    SIFT3D_IM_GET_VOX(cur, x, y, z + 1, 0) -
-		    SIFT3D_IM_GET_VOX(cur, x, y, z - 1, 0)) / (
-		    SIFT3D_IM_GET_VOX(cur, x, y, z + 1, 0) -
-		    SIFT3D_IM_GET_VOX(cur, x, y, z - 1, 0) +
-		    2 * SIFT3D_IM_GET_VOX(cur, x, y, z, 0));
-		SIFT3D_MAT_RM_GET(&X, 3, 0, double) = -0.5 * ( 
-		    SIFT3D_IM_GET_VOX(next, x, y, z, 0) -
-		    SIFT3D_IM_GET_VOX(prev, x, y, z, 0)) / (
-		    SIFT3D_IM_GET_VOX(next, x, y, z, 0) -
-		    SIFT3D_IM_GET_VOX(prev, x, y, z, 0) +
-		    2 * SIFT3D_IM_GET_VOX(cur, x, y, z, 0));
-#endif
-			// Update the coordinates
-			xd = SIFT3D_MAX(SIFT3D_MIN(xd + 
-                                SIFT3D_MAT_RM_GET(&X, 0, 0, double), xmax), xmin);
-			yd = SIFT3D_MAX(SIFT3D_MIN(yd + 
-                                SIFT3D_MAT_RM_GET(&X, 1, 0, double), ymax), ymin);
-			zd = SIFT3D_MAX(SIFT3D_MIN(zd + 
-                                SIFT3D_MAT_RM_GET(&X, 2, 0, double), zmax), zmin);
-			sd = SIFT3D_MAX(SIFT3D_MIN(sd + 
-                                SIFT3D_MAT_RM_GET(&X, 3, 0, double), smax), smin);
-
-			// Compute the new pixel indices	
-			xnew = lround(xd);
-			ynew = lround(yd);
-			znew = lround(zd);
-
-			// We are done if the pixel has not moved
-			if (x == xnew && y == ynew && z == znew)
-				break;
-
-			// Update the pixel coordinates
-			x = xnew;
-			y = ynew;
-			z = znew;
-		}
-#ifndef PARABOLA
-refine_quit:
-#else
-#undef PARABOLA
-#endif
-		// Save the keypoint
-		key->xd = xd;
-		key->yd = yd;
-		key->zd = zd;
-		key->sd = sd;
-	}
-
-        // Clean up
-        cleanup_Mat_rm(&B);
-        cleanup_Mat_rm(&X);
-        cleanup_Mat_rm(&Hi);
-        cleanup_Mat_rm(&Hs);
-
-	return SIFT3D_SUCCESS;
-
-refine_error: SIFT3D_IGNORE_UNUSED
-        // Clean up and return an error
-        cleanup_Mat_rm(&B);
-        cleanup_Mat_rm(&X);
-        cleanup_Mat_rm(&Hi);
-        cleanup_Mat_rm(&Hs);
-        return SIFT3D_FAILURE;
 }
 
 /* Bin a Cartesian gradient into Spherical gradient bins */
@@ -1794,10 +1595,6 @@ int SIFT3D_detect_keypoints(SIFT3D *const sift3d, const Image *const im,
 
 	// Detect extrema
 	if (detect_extrema(sift3d, kp))
-		return SIFT3D_FAILURE;
-
-	// Refine keypoints	
-	if (refine_keypoints(sift3d, kp))
 		return SIFT3D_FAILURE;
 
 	// Assign orientations
