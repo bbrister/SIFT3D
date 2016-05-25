@@ -51,6 +51,6 @@
 * Refactored SIFT3D_nn_match_fb into SIFT3D_nn_match, as there is now no reason to prefer forward to forward-backward matching
 * Renamed headers macros.h and types.h to immacros.h and imtypes.h, respectively
 
-## 1.4.1
+## 1.4.1 May 25, 2016
 
 * Removed keypoint refinement step, which did not improve the accuracy.
