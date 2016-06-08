@@ -2885,6 +2885,10 @@ static int match_desc(const SIFT3D_Descriptor *const desc,
                                         (double) HIST_GET(hist2, a, p);
                                         ssd += diff * diff;
                         HIST_LOOP_END
+
+                        // Early termination
+                        if (ssd > ssd_nearest)
+                                break;
                 }
 
                 // Compare to the best matches

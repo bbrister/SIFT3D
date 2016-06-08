@@ -54,3 +54,7 @@
 ## 1.4.1 May 25, 2016
 
 * Removed keypoint refinement step, which did not improve the accuracy.
+
+## 1.4.2
+
+* Improved keypoint matching speed
