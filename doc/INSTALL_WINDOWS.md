@@ -19,7 +19,8 @@ Please follow the instructions below to compile and install SIFT3D from source.
 
 2. Install MinGW via [TDM-GCC](http://tdm-gcc.tdragon.net/)
 	1. Download the installer
-	2. Run the installer and remember to select C, C++, and Fortran
+	2. Run the installer and remember to select the GCC packages C, C++, Fortran and OpenMP
+		* OpenMP is for optional multithreading, the rest are mandatory
 
 3. Use [gnumex](http://gnumex.sourceforge.net/documentation.html#L131) to hack Matlab to compile MEX files with MinGW. *This needed only for the Matlab toolbox. Non-Matlab users can skip this step.*
 	1. Download and extract gnumex
