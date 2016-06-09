@@ -67,7 +67,7 @@ extern "C" {
 
 // Loop through an image in x, z, y order. Delmit with SIFT3D_IM_LOOP_END
 #define SIFT3D_IM_LOOP_START(im, x, y, z) \
-	for ((z) = 0; (z) < (im)->nz; (z)++) {	\
+	for (z = 0; (z) < (im)->nz; (z)++) {	\
 	for ((y) = 0; (y) < (im)->ny; (y)++) {	\
 	for ((x) = 0; (x) < (im)->nx; (x)++) {
 
@@ -80,7 +80,7 @@ extern "C" {
  * Delimit with SIFT3D_IM_LOOP_END. */
 #define SIFT3D_IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end, \
 			      y_start, y_end, z_start, z_end) \
-	for ((z) = z_start; (z) <= z_end; (z)++) { \
+	for (z = z_start; (z) <= z_end; (z)++) { \
 	for ((y) = y_start; (y) <= y_end; (y)++) { \
 	for ((x) = x_start; (x) <= x_end; (x)++) {		
 

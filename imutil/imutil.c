@@ -2470,6 +2470,7 @@ static int convolve_sep_gen(const Image * const src,
 }
 
 	// First pass: process the interior
+#pragma omp parallel for private(x) private(y) private(c)
 	SIFT3D_IM_LOOP_LIMITED_START_C(dst, x, y, z, c, start[0], end[0], 
                 start[1], end[1], start[2], end[2])
 
@@ -2493,6 +2494,7 @@ static int convolve_sep_gen(const Image * const src,
 	SIFT3D_IM_LOOP_END_C
 
         // Second pass: process the boundaries
+#pragma omp parallel for private(x) private(y) private(c)
         SIFT3D_IM_LOOP_START_C(dst, x, y, z, c)
 
                 const int i_coords[] = { x, y, z };

@@ -35,6 +35,7 @@ set (BUILD_CLI ${_BUILD_CLI} CACHE BOOL
 set (BUILD_EXAMPLES "ON" CACHE BOOL "If ON, builds the example programs")
 set (BUILD_Matlab "ON" CACHE BOOL "If ON, builds the Matlab toolbox")
 set (BUILD_PACKAGE "OFF" CACHE BOOL "If ON, builds the package generator")
+set (WITH_OpenMP "ON" CACHE BOOL "If ON, parallelizes with OpenMP in release mode")
 
 # Configurable paths        
 set (INSTALL_LIB_DIR "lib/sift3d" CACHE PATH 
@@ -109,6 +110,18 @@ else ()
         find_library (M_LIBRARY m)
 endif ()
 find_package (ZLIB REQUIRED)
+
+# Optionally find and use OpenMP
+if (WITH_OpenMP)
+        find_package (OpenMP)
+
+        if (OPENMP_FOUND)
+                set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${OpenMP_C_FLAGS}")
+                set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OpenMP_CXX_FLAGS}")
+        else ()
+                message (STATUS "Failed to find OpenMP. Compiling without it.")
+        endif ()
+endif ()
 
 # Optionally find Matlab
 if (BUILD_Matlab)

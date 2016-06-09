@@ -175,7 +175,7 @@ static int resize_SIFT3D(SIFT3D *const sift3d, const int num_kp_levels);
 static int build_gpyr(SIFT3D *sift3d);
 static int build_dog(SIFT3D *dog);
 static int detect_extrema(SIFT3D *sift3d, Keypoint_store *kp);
-static int assign_orientations(SIFT3D *sift3d, Keypoint_store *kp);
+static int assign_orientations(SIFT3D *const sift3d, Keypoint_store *const kp);
 static int assign_orientation_thresh(const Image *const im, 
         const Cvec *const vcenter, const double sigma, const double thresh,
         Mat_rm *const R);
@@ -1242,15 +1242,16 @@ static void refine_Hist(Hist *hist) {
  * Note that this stage will modify kp, likely
  * rejecting some keypoints as orientationally
  * unstable. */
-static int assign_orientations(SIFT3D *sift3d, 
-			       Keypoint_store *kp) {
+static int assign_orientations(SIFT3D *const sift3d, 
+			       Keypoint_store *const kp) {
 
 	Keypoint *kp_pos;
 	size_t num;
-	int i; 
+	int i, err; 
 
 	// Iterate over the keypoints 
-	kp_pos = kp->buf;
+        err = SIFT3D_SUCCESS;
+#pragma omp parallel for
 	for (i = 0; i < kp->slab.num; i++) {
 
 		Keypoint *const key = kp->buf + i;
@@ -1268,18 +1269,36 @@ static int assign_orientations(SIFT3D *sift3d,
 				// Continue processing this keypoint
 				break;
 			case REJECT:
-				// Skip this keypoint
-				continue;
+				// Mark this keypoint as invalid
+                                key->xd = key->yd = key->zd = -1.0;
+                                continue;
 			default:
 				// Any other return value is an error
-				return SIFT3D_FAILURE;
+                                err = SIFT3D_FAILURE;
+                                continue;
 		}
 		
-		// Rebuild the Keypoint buffer in place
+	}
+
+        // Check for errors
+        if (err) return err;
+
+        // Rebuild the keypoint buffer in place
+	kp_pos = kp->buf;
+        for (i = 0; i < kp->slab.num; i++) {
+
+		Keypoint *const key = kp->buf + i;
+
+                // Check if the keypoint is valid
+                if (key->xd < 0.0)
+                        continue;
+
+                // Copy this keypoint to the next available spot
                 if (copy_Keypoint(key, kp_pos))
                         return SIFT3D_FAILURE;
+               
                 kp_pos++;
-	}
+        }
 
 	// Release unneeded keypoint memory
 	num = kp_pos - kp->buf;
@@ -2167,7 +2186,7 @@ static int _SIFT3D_extract_descriptors(SIFT3D *const sift3d,
         const Pyramid *const gpyr, const Keypoint_store *const kp, 
         SIFT3D_Descriptor_store *const desc) {
 
-	int i;
+	int i, ret;
 
 	const Image *const first_level = 
                 SIFT3D_PYR_IM_GET(gpyr, gpyr->first_octave, gpyr->first_level);
@@ -2186,6 +2205,8 @@ static int _SIFT3D_extract_descriptors(SIFT3D *const sift3d,
                 return SIFT3D_FAILURE;
 
         // Extract the descriptors
+        ret = SIFT3D_SUCCESS;
+#pragma omp parallel for
 	for (i = 0; i < desc->num; i++) {
 
                 const Keypoint *const key = kp->buf + i;
@@ -2193,11 +2214,12 @@ static int _SIFT3D_extract_descriptors(SIFT3D *const sift3d,
 		const Image *const level = 
                         SIFT3D_PYR_IM_GET(gpyr, key->o, key->s);
 
-		if (extract_descrip(sift3d, level, key, descrip))
-                        return SIFT3D_FAILURE;
+		if (extract_descrip(sift3d, level, key, descrip)) {
+                        ret = SIFT3D_FAILURE;
+                }
 	}	
 
-	return SIFT3D_SUCCESS;
+	return ret;
 }
 
 /* L2-normalize a histogram */
@@ -2818,6 +2840,7 @@ int SIFT3D_nn_match(const SIFT3D_Descriptor_store *const d1,
 	}
 	
 	// Exhaustive search for matches
+#pragma omp parallel for
 	for (i = 0; i < num; i++) {
 
                 const SIFT3D_Descriptor *const desc1 = d1->buf + i;
