@@ -55,6 +55,7 @@
 
 * Removed keypoint refinement step, which did not improve the accuracy.
 
-## 1.4.2
+## 1.4.2 June 15, 2016
 
+* Added multithreading with OpenMP
 * Improved keypoint matching speed
