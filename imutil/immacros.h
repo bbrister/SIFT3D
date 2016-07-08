@@ -251,13 +251,13 @@ extern "C" {
  * there is an error, goto err_label. */
 #define SIFT3D_MAT_RM_TYPE_MACRO(mat, err_label, MACRO, ...) \
         switch ((mat)->type) { \
-                case DOUBLE: \
+                case SIFT3D_DOUBLE: \
                         MACRO(double, ## __VA_ARGS__) \
                         break; \
-                case FLOAT: \
+                case SIFT3D_FLOAT: \
                         MACRO(float, ## __VA_ARGS__) \
                         break; \
-                case INT: \
+                case SIFT3D_INT: \
                         MACRO(int, ## __VA_ARGS__) \
                         break; \
                 default: \

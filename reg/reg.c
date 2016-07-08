@@ -50,7 +50,7 @@ static int im2mm(const Mat_rm *const im, const double *const units,
                 SIFT3D_ERR("im2mm: input must have IM_NDIMS columns. \n");
                 return SIFT3D_FAILURE;
         }
-        if (im->type != DOUBLE) {
+        if (im->type != SIFT3D_DOUBLE) {
                 SIFT3D_ERR("im2mm: input must have type double. \n");
                 return SIFT3D_FAILURE;
         }
@@ -125,8 +125,10 @@ int init_Reg_SIFT3D(Reg_SIFT3D *const reg) {
 	init_SIFT3D_Descriptor_store(&reg->desc_ref);
 	init_Ransac(&reg->ran);
 	if (init_SIFT3D(&reg->sift3d) ||
-                init_Mat_rm(&reg->match_src, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-		init_Mat_rm(&reg->match_ref, 0, 0, DOUBLE, SIFT3D_FALSE)) {
+                init_Mat_rm(&reg->match_src, 0, 0, SIFT3D_DOUBLE, 
+			SIFT3D_FALSE) ||
+		init_Mat_rm(&reg->match_ref, 0, 0, SIFT3D_DOUBLE, 
+			SIFT3D_FALSE)) {
                 SIFT3D_ERR("register_SIFT3D: unexpected error \n");
                 return SIFT3D_FAILURE;
         }
@@ -261,8 +263,8 @@ int register_SIFT3D(Reg_SIFT3D *const reg, void *const tform) {
 
         // Initialize intermediates
         matches = NULL;
-        if (init_Mat_rm(&match_src_mm, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-	        init_Mat_rm(&match_ref_mm, 0, 0, DOUBLE, SIFT3D_FALSE)) {
+        if (init_Mat_rm(&match_src_mm, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE) ||
+	        init_Mat_rm(&match_ref_mm, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE)) {
                 SIFT3D_ERR("register_SIFT3D: failed initialization \n");
                 return SIFT3D_FAILURE;
         }

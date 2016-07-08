@@ -112,14 +112,14 @@ typedef enum _im_format {
         DIRECTORY, /* Directory */
         NIFTI, /* NIFTI-1 */ 
         UNKNOWN, /* Not one of the known extensions */
-        ERROR /* Error occurred in determining the format */
+        FILE_ERROR /* Error occurred in determining the format */
 } im_format;
 
 /* Possible data types for matrix elements */ 
 typedef enum _Mat_rm_type {
-	DOUBLE,
-	FLOAT,
-	INT
+	SIFT3D_DOUBLE,
+	SIFT3D_FLOAT,
+	SIFT3D_INT
 } Mat_rm_type;
 
 /* Struct to hold OpenCL programs for this library */

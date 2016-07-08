@@ -36,7 +36,7 @@ int demo(void) {
         init_SIFT3D_Descriptor_store(&desc);
         init_im(&im);
         init_im(&draw);
-        if (init_Mat_rm(&keys, 0, 0, DOUBLE, SIFT3D_FALSE))
+        if (init_Mat_rm(&keys, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE))
                 return 1; 
 
         if (init_SIFT3D(&sift3d)) {

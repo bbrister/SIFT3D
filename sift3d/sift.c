@@ -265,8 +265,10 @@ static int init_geometry(SIFT3D *sift3d) {
 			       3, 10, 6};
 
 	// Initialize matrices
-	if (init_Mat_rm_p(&V, vert, ICOS_NVERT, 3, FLOAT, SIFT3D_FALSE) ||
-	    init_Mat_rm_p(&F, faces, ICOS_NFACES, 3, FLOAT, SIFT3D_FALSE))
+	if (init_Mat_rm_p(&V, vert, ICOS_NVERT, 3, SIFT3D_FLOAT, 
+		SIFT3D_FALSE) ||
+	    init_Mat_rm_p(&F, faces, ICOS_NFACES, 3, SIFT3D_FLOAT, 
+	    	SIFT3D_FALSE))
 		return SIFT3D_FAILURE;
 			    
 	// Initialize triangle memory
@@ -410,8 +412,8 @@ void init_Keypoint_store(Keypoint_store *const kp) {
  * and nothing else. If called on a valid Keypoint struct, it has no effect. */
 int init_Keypoint(Keypoint *const key) {
         // Initialize the orientation matrix with static memory
-        return init_Mat_rm_p(&key->R, key->r_data, IM_NDIMS, IM_NDIMS, FLOAT, 
-                SIFT3D_FALSE);
+        return init_Mat_rm_p(&key->R, key->r_data, IM_NDIMS, IM_NDIMS, 
+		SIFT3D_FLOAT, SIFT3D_FALSE);
 }
 
 /* Make room for at least num Keypoint structs in kp. 
@@ -1359,15 +1361,15 @@ static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
     }
 
     // Initialize the intermediates
-    if (init_Mat_rm(&A, 3, 3, DOUBLE, SIFT3D_TRUE))
+    if (init_Mat_rm(&A, 3, 3, SIFT3D_DOUBLE, SIFT3D_TRUE))
         return SIFT3D_FAILURE;
-    if (init_Mat_rm(&L, 0, 0, DOUBLE, SIFT3D_TRUE) ||
-	init_Mat_rm(&Q, 0, 0, DOUBLE, SIFT3D_TRUE))
+    if (init_Mat_rm(&L, 0, 0, SIFT3D_DOUBLE, SIFT3D_TRUE) ||
+	init_Mat_rm(&Q, 0, 0, SIFT3D_DOUBLE, SIFT3D_TRUE))
 	goto eig_ori_fail;
 
     // Resize the output
     R->num_rows = R->num_cols = IM_NDIMS;
-    R->type = FLOAT;
+    R->type = SIFT3D_FLOAT;
     if (resize_Mat_rm(R))
         goto eig_ori_fail;
 
@@ -1833,7 +1835,8 @@ static int extract_descrip(SIFT3D *const sift3d, const Image *const im,
 	const double coord_factor = pow(2.0, key->o);
 
         // Invert the rotation matrix
-        if (init_Mat_rm_p(&Rt, buf, IM_NDIMS, IM_NDIMS, FLOAT, SIFT3D_FALSE) ||
+        if (init_Mat_rm_p(&Rt, buf, IM_NDIMS, IM_NDIMS, SIFT3D_FLOAT, 
+		SIFT3D_FALSE) ||
                 transpose_Mat_rm(&key->R, &Rt))
                 return SIFT3D_FAILURE;
 
@@ -2287,7 +2290,8 @@ SIFT3D_IGNORE_UNUSED
 	const float win_radius = desc_rad_fctr * sigma;
 
         // Invert the rotation matrix
-        if (init_Mat_rm_p(&Rt, buf, IM_NDIMS, IM_NDIMS, FLOAT, SIFT3D_FALSE) ||
+        if (init_Mat_rm_p(&Rt, buf, IM_NDIMS, IM_NDIMS, SIFT3D_FLOAT, 
+		SIFT3D_FALSE) ||
                 transpose_Mat_rm(R, &Rt))
                 return SIFT3D_FAILURE;
 
@@ -2506,7 +2510,7 @@ static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
         int i, x, y, z;
 
         // Initialize the identity matrix
-        if (init_Mat_rm(&Id, 3, 3, FLOAT, SIFT3D_TRUE)) {
+        if (init_Mat_rm(&Id, 3, 3, SIFT3D_FLOAT, SIFT3D_TRUE)) {
                 return SIFT3D_FAILURE;
         }
         for (i = 0; i < 3; i++) {       
@@ -2514,7 +2518,7 @@ static int extract_dense_descriptors_rotate(SIFT3D *const sift3d,
         }
 
         // Initialize the rotation matrix
-        if (init_Mat_rm(&R, 3, 3, FLOAT, SIFT3D_TRUE)) {
+        if (init_Mat_rm(&R, 3, 3, SIFT3D_FLOAT, SIFT3D_TRUE)) {
                 cleanup_Mat_rm(&Id);
                 return SIFT3D_FAILURE;
         }
@@ -2582,7 +2586,7 @@ int Keypoint_store_to_Mat_rm(const Keypoint_store *const kp, Mat_rm *const mat) 
     // Resize mat
     mat->num_rows = num;
     mat->num_cols = IM_NDIMS;
-    mat->type = DOUBLE;
+    mat->type = SIFT3D_DOUBLE;
     if (resize_Mat_rm(mat))
 	return SIFT3D_FAILURE;
 
@@ -2621,7 +2625,7 @@ int SIFT3D_Descriptor_coords_to_Mat_rm(
 	}
 
         // Resize the output
-        mat->type = DOUBLE;
+        mat->type = SIFT3D_DOUBLE;
         mat->num_rows = num_rows;
         mat->num_cols = num_cols;
         if (resize_Mat_rm(mat))
@@ -2665,7 +2669,7 @@ int SIFT3D_Descriptor_store_to_Mat_rm(const SIFT3D_Descriptor_store *const store
 	}
 
 	// Resize inputs
-	mat->type = FLOAT;
+	mat->type = SIFT3D_FLOAT;
 	mat->num_rows = num_rows;
 	mat->num_cols = num_cols;
 	if (resize_Mat_rm(mat))
@@ -2768,7 +2772,7 @@ int SIFT3D_matches_to_Mat_rm(SIFT3D_Descriptor_store *d1,
     // Resize matrices 
     match1->num_rows = match2->num_rows = d1->num;
     match1->num_cols = match2->num_cols = 3;
-    match1->type = match2->type = DOUBLE;
+    match1->type = match2->type = SIFT3D_DOUBLE;
     if (resize_Mat_rm(match1) || resize_Mat_rm(match2))
 	    return SIFT3D_FAILURE;
 
@@ -3009,10 +3013,13 @@ int draw_matches(const Image *const left, const Image *const right,
         init_im(&concat_temp);
         init_im(&left_padded);
         init_im(&right_padded);
-        if (init_Mat_rm(&keys_right_draw, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-	        init_Mat_rm(&match_right_draw, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-                init_Mat_rm(&keys_left_draw, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-                init_Mat_rm(&keys_draw, 0, 0, DOUBLE, SIFT3D_FALSE))
+        if (init_Mat_rm(&keys_right_draw, 0, 0, SIFT3D_DOUBLE, 
+		SIFT3D_FALSE) ||
+	        init_Mat_rm(&match_right_draw, 0, 0, SIFT3D_DOUBLE, 
+			SIFT3D_FALSE) ||
+                init_Mat_rm(&keys_left_draw, 0, 0, SIFT3D_DOUBLE, 
+			SIFT3D_FALSE) ||
+                init_Mat_rm(&keys_draw, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE))
 	        return SIFT3D_FAILURE;
 
         // Pad the images to be the same in all dimensions but x
@@ -3035,8 +3042,10 @@ int draw_matches(const Image *const left, const Image *const right,
         if (keys != NULL) { 
 
                 // Convert inputs to double
-                if (convert_Mat_rm(keys_right, &keys_right_draw, DOUBLE) ||
-                        convert_Mat_rm(keys_left, &keys_left_draw, DOUBLE))
+                if (convert_Mat_rm(keys_right, &keys_right_draw, 
+			SIFT3D_DOUBLE) ||
+                        convert_Mat_rm(keys_left, &keys_left_draw, 
+				SIFT3D_DOUBLE))
                         goto draw_matches_quit;
        
                 // Pad the x-coordinate 
@@ -3060,7 +3069,8 @@ int draw_matches(const Image *const left, const Image *const right,
         if (lines != NULL) {
 
                 // Convert input to double
-                if (convert_Mat_rm(match_right, &match_right_draw, DOUBLE))
+                if (convert_Mat_rm(match_right, &match_right_draw, 
+			SIFT3D_DOUBLE))
                         goto draw_matches_quit;
 
                 // Pad the x-coordinate 
@@ -3115,7 +3125,8 @@ int write_Keypoint_store(const char *path, const Keypoint_store *const kp) {
         const int num_rows = kp->slab.num;
 
         // Initialize the matrix
-        if (init_Mat_rm(&mat, num_rows, kp_num_cols, DOUBLE, SIFT3D_FALSE))
+        if (init_Mat_rm(&mat, num_rows, kp_num_cols, SIFT3D_DOUBLE, 
+		SIFT3D_FALSE))
                 return SIFT3D_FAILURE;
        
         // Write the keypoints 
@@ -3164,7 +3175,7 @@ int write_SIFT3D_Descriptor_store(const char *path,
         Mat_rm mat;
 
         // Initialize the matrix
-        if (init_Mat_rm(&mat, 0, 0, FLOAT, SIFT3D_FALSE))
+        if (init_Mat_rm(&mat, 0, 0, SIFT3D_FLOAT, SIFT3D_FALSE))
                 return SIFT3D_FAILURE;
      
         // Write the data into the matrix 

@@ -552,7 +552,7 @@ int mx2kp(const mxArray *const mx, Keypoint_store *const kp) {
 
 		// Initialize the orientation matrix
 		if (init_Mat_rm_p(&key->R, key->r_data, IM_NDIMS, IM_NDIMS, 
-                        FLOAT, SIFT3D_FALSE))
+                        SIFT3D_FLOAT, SIFT3D_FALSE))
 			return SIFT3D_FAILURE;
 
                 // Copy the orientation matrix
@@ -575,7 +575,7 @@ mxArray *desc2mx(const SIFT3D_Descriptor_store *const desc) {
         Mat_rm mat;
 
         // Initialize intermediates
-        if (init_Mat_rm(&mat, 0, 0, FLOAT, SIFT3D_FALSE))
+        if (init_Mat_rm(&mat, 0, 0, SIFT3D_FLOAT, SIFT3D_FALSE))
                 return NULL;
 
         // Convert desc to a matrix

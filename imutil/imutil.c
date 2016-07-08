@@ -575,13 +575,13 @@ int convert_Mat_rm(const Mat_rm * const in, Mat_rm * const out,
 
 #define CONVERT_TYPE_OUTER(type_out) \
     switch (in->type) { \
-    case DOUBLE: \
+    case SIFT3D_DOUBLE: \
         CONVERT_TYPE(double, type_out) \
         break; \
-    case FLOAT: \
+    case SIFT3D_FLOAT: \
         CONVERT_TYPE(float, type_out) \
         break; \
-    case INT: \
+    case SIFT3D_INT: \
         CONVERT_TYPE(int, type_out) \
         break; \
     default: \
@@ -591,11 +591,11 @@ int convert_Mat_rm(const Mat_rm * const in, Mat_rm * const out,
 
 	// Convert to the specified type
 	switch (type) {
-	case DOUBLE:
+	case SIFT3D_DOUBLE:
 		CONVERT_TYPE_OUTER(double) break;
-	case FLOAT:
+	case SIFT3D_FLOAT:
 		CONVERT_TYPE_OUTER(float) break;
-	case INT:
+	case SIFT3D_INT:
 		CONVERT_TYPE_OUTER(int) break;
 	default:
 		puts("convert_Mat_rm: unknown destination type \n");
@@ -668,13 +668,13 @@ int init_Mat_rm_p(Mat_rm *const mat, const void *const p, const int num_rows,
 void sprint_type_Mat_rm(const Mat_rm * const mat, char *const str)
 {
 	switch (mat->type) {
-	case DOUBLE:
+	case SIFT3D_DOUBLE:
 		sprintf(str, "double");
 		break;
-	case FLOAT:
+	case SIFT3D_FLOAT:
 		sprintf(str, "float");
 		break;
-	case INT:
+	case SIFT3D_INT:
 		sprintf(str, "int");
 		break;
 	default:
@@ -753,13 +753,13 @@ int concat_Mat_rm(const Mat_rm * const src1, const Mat_rm * const src2,
 
 	// Copy the data
 	switch (dst->type) {
-	case DOUBLE:
+	case SIFT3D_DOUBLE:
 		COPY_DATA(double);
 		break;
-	case FLOAT:
+	case SIFT3D_FLOAT:
 		COPY_DATA(float);
 		break;
-	case INT:
+	case SIFT3D_INT:
 		COPY_DATA(int);
 		break;
 	default:
@@ -803,11 +803,11 @@ int print_Mat_rm(const Mat_rm * const mat)
     SIFT3D_MAT_RM_LOOP_ROW_END
 
 	switch (mat->type) {
-	case DOUBLE:
+	case SIFT3D_DOUBLE:
 		PRINT_MAT_RM(double, f) break;
-	case FLOAT:
+	case SIFT3D_FLOAT:
 		PRINT_MAT_RM(float, f) break;
-	case INT:
+	case SIFT3D_INT:
 		PRINT_MAT_RM(int, d) break;
 	default:
 		puts("print_Mat_rm: unknown type \n");
@@ -843,13 +843,13 @@ int resize_Mat_rm(Mat_rm *const mat) {
 
     // Get the size of the underyling datatype
     switch (type) {
-        case DOUBLE:
+        case SIFT3D_DOUBLE:
             type_size = sizeof(double);
             break;
-        case FLOAT:
+        case SIFT3D_FLOAT:
             type_size = sizeof(float);
             break;
-        case INT:
+        case SIFT3D_INT:
             type_size = sizeof(int);
             break;
         default:
@@ -898,13 +898,13 @@ int zero_Mat_rm(Mat_rm *const mat)
     SIFT3D_MAT_RM_LOOP_END
 
 	switch (mat->type) {
-	case DOUBLE:
+	case SIFT3D_DOUBLE:
 		SET_ZERO(double);
 		break;
-	case FLOAT:
+	case SIFT3D_FLOAT:
 		SET_ZERO(float);
 		break;
-	case INT:
+	case SIFT3D_INT:
 		SET_ZERO(int);
 		break;
 	default:
@@ -1007,7 +1007,7 @@ int draw_points(const Mat_rm * const in, const int *const dims, int radius,
 	int i, x, y, z;
 
 	// Initialize intermediates
-	if (init_Mat_rm(&in_i, 0, 0, INT, SIFT3D_FALSE))
+	if (init_Mat_rm(&in_i, 0, 0, SIFT3D_INT, SIFT3D_FALSE))
 		return SIFT3D_FAILURE;
 
 	// Resize the output
@@ -1019,7 +1019,7 @@ int draw_points(const Mat_rm * const in, const int *const dims, int radius,
 	im_zero(out);
 
 	// Convert the input to integer
-	if (convert_Mat_rm(in, &in_i, INT))
+	if (convert_Mat_rm(in, &in_i, SIFT3D_INT))
 		goto draw_points_quit;
 
 	for (i = 0; i < in->num_rows; i++) {
@@ -1069,8 +1069,8 @@ int draw_lines(const Mat_rm * const points1, const Mat_rm * const points2,
 		return SIFT3D_FAILURE;
 	}
 	// Initialize intermediates
-	if (init_Mat_rm(&points1_d, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-	    init_Mat_rm(&points2_d, 0, 0, DOUBLE, SIFT3D_FALSE))
+	if (init_Mat_rm(&points1_d, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE) ||
+	    init_Mat_rm(&points2_d, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE))
 		return SIFT3D_FAILURE;
 
 	// Resize the output image
@@ -1082,8 +1082,8 @@ int draw_lines(const Mat_rm * const points1, const Mat_rm * const points2,
 	im_zero(out);
 
 	// Convert the inputs to double
-	if (convert_Mat_rm(points1, &points1_d, DOUBLE) ||
-	    convert_Mat_rm(points2, &points2_d, DOUBLE))
+	if (convert_Mat_rm(points1, &points1_d, SIFT3D_DOUBLE) ||
+	    convert_Mat_rm(points2, &points2_d, SIFT3D_DOUBLE))
 		goto draw_lines_quit;
 
 	for (i = 0; i < points1->num_rows; i++) {
@@ -1220,7 +1220,7 @@ int im_read(const char *path, Image *const im) {
         case DIRECTORY:
                 ret = read_dcm_dir(path, im);
                 break;
-        case ERROR:
+        case FILE_ERROR:
                 ret = SIFT3D_FAILURE;
                 break;
         case UNKNOWN:
@@ -1528,13 +1528,13 @@ int write_Mat_rm(const char *path, const Mat_rm * const mat)
 
 	// Write the matrix
 	switch (mat->type) {
-	case DOUBLE:
+	case SIFT3D_DOUBLE:
 		WRITE_MAT(mat, "%f", double); 
 		break;
-	case FLOAT:
+	case SIFT3D_FLOAT:
 		WRITE_MAT(mat, "%f", float); 
 		break;
-	case INT:
+	case SIFT3D_INT:
 		WRITE_MAT(mat, "%d", int); 
 		break;
 	default:
@@ -2340,7 +2340,8 @@ int im_resample(const Image *const src, const double *const units,
 	int i;
 
 	// Initialize intermediates
-	if (init_Mat_rm(&A, IM_NDIMS, IM_NDIMS + 1, DOUBLE, SIFT3D_TRUE) ||
+	if (init_Mat_rm(&A, IM_NDIMS, IM_NDIMS + 1, SIFT3D_DOUBLE, 
+		SIFT3D_TRUE) ||
 		init_Affine(&aff, IM_NDIMS))
 		return SIFT3D_FAILURE;
 
@@ -2738,7 +2739,7 @@ int init_Affine(Affine * const affine, const int dim)
 	affine->tform.vtable = &Affine_vtable;
 
 	// Initialize the matrix
-	if (init_Mat_rm(&affine->A, dim, dim + 1, DOUBLE, SIFT3D_TRUE))
+	if (init_Mat_rm(&affine->A, dim, dim + 1, SIFT3D_DOUBLE, SIFT3D_TRUE))
 		return SIFT3D_FAILURE;
 
 	return SIFT3D_SUCCESS;
@@ -2777,7 +2778,7 @@ int Affine_set_mat(const Mat_rm * const mat, Affine * const affine)
 	if (mat->num_cols != mat->num_rows + 1 || mat->num_rows < 2)
 		return SIFT3D_FAILURE;
 
-	return convert_Mat_rm(mat, &affine->A, DOUBLE);
+	return convert_Mat_rm(mat, &affine->A, SIFT3D_DOUBLE);
 }
 
 /* Apply an arbitrary transformation to an [x, y, z] triple. */
@@ -3092,11 +3093,11 @@ int mul_Mat_rm(const Mat_rm * const mat_in1, const Mat_rm * const mat_in2,
 
 	// Row-major multiply
 	switch (mat_out->type) {
-	case DOUBLE:
+	case SIFT3D_DOUBLE:
 		MAT_RM_MULTIPLY(double) break;
-	case FLOAT:
+	case SIFT3D_FLOAT:
 		MAT_RM_MULTIPLY(float) break;
-	case INT:
+	case SIFT3D_INT:
 		MAT_RM_MULTIPLY(int) break;
 	default:
 		puts("mul_Mat_rm: unknown type \n");
@@ -3152,21 +3153,21 @@ int eigen_Mat_rm(Mat_rm * A, Mat_rm * Q, Mat_rm * L)
 		puts("eigen_Mat_rm: A be square \n");
 		return SIFT3D_FAILURE;
 	}
-	if (A->type != DOUBLE) {
+	if (A->type != SIFT3D_DOUBLE) {
 		puts("eigen_Mat_rm: A must have type double \n");
 		return SIFT3D_FAILURE;
 	}
 	// Resize outputs
 	L->num_rows = n;
 	L->num_cols = 1;
-	L->type = DOUBLE;
+	L->type = SIFT3D_DOUBLE;
 	if (resize_Mat_rm(L))
 		return SIFT3D_FAILURE;
 
 	// Initialize intermediate matrices and buffers
 	work = NULL;
 	iwork = NULL;
-	if (init_Mat_rm(&A_trans, 0, 0, DOUBLE, SIFT3D_FALSE))
+	if (init_Mat_rm(&A_trans, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE))
 		goto EIGEN_MAT_RM_QUIT;
 
 	// Copy the input matrix (A = A')
@@ -3255,7 +3256,7 @@ int solve_Mat_rm(const Mat_rm *const A, const Mat_rm *const B,
 		puts("solve_Mat_rm: invalid dimensions! \n");
 		return SIFT3D_FAILURE;
 	}
-	if (A->type != DOUBLE || B->type != DOUBLE) {
+	if (A->type != SIFT3D_DOUBLE || B->type != SIFT3D_DOUBLE) {
 		puts("solve_mat_rm: All matrices must have type double \n");
 		return SIFT3D_FAILURE;
 	}
@@ -3263,8 +3264,8 @@ int solve_Mat_rm(const Mat_rm *const A, const Mat_rm *const B,
 	ipiv = NULL;
 	work = NULL;
 	iwork = NULL;
-	if (init_Mat_rm(&A_trans, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-	    init_Mat_rm(&B_trans, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+	if (init_Mat_rm(&A_trans, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE) ||
+	    init_Mat_rm(&B_trans, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE) ||
 	    (work = (double *)malloc(n * 4 * sizeof(double))) == NULL ||
 	    (iwork = (fortran_int *) malloc(n * sizeof(fortran_int))) == NULL ||
 	    (ipiv = (fortran_int *) calloc(m, sizeof(fortran_int))) == NULL)
@@ -3369,12 +3370,12 @@ int solve_Mat_rm_ls(const Mat_rm *const A, const Mat_rm *const B,
 		puts("solve_Mat_rm_ls: invalid dimensions \n");
 		return SIFT3D_FAILURE;
 	}
-	if (A->type != DOUBLE || B->type != DOUBLE) {
+	if (A->type != SIFT3D_DOUBLE || B->type != SIFT3D_DOUBLE) {
 		puts("solve_mat_rm_ls: All matrices must have type double \n");
 		return SIFT3D_FAILURE;
 	}
 	// Resize the output 
-	X->type = DOUBLE;
+	X->type = SIFT3D_DOUBLE;
 	X->num_rows = A->num_cols;
 	X->num_cols = B->num_cols;
 	if (resize_Mat_rm(X))
@@ -3383,8 +3384,8 @@ int solve_Mat_rm_ls(const Mat_rm *const A, const Mat_rm *const B,
 	// Initialize intermediate matrices and buffers
 	s = NULL;
 	work = NULL;
-	if (init_Mat_rm(&A_trans, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-	    init_Mat_rm(&B_trans, 0, 0, DOUBLE, SIFT3D_FALSE) ||
+	if (init_Mat_rm(&A_trans, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE) ||
+	    init_Mat_rm(&B_trans, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE) ||
 	    (s = (double *)calloc(SIFT3D_MAX(m, n), sizeof(double))) == NULL)
 		goto SOLVE_MAT_RM_LS_QUIT;
 
@@ -3460,11 +3461,11 @@ int trace_Mat_rm(Mat_rm * mat, void *trace)
 
 	// Take the trace
 	switch (mat->type) {
-	case DOUBLE:
+	case SIFT3D_DOUBLE:
 		TRACE_MAT_RM(double) break;
-	case FLOAT:
+	case SIFT3D_FLOAT:
 		TRACE_MAT_RM(float) break;
-	case INT:
+	case SIFT3D_INT:
 		TRACE_MAT_RM(int) break;
 	default:
 		puts("trace_Mat_rm: unknown type \n");
@@ -3501,13 +3502,13 @@ int transpose_Mat_rm(const Mat_rm *const src, Mat_rm *const dst)
 
 	// Transpose
 	switch (src->type) {
-	case DOUBLE:
+	case SIFT3D_DOUBLE:
 		TRANSPOSE_MAT_RM(double);
 		break;
-	case FLOAT:
+	case SIFT3D_FLOAT:
 		TRANSPOSE_MAT_RM(float);
 		break;
-	case INT:
+	case SIFT3D_INT:
 		TRANSPOSE_MAT_RM(int);
 		break;
 	default:
@@ -3544,11 +3545,11 @@ int det_symm_Mat_rm(Mat_rm * mat, void *det)
 	}
 	// Initialize intermediates
 	if (init_Mat_rm(&matd, 0, 0, mat->type, SIFT3D_FALSE) ||
-	    init_Mat_rm(&L, n, 1, DOUBLE, SIFT3D_FALSE))
+	    init_Mat_rm(&L, n, 1, SIFT3D_DOUBLE, SIFT3D_FALSE))
 		goto DET_SYMM_QUIT;
 
 	// Convert the matrix to type double
-	if (convert_Mat_rm(mat, &matd, DOUBLE))
+	if (convert_Mat_rm(mat, &matd, SIFT3D_DOUBLE))
 		goto DET_SYMM_QUIT;
 
 	// Get the eigendecomposition with LAPACK
@@ -3562,13 +3563,13 @@ int det_symm_Mat_rm(Mat_rm * mat, void *det)
 	SIFT3D_MAT_RM_LOOP_END
 	    // Convert the output to the correct type
 	    switch (mat->type) {
-	case DOUBLE:
+	case SIFT3D_DOUBLE:
 		*((double *)det) = detd;
 		break;
-	case FLOAT:
+	case SIFT3D_FLOAT:
 		*((float *)det) = (float)detd;
 		break;
-	case INT:
+	case SIFT3D_INT:
 		*((int *)det) = (int)detd;
 		break;
 	default:
@@ -4365,11 +4366,11 @@ int init_Tps(Tps * tps, int dim, int terms)
 	tps->tform.vtable = &Tps_vtable;
 
 	// Initialize the matrices
-	if (init_Mat_rm(&tps->params, dim, terms, DOUBLE, SIFT3D_TRUE))
+	if (init_Mat_rm(&tps->params, dim, terms, SIFT3D_DOUBLE, SIFT3D_TRUE))
 		return SIFT3D_FAILURE;
 
 	if (init_Mat_rm(&tps->kp_src, terms - dim - 1, dim,
-			DOUBLE, SIFT3D_TRUE))
+			SIFT3D_DOUBLE, SIFT3D_TRUE))
 		return SIFT3D_FAILURE;
 
 	tps->dim = dim;
@@ -4450,7 +4451,7 @@ static int rand_rows(const Mat_rm *const in1, const Mat_rm *const in2,
 		puts("rand_rows: not enough rows in the matrix \n");
 		return SIFT3D_FAILURE;
 	}
-	if (in1->type != DOUBLE || in2->type != DOUBLE) {
+	if (in1->type != SIFT3D_DOUBLE || in2->type != SIFT3D_DOUBLE) {
 		puts("rand_rows: inputs must have type int \n");
 		return SIFT3D_FAILURE;
 	}
@@ -4595,14 +4596,14 @@ static int make_spline_matrix(Mat_rm * src, Mat_rm * src_in, Mat_rm * sp_src,
 {
 	int i, d;
 	double x, y, z, x2, y2, z2, r_sq, U;
-	src_in->type = DOUBLE;
-	sp_src->type = DOUBLE;
+	src_in->type = SIFT3D_DOUBLE;
+	sp_src->type = SIFT3D_DOUBLE;
 	if (init_Mat_rm
-	    (src_in, K_terms + dim + 1, K_terms + dim + 1, DOUBLE,
+	    (src_in, K_terms + dim + 1, K_terms + dim + 1, SIFT3D_DOUBLE,
 	     SIFT3D_TRUE)) {
 		return SIFT3D_FAILURE;
 	}
-	if (init_Mat_rm(sp_src, K_terms, dim, DOUBLE, SIFT3D_TRUE)) {
+	if (init_Mat_rm(sp_src, K_terms, dim, SIFT3D_DOUBLE, SIFT3D_TRUE)) {
 		return SIFT3D_FAILURE;
 	}
 	for (i = 0; i < K_terms; i++) {
@@ -4698,7 +4699,7 @@ static int make_affine_matrix(const Mat_rm *const pts_in, const int dim,
 
 	const int num_rows = pts_in->num_rows;
 
-	mat_out->type = DOUBLE;
+	mat_out->type = SIFT3D_DOUBLE;
 	mat_out->num_rows = num_rows;
 	mat_out->num_cols = dim + 1;
 	if (resize_Mat_rm(mat_out))
@@ -4759,8 +4760,8 @@ static int solve_system(const Mat_rm *const src, const Mat_rm *const ref,
 	Mat_rm ref_sys, X;
 	int dim, ret;
 
-	init_Mat_rm(&ref_sys, 0, 0, DOUBLE, SIFT3D_FALSE);
-	init_Mat_rm(&X, 0, 0, DOUBLE, SIFT3D_FALSE);
+	init_Mat_rm(&ref_sys, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE);
+	init_Mat_rm(&X, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE);
 
 	//construct source matrix and initialize reference vector
 	switch (type) {
@@ -4801,7 +4802,7 @@ static int solve_system(const Mat_rm *const src, const Mat_rm *const ref,
         {
 		Mat_rm X_trans;
 
-		init_Mat_rm(&X_trans, 0, 0, DOUBLE, SIFT3D_FALSE);
+		init_Mat_rm(&X_trans, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE);
 
 		ret = transpose_Mat_rm(&X, &X_trans) ||
 		    Affine_set_mat(&X_trans, (Affine *) tform);
@@ -4892,7 +4893,7 @@ static int ransac(const Mat_rm *const src, const Mat_rm *const ref,
 	const tform_type type = tform_get_type(tform);
 
 	// Verify inputs
-	if (src->type != DOUBLE || src->type != ref->type) {
+	if (src->type != SIFT3D_DOUBLE || src->type != ref->type) {
 		puts("ransac: all matrices must have type double \n");
 		return SIFT3D_FAILURE;
 	}
@@ -4901,8 +4902,8 @@ static int ransac(const Mat_rm *const src, const Mat_rm *const ref,
 		return SIFT3D_FAILURE;
 	}
 	// Initialize
-	init_Mat_rm(&src_rand, 0, 0, DOUBLE, SIFT3D_FALSE);
-	init_Mat_rm(&ref_rand, 0, 0, DOUBLE, SIFT3D_FALSE);
+	init_Mat_rm(&src_rand, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE);
+	init_Mat_rm(&ref_rand, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE);
 
 	/*Fit random points */
 	//number of points it randomly chooses
@@ -5018,8 +5019,10 @@ int find_tform_ransac(const Ransac *const ran, const Mat_rm *const src,
 	len_best = 0;
 	if ((tform_cur = malloc(tform_size)) == NULL ||
 	    init_tform(tform_cur, type) ||
-	    init_Mat_rm(&src_cset, len_best, IM_NDIMS, DOUBLE, SIFT3D_FALSE) ||
-	    init_Mat_rm(&ref_cset, len_best, IM_NDIMS, DOUBLE, SIFT3D_FALSE))
+	    init_Mat_rm(&src_cset, len_best, IM_NDIMS, SIFT3D_DOUBLE, 
+            	SIFT3D_FALSE) ||
+	    init_Mat_rm(&ref_cset, len_best, IM_NDIMS, SIFT3D_DOUBLE, 
+		SIFT3D_FALSE))
 		goto find_tform_quit;
 
 	// initialize type-specific variables
@@ -5061,8 +5064,7 @@ int find_tform_ransac(const Ransac *const ran, const Mat_rm *const src,
 	// Check if the minimum number of inliers was found
 	if (len_best < min_num_inliers) {
 		puts("find_tform_ransac: No good model was found! \n");
-		goto find_tform_quit;
-	}
+		goto find_tform_quit; }
 
 	// Resize the concensus set matrices
         src_cset.num_rows = ref_cset.num_rows = len_best;

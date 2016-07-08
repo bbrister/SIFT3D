@@ -61,8 +61,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
         // Initialize intermediates
         if (init_Affine(&aff, IM_NDIMS) ||
-                init_Mat_rm(&match_src, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-                init_Mat_rm(&match_ref, 0, 0, DOUBLE, SIFT3D_FALSE))
+                init_Mat_rm(&match_src, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE) ||
+                init_Mat_rm(&match_ref, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE))
                 err_msgu("main:init", "Failed to initialize intermediates");
         init_im(&src);
         init_im(&ref);
