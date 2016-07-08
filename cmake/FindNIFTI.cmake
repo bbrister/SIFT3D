@@ -20,6 +20,7 @@
 FIND_PATH(NIFTI_INCLUDE_DIRS
 NAMES nifti1.h
 PATHS ${NIFTI_DIR}
+HINTS "C:/Program Files (x86)/NIFTI" "C:/Program Files/NIFTI"
 PATH_SUFFIXES include nifti include/nifti
 DOC "The include directory containing nifti1.h"
 )
@@ -28,18 +29,21 @@ DOC "The include directory containing nifti1.h"
 FIND_LIBRARY(NIFTI_NIFTICDF_LIBRARY
 NAMES nifticdf
 PATHS ${NIFTI_DIR}
+HINTS "C:/Program Files (x86)/NIFTI" "C:/Program Files/NIFTI"
 PATH_SUFFIXES lib
 DOC "The library file libnifticdf.so"
 )
 FIND_LIBRARY(NIFTI_NIFTIIO_LIBRARY
 NAMES niftiio
 PATHS ${NIFTI_DIR}
+HINTS "C:/Program Files (x86)/NIFTI" "C:/Program Files/NIFTI"
 PATH_SUFFIXES lib
 DOC "The library file libniftiiof.so"
 )
 FIND_LIBRARY(NIFTI_ZNZ_LIBRARY
 NAMES znz
 PATHS ${NIFTI_DIR}
+HINTS "C:/Program Files (x86)/NIFTI" "C:/Program Files/NIFTI"
 PATH_SUFFIXES lib
 DOC "The library file libznz.so"
 )
