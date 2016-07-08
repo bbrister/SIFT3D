@@ -6,6 +6,7 @@
 
 add_library (reg SHARED reg.c)
 target_link_libraries (reg PUBLIC sift3D imutil)
+target_link_libraries (reg PRIVATE ${M_LIBRARY})
 target_include_directories (reg PUBLIC
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
@@ -22,6 +23,7 @@ if (${Matlab_FOUND})
 
         add_library (mexreg SHARED reg.c)
         target_link_libraries (mexreg PUBLIC mexsift3D meximutil)
+        target_link_libraries (mexreg PRIVATE ${M_LIBRARY})
         target_include_directories (mexreg PUBLIC
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>

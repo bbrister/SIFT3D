@@ -4,8 +4,21 @@
 # Build file for the image processing utility library.
 ################################################################################
 
+# Find BLAS
+find_package (BLAS QUIET)
+if (NOT BLAS_FOUND)
+    message (FATAL_ERROR "BLAS not found. Please set the variable "
+	    "BLAS_LIBRARIES to the location of the BLAS library on "
+	    "your system.")
+endif() 
+
 # Find LAPACK
-find_package (LAPACK REQUIRED)
+find_package (LAPACK QUIET)
+if (NOT LAPACK_FOUND)
+    message (FATAL_ERROR "LAPACK not found. Please set the variable "
+	"LAPACK_LIBRARIES to the location of the BLAS library on your "
+	"system.")
+endif ()
 
 # Find DCMTK
 find_package (DCMTK QUIET)
@@ -20,41 +33,6 @@ find_package (NIFTI REQUIRED)
 # Find iconv on Mac
 if (APPLE)
 	find_library (ICONV_LIBRARY NAMES iconv libiconv libiconv-2 c REQUIRED)
-endif ()
-
-# Try to find the path for DCMTK libraries
-if (DCMTK_dcmdata_LIBRARY)
-	get_filename_component (DCMTK_LIBRARIES_PATH 
-		${DCMTK_dcmdata_LIBRARY} DIRECTORY)
-endif ()
-
-# Search for the new DCMTK library liboflog
-if (NOT DCMTK_oflog_LIBRARY)
-	find_library (DCMTK_oflog_LIBRARY oflog liboflog
-		PATHS ${DCMTK_LIBRARIES_PATH})
-endif ()
-if (DCMTK_oflog_LIBRARY STREQUAL "DCMTK_oflog_LIBRARY-NOTFOUND")
-	message (FATAL_ERROR "Could not find DCMTK library liboflog")
-endif ()
-
-# Check if CMake is missing liboflog
-list (FIND DCMTK_LIBRARIES ${DCMTK_oflog_LIBRARY} OFLOG_IDX)
-if (${OFLOG_IDX} LESS 0)
-
-	# Find libofstd in the libraries list, which should be the last DCMTK 
-	# library
-	if (DEFINED DCMTK_LIBRARIES)
-		list (FIND DCMTK_LIBRARIES ${DCMTK_ofstd_LIBRARY} OFSTD_IDX)
-		if (${OFSTD_IDX} LESS 0)
-			message(FATAL_ERROR "Failed to find libofstd in 
-				DCMTK_LIBRARIES")
-		endif ()
-	else ()
-		set (OFSTD_IDX 0)
-	endif ()
-
-	# Insert liboflog just before libofstd
-	list (INSERT DCMTK_LIBRARIES ${OFSTD_IDX} ${DCMTK_oflog_LIBRARY})
 endif ()
 
 # Add platform-specific DCMTK dependencies
@@ -97,7 +75,7 @@ target_include_directories (imutil PUBLIC
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
 )
-target_link_libraries (imutil PUBLIC ${LAPACK_LIBRARIES} ${DCMTK_LIBRARIES} 
+target_link_libraries (imutil PRIVATE ${LAPACK_LIBRARIES} ${DCMTK_LIBRARIES} 
         ${NIFTI_LIBRARIES})
 target_include_directories(imutil PRIVATE ${DCMTK_INCLUDE_DIRS} 
         ${NIFTI_INCLUDE_DIRS})
@@ -110,7 +88,7 @@ install (FILES imtypes.h immacros.h imutil.h kernels.cl
         DESTINATION ${INSTALL_INCLUDE_DIR})
 
 # Link to system libraries
-target_link_libraries(imutil PUBLIC ${ZLIB_LIBRARIES} ${M_LIBRARY})
+target_link_libraries(imutil PRIVATE ${ZLIB_LIBRARIES} ${M_LIBRARY})
 target_include_directories(imutil PRIVATE ${ZLIB_INCLUDE_DIRS})
 if (APPLE)
 	target_link_libraries(imutil PUBLIC ${ICONV_LIBRARY})
@@ -206,8 +184,9 @@ if (${Matlab_FOUND})
         target_include_directories (meximutil PRIVATE 
                 ${DCMTK_INCLUDE_DIRS} ${NIFTI_INCLUDE_DIRS} 
                 ${ZLIB_INCLUDE_DIRS})
-        target_link_libraries (meximutil PUBLIC ${Matlab_MWLAPACK_LIBRARY} 
-                ${Matlab_MWBLAS_LIBRARY} ${Matlab_LIBRARIES} ${DCMTK_LIBRARIES}
+        target_link_libraries (meximutil PUBLIC ${Matlab_LIBRARIES})
+        target_link_libraries (meximutil PRIVATE ${Matlab_MWLAPACK_LIBRARY} 
+                ${Matlab_MWBLAS_LIBRARY} ${DCMTK_LIBRARIES}
                 ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES} ${M_LIBRARY})
 
         set_target_properties (meximutil 

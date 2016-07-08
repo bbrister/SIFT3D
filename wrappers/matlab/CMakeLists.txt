@@ -17,8 +17,8 @@ target_include_directories (mexutil PUBLIC
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
 )
-target_link_libraries (mexutil PUBLIC mexreg mexsift3D meximutil 
-        ${Matlab_MWLAPACK_LIBRARY} ${Matlab_MWBLAS_LIBRARY} ${Matlab_LIBRARIES})
+target_link_libraries (mexutil PUBLIC mexreg mexsift3D meximutil
+        ${Matlab_LIBRARIES})
 
 # Build the mex files
 matlab_add_mex (NAME mexImRead3D

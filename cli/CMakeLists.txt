@@ -5,7 +5,8 @@
 ################################################################################
 
 add_executable (denseSift3D denseSift3D.c)
-target_link_libraries(denseSift3D PUBLIC sift3D imutil ${M_LIBRARY})
+target_link_libraries(denseSift3D PUBLIC sift3D imutil)
+target_link_libraries(denseSift3D PRIVATE ${M_LIBRARY})
 
 add_executable(kpSift3D kpSift3D.c)
 target_link_libraries(kpSift3D PUBLIC sift3D imutil)

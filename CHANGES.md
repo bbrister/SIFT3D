@@ -59,3 +59,8 @@
 
 * Added multithreading with OpenMP
 * Improved keypoint matching speed
+
+## 1.4.3
+
+* Fixed CMake settings to allow linking to CMake targets without dependencies
+* Updated for newer versions of CMake, MinGW

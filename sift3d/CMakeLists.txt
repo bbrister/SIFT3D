@@ -5,7 +5,8 @@
 ################################################################################
 
 add_library (sift3D SHARED sift.c)
-target_link_libraries (sift3D PUBLIC imutil ${M_LIBRARY})
+target_link_libraries (sift3D PUBLIC imutil)
+target_link_libraries (sift3D PRIVATE ${M_LIBRARY})
 target_include_directories (sift3D PUBLIC
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
@@ -20,7 +21,8 @@ if (${Matlab_FOUND})
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
         )
-        target_link_libraries (mexsift3D PUBLIC meximutil ${M_LIBRARY})
+        target_link_libraries (mexsift3D PUBLIC meximutil)
+        target_link_libraries (mexsift3D PRIVATE ${M_LIBRARY})
         set_target_properties (mexsift3D
                 PROPERTIES 
                 ARCHIVE_OUTPUT_DIRECTORY ${BUILD_TOOLBOX_DIR}
