@@ -41,6 +41,11 @@ if (WIN32)
 	list (APPEND DCMTK_LIBRARIES "ws2_32")
 endif ()
 
+# Find MinGW dependencies
+if (MINGW)
+	find_package (MINGW REQUIRED)
+endif ()
+
 # Get the base DCMTK include dir. Note that DCMTK_DIR is set incorrectly on 
 # Linux, so we must add additional paths
 find_path (DCMTK_BASE_INCLUDE_PARENT_DIR "include/dcmtk"
@@ -107,7 +112,8 @@ if (WIN32)
 
 	# Make a list of all external dependencies
 	set (DEPS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${DCMTK_LIBRARIES} 
-                ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES})
+                ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES} ${OpenMP_C_LIBRARIES}
+		${MINGW_LIBRARIES})
 
 	function (get_runtime_deps ARG_DEPS ARG_RUNTIME_DEPS)
 
@@ -160,7 +166,7 @@ if (WIN32)
 	# Copy the runtime dependencies to the Windows DLL
 	file (COPY ${RUNTIME_DEPS} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
-        # Add the runtime dependencies to the Windows installer
+	# Add the runtime dependencies to the Windows installer
 	install (FILES ${RUNTIME_DEPS} DESTINATION ${INSTALL_BIN_DIR})
 
 endif ()
