@@ -39,10 +39,6 @@ extern "C" {
 // Compiler flags
 #ifdef __GNUC__
 #define SIFT3D_IGNORE_UNUSED __attribute__((unused))
-#else
-#warning("The internal macros of this library were not defined for " \
-	 "your compiler. The code will still work, but you may see " \
-	 "warnings or sub-optimal performance. \n")
 #endif
 
 // Get a pointer to the [nx, ny, nz] array of an image
