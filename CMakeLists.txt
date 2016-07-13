@@ -9,6 +9,14 @@ include (ExternalProject)
 # Minimum CMake version
 cmake_minimum_required (VERSION 2.8)
 
+# Convert GNU archives to .lib files in Windows
+if (WIN32)
+	set (CMAKE_GNUtoMS ON
+		CACHE BOOL 
+		"Convert .dll.a files to .lib" 
+	)
+endif ()
+
 # Project name
 project (SIFT3D)
 
@@ -85,10 +93,7 @@ if (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR
 endif ()
 
 # OS-specific build flags
-if (WIN32)
-        # Convert GNU archives to .lib files in Windows
-        set (CMAKE_GNUtoMS ON)
-elseif (APPLE)
+if (APPLE)
         # Enable undefined shared library symbols
         set (CMAKE_SHARED_LINKER_FLAGS 
 		"${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup")
