@@ -7,7 +7,6 @@
  * -----------------------------------------------------------------------------
  */
 
-#include <sys/types.h>
 #include "imtypes.h"
 
 #ifndef _IMUTIL_H
@@ -229,8 +228,6 @@ int resize_Slab(Slab *slab, int num, size_t size);
 int write_pyramid(const char *path, Pyramid *pyr);
 
 void err_exit(const char *str);
-
-int mkpath(const char *path, mode_t mode);
 
 void init_Ransac(Ransac *const ran);
 					  

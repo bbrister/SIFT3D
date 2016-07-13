@@ -101,6 +101,7 @@ static int write_Affine(const char *path, const void *const tform);
 static int write_Tps(const char *path, const void *const tform);
 static void cleanup_Affine(void *const affine);
 static void cleanup_Tps(void *const tps);
+static int mkpath(const char *path, mode_t mode);
 
 /* Virtual function tables */
 const Tform_vtable Affine_vtable = {
@@ -4285,7 +4286,7 @@ static char *read_file(const char *path)
  * Thanks to Jonathan Leffler
  * Modifications: Ignore everything after the last '/' 
  */
-int mkpath(const char *path, mode_t mode)
+static int mkpath(const char *path, mode_t mode)
 {
 	char *pp, *sp, *copypath;
 	int status;
