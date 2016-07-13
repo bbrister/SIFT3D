@@ -12,6 +12,10 @@ You can install SIFT3D in one of two ways, from binaries or from source. The eas
 
 This program has been successfully compiled and executed on the following Windows platforms:
 * Windows 8 64-bit, using [TDM-GCC](http://tdm-gcc.tdragon.net/) 5.10 and CMake 3.3.1
+* Windows 7 64-bit, using the same
+
+In addition, the compiled C libraries have been linked to on the following platforms:
+* Windows 7 64-bit, using Visual Studio 2012
 
 Please follow the instructions below to compile and install SIFT3D from source.
 
@@ -32,11 +36,11 @@ Please follow the instructions below to compile and install SIFT3D from source.
 
 4. Install [LAPACK for Windows](http://icl.cs.utk.edu/lapack-for-windows/lapack/index.html#libraries).
 	1. Download the binaries for MinGW and your verison of Windows (lapack.dll, blas.dll)
-	2. Move lapack.dll and blas.dll to the TDM-GCC/bin directory 
+	2. Move lapack.dll and blas.dll to the TDM-GCC/bin directory
 
 5. Install [zlib](http://zlib.net/).
 	1. Download and extract the most recent version
-	2. Use the CMake GUI to generate MinGW Makes
+	2. Use the CMake GUI to generate MinGW Makefiles
 		1. Set the source folder to the location of zlib
 		2. Generate -> MinGW Makefiles
 	3. Compile and install with MinGW

@@ -39,7 +39,11 @@ SIFT3D exports a CMake package to the install directories. Here is an example of
         find_package (SIFT3D) # Find SIFT3D
         add_executable (helloWorld helloWorld.c) # Declare a target
         target_link_libraries (helloWorld PUBLIC ${SIFT3D_LIBRARIES}) # Link to the SIFT3D libraries
-        target_include_directories (helloWorld PUBLIC ${SIFT3D_INCLUDE_DIRS}) # Find the SIFT3D headers
+        if (WIN32) # Find the SIFT3D headers
+            target_include_directories (helloWorld PUBLIC "${SIFT3D_DIR}/../${SIFT3D_INCLUDE_DIRS}") 
+        else()
+            target_include_directories (helloWorld PUBLIC ${SIFT3D_INCLUDE_DIRS}) 
+        endif()
 
 ### Linking to SIFT3D libraries without CMake
 
