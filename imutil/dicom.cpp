@@ -32,10 +32,8 @@
 #include "dcmtk/dcmimage/diregist.h"     /* include to support color images */
 #include "dcmtk/dcmdata/dcrledrg.h"      /* for DcmRLEDecoderRegistration */
 
-#ifdef BUILD_DCMSCALE_AS_DCMJSCAL
 #include "dcmtk/dcmjpeg/djdecode.h"      /* for dcmjpeg decoders */
 #include "dcmtk/dcmjpeg/dipijpeg.h"      /* for dcmimage JPEG plugin */
-#endif
 
 #include "dcmtk/dcmjpeg/djencode.h" /* for JPEG encoding */
 #include "dcmtk/dcmjpeg/djrplol.h"  /* for DJ_RPLossless */
@@ -403,17 +401,22 @@ int write_dcm_dir(const char *path, const Image *const im,
 /* Helper function to read a DICOM file using C++ */
 static int read_dcm_cpp(const char *path, Image *const im) {
 
-        // Read the image metadata
-        Dicom dicom(path);
-        if (!dicom.isValid())
-                return SIFT3D_FAILURE;
+	uint32_t shift;
+	int depth;
+        const int bufNBits = 32;
 
-        // Load the DicomImage object
-        DicomImage dicomImage(path);
+	// Initialize JPEG decoders
+	DJDecoderRegistration::registerCodecs();
+
+        // Read the image metadata
+	Dicom dicom(path);
+	DicomImage dicomImage(path);
+        if (!dicom.isValid())
+		goto read_dcm_cpp_quit;
         if (dicomImage.getStatus() != EIS_Normal) {
                 SIFT3D_ERR("read_dcm_cpp: failed to open image %s (%s)\n",
                         path, DicomImage::getString(dicomImage.getStatus()));
-                return SIFT3D_FAILURE;
+		goto read_dcm_cpp_quit;
         }
 
         // Initialize the image fields
@@ -428,24 +431,31 @@ static int read_dcm_cpp(const char *path, Image *const im) {
         // Resize the output
         im_default_stride(im);
         if (im_resize(im))
-                return SIFT3D_FAILURE;
+		goto read_dcm_cpp_quit;
 
         // Get the bit depth of the image
-        const int bufNBits = 32;
-        const int depth = dicomImage.getDepth();
+        depth = dicomImage.getDepth();
         if (depth > bufNBits) {
                 SIFT3D_ERR("read_dcm_cpp: buffer is insufficiently wide "
                         "for %d-bit data of image %s \n", depth, path);
-                return SIFT3D_FAILURE;
+		goto read_dcm_cpp_quit;
         }
 
         // Get the number of bits by which we need to shift the 32-bit data, to
         // recover the original resolution (DICOM uses Big-endian encoding)
-        const uint32_t shift = isLittleEndian() ? 
-                static_cast<uint32_t>(bufNBits - depth) : 0;
+        shift = isLittleEndian() ? static_cast<uint32_t>(bufNBits - depth) : 0;
 
         // Read each frame
         for (int i = 0; i < im->nz; i++) { 
+
+                int x, y, z;
+
+                const int x_start = 0;
+                const int y_start = 0;
+                const int z_start = i;
+                const int x_end = im->nx - 1;
+                const int y_end = im->ny - 1;
+                const int z_end = z_start;
 
                 // Get a pointer to the data, rendered as a 32-bit int
                 const uint32_t *const frameData = 
@@ -456,17 +466,10 @@ static int read_dcm_cpp(const char *path, Image *const im) {
                         SIFT3D_ERR("read_dcm_cpp: could not get data from "
                                 "image %s frame %d (%s)\n", path, i, 
                                 DicomImage::getString(dicomImage.getStatus()));
-                        return SIFT3D_FAILURE;
+			goto read_dcm_cpp_quit;
                 }
 
                 // Copy the frame
-                const int x_start = 0;
-                const int y_start = 0;
-                const int z_start = i;
-                const int x_end = im->nx - 1;
-                const int y_end = im->ny - 1;
-                const int z_end = z_start;
-                int x, y, z;
                 SIFT3D_IM_LOOP_LIMITED_START(im, x, y, z, x_start, x_end,
                         y_start, y_end, z_start, z_end)
 
@@ -482,7 +485,14 @@ static int read_dcm_cpp(const char *path, Image *const im) {
                 SIFT3D_IM_LOOP_END
         }
 
+	// Clean up
+	DJDecoderRegistration::cleanup();
+
         return SIFT3D_SUCCESS;
+
+read_dcm_cpp_quit:
+	DJDecoderRegistration::cleanup();
+	return SIFT3D_FAILURE;
 }
 
 /* Helper funciton to read a directory of DICOM files using C++ */
