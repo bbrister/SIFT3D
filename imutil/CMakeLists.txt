@@ -16,8 +16,8 @@ endif()
 find_package (LAPACK QUIET)
 if (NOT LAPACK_FOUND)
     message (FATAL_ERROR "LAPACK not found. Please set the variable "
-	"LAPACK_LIBRARIES to the location of the BLAS library on your "
-	"system.")
+	    "LAPACK_LIBRARIES to the location of the LAPACK library on your "
+	    "system.")
 endif ()
 
 # Find DCMTK
