@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
 
                 // Initialize intermediates
                 init_im(&draw);
-                if (init_Mat_rm(&keys, 0, 0, DOUBLE, SIFT3D_FALSE))
+                if (init_Mat_rm(&keys, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE))
                         err_msgu("Failed to initialize keys matrix");
 
                 // Convert to matrices

@@ -147,8 +147,8 @@ int main(int argc, char *argv[]) {
         init_Reg_SIFT3D(&reg);
         init_Ransac(&ran);
         if (init_SIFT3D(&sift3d) ||
-                init_Mat_rm(&match_src, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-                init_Mat_rm(&match_ref, 0, 0, DOUBLE, SIFT3D_FALSE)) {
+                init_Mat_rm(&match_src, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE) ||
+                init_Mat_rm(&match_ref, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE)) {
                 err_msgu("Failed basic initialization.");
                 return 1;
         }
@@ -335,7 +335,7 @@ int main(int argc, char *argv[]) {
                 Mat_rm matches;
 
                 // Initialize intermediates
-                init_Mat_rm(&matches, 0, 0, DOUBLE, SIFT3D_FALSE);
+                init_Mat_rm(&matches, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE);
 
                 // Form a combined matrix for both sets of matches
                 if (concat_Mat_rm(&match_src, &match_ref, &matches, 1)) {
@@ -417,8 +417,9 @@ int main(int argc, char *argv[]) {
                 init_im(&concat);
                 init_im(&keys);
                 init_im(&lines);
-                if (init_Mat_rm(&keys_src, 0, 0, DOUBLE, SIFT3D_FALSE) ||
-                        init_Mat_rm(&keys_ref, 0, 0, DOUBLE, SIFT3D_FALSE)) {
+                if (init_Mat_rm(&keys_src, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE) ||
+                        init_Mat_rm(&keys_ref, 0, 0, SIFT3D_DOUBLE, 
+				SIFT3D_FALSE)) {
                         err_msgu("Failed to initialize keypoint matrices.");
                         return 1;
                 }
