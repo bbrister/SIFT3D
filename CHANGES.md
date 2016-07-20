@@ -64,6 +64,7 @@
 
 * Fixed CMake settings to allow linking to CMake targets without dependencies
 * Updated for newer versions of CMake, MinGW
+* Update package dependencies for Ubuntu 16.04
 * Removed POSIX dependencies in header files to allow linking with Visual Studio
 * Added support for reading JPEG-compressed DICOM files
 * Ship both MS (.lib) and MinGW (.dll.a) import libraries on Windows
