@@ -210,12 +210,16 @@ if (${Matlab_FOUND})
 
         if (WIN32)
 
-		set (TOOLBOX_DEPS ${DCMTK_LIBRARIES} ${NIFTI_LIBRARIES} 
-                        ${ZLIB_LIBRARIES})
+		# The toolbox has the same dependencies except for BLAS and LAPACK
+		set (TOOLBOX_DEPS ${DEPS})
+		list (REMOVE_ITEM TOOLBOX_DEPS 
+			${LAPACK_LIBRARIES} ${BLAS_LIBRARIES}
+		)
+
 		get_runtime_deps (TOOLBOX_DEPS TOOLBOX_RUNTIME_DEPS)
 		file (COPY ${TOOLBOX_RUNTIME_DEPS} DESTINATION 
 			${BUILD_TOOLBOX_DIR})
-                install (FILES ${TOOLBOX_RUNTIME_DEPS} 
+		install (FILES ${TOOLBOX_RUNTIME_DEPS} 
 			DESTINATION ${INSTALL_TOOLBOX_DIR})
         endif ()
 endif ()
