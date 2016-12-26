@@ -139,6 +139,7 @@ typedef struct _List {
 /* LAPACK declarations */
 #ifdef SIFT3D_MEX
 // Set the integer width to Matlab's defined width
+#include <uchar.h>
 #include "mex.h"
 typedef mwSignedIndex fortran_int;
 #ifdef _WINDOWS

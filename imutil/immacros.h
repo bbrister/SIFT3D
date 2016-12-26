@@ -10,6 +10,7 @@
 #include "imtypes.h"
 
 #ifdef SIFT3D_MEX
+#include <uchar.h>
 #include "mex.h"
 #else
 #include "stdio.h"

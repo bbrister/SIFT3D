@@ -20,6 +20,7 @@
 #include "mexutil.h"
 
 /* Matlab headers */
+#include <uchar.h>
 #include "mex.h"
 #include "matrix.h"
 
