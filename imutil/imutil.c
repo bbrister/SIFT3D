@@ -924,7 +924,7 @@ int zero_Mat_rm(Mat_rm *const mat)
  */
 int identity_Mat_rm(const int n, Mat_rm *const mat) {
 
-        int i, j;
+        int i;
 
         // Resize the matrix 
         mat->num_rows = mat->num_cols = n;
@@ -935,9 +935,9 @@ int identity_Mat_rm(const int n, Mat_rm *const mat) {
         zero_Mat_rm(mat);
 
 #define SET_IDENTITY(type) \
-        SIFT3D_MAT_RM_LOOP_START(mat, i, j) \
-                SIFT3D_MAT_RM_GET(mat, i, j, type) = (type) 1; \
-        SIFT3D_MAT_RM_LOOP_END
+        for (i = 0; i < n; i++) { \
+                SIFT3D_MAT_RM_GET(mat, i, i, type) = (type) 1; \
+        }
 
         SIFT3D_MAT_RM_TYPE_MACRO(mat, identity_Mat_rm_quit, SET_IDENTITY);
 #undef SET_IDENTITY

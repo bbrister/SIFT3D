@@ -1565,11 +1565,6 @@ int SIFT3D_assign_orientations(const SIFT3D *const sift3d,
                                 // Set R to identity
                                 if (identity_Mat_rm(IM_NDIMS, R))
                                         goto assign_orientations_quit;
-                                zero_Mat_rm(R);
-                                for (j = 0; j < IM_NDIMS; j++) {
-                                        SIFT3D_MAT_RM_GET(R, j, j, float) =
-                                                1.0;
-                                }
                                 *conf_ret = -1.0;
                                 break;
                         default:
