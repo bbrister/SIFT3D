@@ -126,6 +126,8 @@ int im_read(const char *path, Image *const im);
 
 int im_write(const char *path, const Image *const im);
 
+char *im_get_parent_dir(const char *path);
+
 int write_Mat_rm(const char *path, const Mat_rm *const mat);
 
 int init_im_with_dims(Image *const im, const int nx, const int ny, const int nz,
