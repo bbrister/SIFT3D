@@ -23,8 +23,6 @@ You can install SIFT3D in one of two ways, from binaries or from source. The eas
 
 This program has been successfully compiled and executed on the following Linux platforms:
 - Ubuntu Linux 16.04, using GCC 5.4.0 and CMake 3.5.1.
-- Ubuntu Linux 14.04, using GCC 4.8.4 and CMake 2.8.12.2.
-	-Install libdcmtk2-dev instead of libdcmtk-dev
 
 This program requires the following tools to compile:
 - [CMake](http://www.cmake.org)
