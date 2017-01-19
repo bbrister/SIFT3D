@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <float.h>
 #include <zlib.h>
 #include <sys/stat.h>
@@ -1482,6 +1483,24 @@ static const char *get_file_ext(const char *name)
 	dot = strrchr(name, '.');
 
 	return dot == NULL || dot == name ? "" : dot + 1;
+}
+
+/* Get the parent directory of a file. The returned string must later be
+ * freed. */
+char *im_get_parent_dir(const char *path) {
+
+        ptrdiff_t file_pos;
+        char *dirName;
+
+        // Duplicate the path so we can edit it
+        dirName = strndup(path, FILENAME_MAX); 
+
+        // Subtract away the file name
+        file_pos = get_file_name(path) - path;
+        if (file_pos > 0)
+                dirName[file_pos] = '\0';
+       
+        return dirName; 
 }
 
 /* Write a matrix to a .csv or .csv.gz file. */
@@ -4292,7 +4311,7 @@ static int mkpath(const char *path, mode_t mode)
 	char *pp, *sp, *copypath;
 	int status;
 
-	if ((copypath = strdup(path)) == NULL)
+	if ((copypath = strndup(path, FILENAME_MAX)) == NULL)
 		status = -1;
 
 	/* Ignore everything after the last '/' */

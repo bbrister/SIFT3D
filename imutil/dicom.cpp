@@ -38,7 +38,7 @@
 #include "dcmtk/dcmjpeg/djencode.h" /* for JPEG encoding */
 #include "dcmtk/dcmjpeg/djrplol.h"  /* for DJ_RPLossless */
 
-#include "dcmtk/dcmsr/dsrdoc.h" /* DSR report handling */
+#include "dcmtk/dcmseg/segment.h" /* Dicom segmentations */
 
 #ifdef WITH_ZLIB
 #include <zlib.h>          /* for zlibVersion() */
@@ -71,7 +71,7 @@
                 ret = SIFT3D_FAILURE; \
         } \
 
-/* File spearator in string form */
+/* File separator in string form */
 const std::string sepStr(1, SIFT3D_FILE_SEP);
 
 /* Dicom parameteres */
@@ -84,9 +84,15 @@ const char *default_patient_id = "DefaultSIFT3DPatientID";
 const char default_instance_num = 1;
 
 /* Helper declarations */
+class Dicom;
 static bool isLittleEndian(void);
 static void default_Dcm_meta(Dcm_meta *const meta);
+static int load_file(const char *path, DcmFileFormat &fileFormat);
 static int read_dcm_cpp(const char *path, Image *const im);
+static int read_dcm_img(const Dicom &dicom, Image *const im);
+static int read_dso(const char *imDir, Dicom &dso, 
+                            Image *const mask);
+static int read_dcm_dir_meta(const char *path, std::vector<Dicom> &dicoms);
 static int read_dcm_dir_cpp(const char *path, Image *const im);
 static int write_dcm_cpp(const char *path, const Image *const im,
         const Dcm_meta *const meta, const float max_val);
@@ -94,12 +100,17 @@ static int write_dcm_dir_cpp(const char *path, const Image *const im,
         const Dcm_meta *const meta);
 static void set_meta_defaults(const Dcm_meta *const meta, 
         Dcm_meta *const meta_new);
+static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im);
+static int copy_slice(const Image *const slice, const int off_z, 
+        Image *const volume);
 
 /* Helper class to store DICOM data. */
 class Dicom {
 private:
         std::string filename; // DICOM file name
+        std::string classUID;
         std::string seriesUID; // Series UID 
+        std::string instanceUID; // Instance UID
         double z; // z position in the series
         double ux, uy, uz; // Voxel spacing in real-world coordinates
         int nx, ny, nz, nc; // Image dimensions
@@ -113,7 +124,7 @@ public:
         ~Dicom() {};
 
         /* Load a file */
-        Dicom(std::string filename);
+        Dicom(const char *filename);
 
         /* Get the x-dimension */
         int getNx(void) const {
@@ -156,8 +167,8 @@ public:
         }
 
         /* Get the file name */
-        std::string name(void) const {
-                return filename;
+        const char *name(void) const {
+                return filename.c_str();
         }
 
         /* Sort by z position */
@@ -169,91 +180,180 @@ public:
         bool eqSeries(const Dicom &dicom) const {
                 return !seriesUID.compare(dicom.seriesUID);
         }
-};
 
-/* Load the data from a DICOM file */
-Dicom::Dicom(std::string path) : filename(path), valid(false) {
-
-        // Load the image as a DcmFileFormat 
-        DcmFileFormat fileFormat;
-        OFCondition status = fileFormat.loadFile(path.c_str());
-        if (status.bad()) {
-                SIFT3D_ERR("Dicom.Dicom: failed to read DICOM file %s (%s)\n",
-                        path.c_str(), status.text());
-                return;
+        /* Check for a matching SOPInstanceUID */
+        bool eqInstance(const char *uid) const {
+                return !instanceUID.compare(uid);
         }
 
-        // Get the dataset
-        DcmDataset *const data = fileFormat.getDataset();
+        /* Check if this is a Dicom Segmentation Object */
+        bool isDSO(void) const {
+                return !classUID.compare(UID_SegmentationStorage);
+        }
+};
+
+/* Read a DICOM file with DCMTK. */
+static int load_file(const char *path, DcmFileFormat &fileFormat) {
+
+        // Load the image as a DcmFileFormat 
+        OFCondition status = fileFormat.loadFile(path);
+        if (status.bad()) {
+                SIFT3D_ERR("load_file: failed to read DICOM file %s (%s)\n",
+                        path, status.text());
+                return SIFT3D_FAILURE;
+        }
+
+        return SIFT3D_SUCCESS;
+}
+
+/* Load the data from a DICOM file */
+Dicom::Dicom(const char *path) : filename(path), valid(false) {
+
+        // Read the file
+        DcmFileFormat fileFormat;
+        if (load_file(path, fileFormat))
+                return;
+        DcmDataset *data = fileFormat.getDataset();
+
+        // Get the SOPClass UID
+        const char *classUIDStr;
+        OFCondition status = data->findAndGetString(DCM_SOPClassUID, 
+                                                    classUIDStr);
+        if (status.bad() || classUIDStr == NULL) {
+                SIFT3D_ERR("Dicom.Dicom: failed to get SOPClassUID "
+                        "from file %s (%s)\n", path, status.text());
+                return;
+        }
+        classUID = std::string(classUIDStr); 
 
         // Get the series UID 
         const char *seriesUIDStr;
         status = data->findAndGetString(DCM_SeriesInstanceUID, seriesUIDStr);
         if (status.bad() || seriesUIDStr == NULL) {
                 SIFT3D_ERR("Dicom.Dicom: failed to get SeriesInstanceUID "
-                        "from file %s (%s)\n", path.c_str(), status.text());
+                        "from file %s (%s)\n", path, status.text());
                 return;
         }
         seriesUID = std::string(seriesUIDStr); 
 
-#if 0
-        // Read the patient position
-        const char *patientPosStr;
-        status = data->findAndGetString(DCM_PatientPosition, patientPosStr);
-        if (status.bad() || patientPosStr == NULL) {
-                std::cerr << "Dicom.Dicom: failed to get PatientPosition " <<
-                        "from file " << path << " (" << status.text() << ")" <<
-                        std::endl;
+        // Get the instance UID 
+        const char *instanceUIDStr;
+        status = data->findAndGetString(DCM_SOPInstanceUID, instanceUIDStr);
+        if (status.bad() || instanceUIDStr == NULL) {
+                SIFT3D_ERR("Dicom.Dicom: failed to get SOPInstanceUID "
+                        "from file %s (%s)\n", path, status.text());
                 return;
         }
+        instanceUID = std::string(instanceUIDStr); 
 
-        // Interpret the patient position to give the sign of the z axis
-        double zSign;
-        switch (patientPosStr[0]) {
-        case 'H':
-                zSign = -1.0;
-                break;
-        case 'F':
-                zSign = 1.0;
-                break;
-        default:
-                std::cerr << "Dicom.Dicom: unrecognized patient position: " <<
-                        patientPosStr << std::endl;
-                return;
-        }
+        // Get the z coordinate
+        if (isDSO()) {
+                // DSOs don't always have z coordinates
+                z = -1;
+
+                // DSOs don't always have units
+                ux = uy = -1.0;
+        } else {
+#if 0
+                // Read the patient position
+                const char *patientPosStr;
+                status = data->findAndGetString(DCM_PatientPosition, 
+                                                patientPosStr);
+                if (status.bad() || patientPosStr == NULL) {
+                        SIFT3D_ERR("Dicom.Dicom: failed to get " 
+                                "PatientPosition from file %s (%s)\n", path, 
+                                status.text());
+                        return;
+                }
+
+                // Interpret the patient position to give the sign of the z axis
+                double zSign;
+                switch (patientPosStr[0]) {
+                case 'H':
+                        zSign = -1.0;
+                        break;
+                case 'F':
+                        zSign = 1.0;
+                        break;
+                default:
+                        SIFT3D_ERR("Dicom.Dicom: unrecognized patient "
+                                "position: %d\n", patientPosStr);
+                        return;
+                }
 #else
-        //TODO: Is this needed?
-        const double zSign = 1.0;
+                //TODO: Is this needed?
+                const double zSign = 1.0;
 #endif
 
-        // Read the image position patient vector
-        const char *imPosPatientStr;
-        status = data->findAndGetString(DCM_ImagePositionPatient, 
-                imPosPatientStr);
-        if (status.bad() || imPosPatientStr == NULL) {
-                SIFT3D_ERR("Dicom.Dicom: failed to get ImagePositionPatient "
-                        "from file %s (%s)\n", path.c_str(), status.text());
-                return;
-        }
+                // Read the image position patient vector
+                const char *imPosPatientStr;
+                status = data->findAndGetString(DCM_ImagePositionPatient, 
+                        imPosPatientStr);
+                if (status.bad() || imPosPatientStr == NULL) {
+                        SIFT3D_ERR("Dicom.Dicom: failed to get "
+                        "ImagePositionPatient from file %s (%s)\n", path, 
+                        status.text());
+                        return;
+                }
 
-        // Parse the image position patient vector to get the z coordinate
-        double imPosZ;
-        if (sscanf(imPosPatientStr, "%*f\\%*f\\%lf", &imPosZ) != 1) {
-                SIFT3D_ERR("Dicom.Dicom: failed to parse "
-                        "ImagePositionPatient tag %s from file %s\n", 
-                        imPosPatientStr, path.c_str());
-                return;
-        }
+                // Parse the image position patient vector to get z
+                double imPosZ;
+                if (sscanf(imPosPatientStr, "%*f\\%*f\\%lf", &imPosZ) != 1) {
+                        SIFT3D_ERR("Dicom.Dicom: failed to parse "
+                                "ImagePositionPatient tag %s from file %s\n", 
+                                imPosPatientStr, path);
+                        return;
+                }
 
-        // Compute the z-location of the upper-left corner, in feet-first 
-        // coordinates
-        z = zSign * imPosZ;
+                // Compute the z-location of the upper-left corner, in 
+                // feet-first coordinates
+                z = zSign * imPosZ;
+
+                // Read the pixel spacing
+                const char *pixelSpacingStr;
+                status = data->findAndGetString(DCM_PixelSpacing, 
+                                                pixelSpacingStr);
+                if (status.bad()) {
+                        SIFT3D_ERR("Dicom.Dicom: failed to get pixel spacing "
+                                "from file %s (%s)\n", path, status.text());
+                        return;
+                }
+                if (sscanf(pixelSpacingStr, "%lf\\%lf", &ux, &uy) != 2) {
+                        SIFT3D_ERR("Dicom.Dicom: unable to parse pixel "
+                                "spacing from file %s \n", path);
+                        return;
+                }
+                if (ux <= 0.0 || uy <= 0.0) {
+                        SIFT3D_ERR("Dicom.Dicom: file %s has invalid pixel "
+                                "spacing [%f, %f]\n", path, ux, uy);
+                        return;
+                }
+
+                // Read the slice thickness 
+                Float64 sliceThickness;
+                status = data->findAndGetFloat64(DCM_SliceThickness, 
+                                                 sliceThickness);
+                if (!status.good()) {
+                        SIFT3D_ERR("Dicom.Dicom: failed to get slice "
+                                "thickness from file %s (%s)\n", path, 
+                                status.text());
+                        return;
+                }
+
+                // Convert to double 
+                uz = sliceThickness;
+                if (uz <= 0.0) {
+                        SIFT3D_ERR("Dicom.Dicom: file %s has invalid slice "
+                                "thickness: %f \n", path, uz);
+                        return;
+                }
+        }
 
         // Load the DicomImage object
-        DicomImage dicomImage(path.c_str());
+        DicomImage dicomImage(path);
         if (dicomImage.getStatus() != EIS_Normal) {
                 SIFT3D_ERR("Dicom.Dicom: failed to open image %s (%s)\n",
-                        path.c_str(), 
+                        path, 
                         DicomImage::getString(dicomImage.getStatus()));
                 return;
         }
@@ -272,46 +372,10 @@ Dicom::Dicom(std::string path) : filename(path), valid(false) {
         nz = dicomImage.getFrameCount();
         if (nx < 1 || ny < 1 || nz < 1) {
                 SIFT3D_ERR("Dicom.Dicom: invalid dimensions for file %s "
-                        "(%d, %d, %d)\n", path.c_str(), nx, ny, nz);
+                        "(%d, %d, %d)\n", path, nx, ny, nz);
                 return;
         }
 
-        // Read the pixel spacing
-        const char *pixelSpacingStr;
-        status = data->findAndGetString(DCM_PixelSpacing, pixelSpacingStr);
-        if (status.bad()) {
-                SIFT3D_ERR("Dicom.Dicom: failed to get pixel spacing from "
-                        "file %s (%s)\n", path.c_str(), status.text());
-                return;
-        }
-        if (sscanf(pixelSpacingStr, "%lf\\%lf", &ux, &uy) != 2) {
-                SIFT3D_ERR("Dicom.Dicom: unable to parse pixel spacing from "
-                        "file %s \n", path.c_str());
-                return;
-        }
-        if (ux <= 0.0 || uy <= 0.0) {
-                SIFT3D_ERR("Dicom.Dicom: file %s has invalid pixel spacing "
-                        "[%f, %f]\n", path.c_str(), ux, uy);
-                return;
-        }
-
-        // Read the slice thickness 
-        Float64 sliceThickness;
-        status = data->findAndGetFloat64(DCM_SliceThickness, sliceThickness);
-        if (!status.good()) {
-                SIFT3D_ERR("Dicom.Dicom: failed to get slice thickness from "
-                        "file %s (%s)\n", path.c_str(), status.text());
-                return;
-        }
-
-        // Convert to double 
-        uz = sliceThickness;
-        if (uz <= 0.0) {
-                SIFT3D_ERR("Dicom.Dicom: file %s has invalid slice "
-                        "thickness: %f \n", path.c_str(), uz);
-                return;
-        }
-        
         // Set the window 
         dicomImage.setMinMaxWindow();
 
@@ -336,7 +400,8 @@ static void default_Dcm_meta(Dcm_meta *const meta) {
         meta->instance_num = default_instance_num;
 }
 
-/* Read a DICOM file into an Image struct. */
+/* Read a DICOM file into an Image struct. If the file is a DSO, the 
+ * referenced DICOM image must be in the same directory. */
 int read_dcm(const char *path, Image *const im) {
 
         int ret;
@@ -401,6 +466,27 @@ int write_dcm_dir(const char *path, const Image *const im,
 /* Helper function to read a DICOM file using C++ */
 static int read_dcm_cpp(const char *path, Image *const im) {
 
+        // Read the image metadata
+	Dicom dicom(path);
+        if (!dicom.isValid())
+                return SIFT3D_FAILURE;
+
+        // Check if this is a segmentation or normal image
+        if (dicom.isDSO()) {
+                // Look for images only in the same directory
+                char *pathDir = im_get_parent_dir(path);
+                int ret = read_dso(pathDir, dicom, im);
+                free(pathDir);
+                return ret;
+         }
+       
+        // Otherwise directly read the image data 
+        return read_dcm_img(dicom, im);
+}
+
+/* Helper function to read DICOM image data */
+static int read_dcm_img(const Dicom &dicom, Image *const im) {
+
 	uint32_t shift;
 	int depth;
         const int bufNBits = 32;
@@ -408,15 +494,13 @@ static int read_dcm_cpp(const char *path, Image *const im) {
 	// Initialize JPEG decoders
 	DJDecoderRegistration::registerCodecs();
 
-        // Read the image metadata
-	Dicom dicom(path);
+        // Initialize the DicomImage object
+        const char *path = dicom.name();
 	DicomImage dicomImage(path);
-        if (!dicom.isValid())
-		goto read_dcm_cpp_quit;
         if (dicomImage.getStatus() != EIS_Normal) {
                 SIFT3D_ERR("read_dcm_cpp: failed to open image %s (%s)\n",
                         path, DicomImage::getString(dicomImage.getStatus()));
-		goto read_dcm_cpp_quit;
+		goto read_dcm_img_quit;
         }
 
         // Initialize the image fields
@@ -431,14 +515,14 @@ static int read_dcm_cpp(const char *path, Image *const im) {
         // Resize the output
         im_default_stride(im);
         if (im_resize(im))
-		goto read_dcm_cpp_quit;
+		goto read_dcm_img_quit;
 
         // Get the bit depth of the image
         depth = dicomImage.getDepth();
         if (depth > bufNBits) {
                 SIFT3D_ERR("read_dcm_cpp: buffer is insufficiently wide "
                         "for %d-bit data of image %s \n", depth, path);
-		goto read_dcm_cpp_quit;
+		goto read_dcm_img_quit;
         }
 
         // Get the number of bits by which we need to shift the 32-bit data, to
@@ -466,7 +550,7 @@ static int read_dcm_cpp(const char *path, Image *const im) {
                         SIFT3D_ERR("read_dcm_cpp: could not get data from "
                                 "image %s frame %d (%s)\n", path, i, 
                                 DicomImage::getString(dicomImage.getStatus()));
-			goto read_dcm_cpp_quit;
+			goto read_dcm_img_quit;
                 }
 
                 // Copy the frame
@@ -490,18 +574,173 @@ static int read_dcm_cpp(const char *path, Image *const im) {
 
         return SIFT3D_SUCCESS;
 
-read_dcm_cpp_quit:
+read_dcm_img_quit:
 	DJDecoderRegistration::cleanup();
 	return SIFT3D_FAILURE;
 }
 
-/* Helper funciton to read a directory of DICOM files using C++ */
-static int read_dcm_dir_cpp(const char *path, Image *const im) {
+/* Read a DICOM Segmentation Object (DSO) mask. 
+ *
+ * Parameters:
+ *      imDir - The path of the directory containing DICOM image files.
+ *      dsoPath - The path of the DSO file.
+ *      mask - The image in which to write a binary mask.
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise.
+ */
+static int read_dso(const char *imDir, Dicom &dso, 
+                            Image *const mask) {
+
+        // Read the DSO
+        DcmFileFormat fileFormat;
+        const char *dsoPath = dso.name();
+        if (load_file(dso.name(), fileFormat))
+                return SIFT3D_FAILURE;
+        DcmDataset *dso_data = fileFormat.getDataset();
+
+        // Initialize the DcmSegmentation object
+        OFCondition status;
+        OFunique_ptr<DcmSegmentation> dcmSegmentation;
+        {
+                DcmSegmentation *p;
+                status = DcmSegmentation::loadDataset(*dso_data, p);
+                dcmSegmentation.reset(p);
+        }
+        if (status.bad()) {
+                SIFT3D_ERR("read_dso: failed to initialize the "
+                        "DcmSegmentation object for file %s (%s)\n", dsoPath,
+                        status.text());
+                return SIFT3D_FAILURE;
+        }
+
+        // Ensure we have only one segment
+        const int num_segments = dcmSegmentation->getNumberOfSegments();
+        if (num_segments != 1) {
+                SIFT3D_ERR("read_dso: unsupported number of segments "
+                        " in file %s: %d\n", dsoPath, num_segments);
+                return SIFT3D_FAILURE;
+        }
+
+        // Check how many frames we have
+        const int nz = dcmSegmentation->getNumberOfFrames();
+
+        // Get the referenced series items
+        OFVector<IODSeriesAndInstanceReferenceMacro::ReferencedSeriesItem*>&
+                series_items = dcmSegmentation->getCommonInstanceReference()
+                        .getReferencedSeriesItems();
+
+        // Ensure there is only one series
+        const int num_series = series_items.size();
+        if (num_series != 1) {
+                SIFT3D_ERR("read_dso: unsupported number of referenced "
+                        "series: %d \n", num_series);
+                return SIFT3D_FAILURE;
+        }
+
+        // Get the referenced instance items
+        OFVector<SOPInstanceReferenceMacro*> &ref_instances =
+                series_items[0]->getReferencedInstanceItems();
+
+        // Read the image metadata
+        std::vector<Dicom> images;
+        if (read_dcm_dir_meta(imDir, images))
+                return SIFT3D_FAILURE;
+
+        // Read the mask DICOM image data
+        Image maskData;
+        init_im(&maskData);
+        if (read_dcm_img(dso, &maskData)) {
+                im_free(&maskData);
+                return SIFT3D_FAILURE;
+        }
+
+        // Ensure we have a single frame for each instance
+        if (ref_instances.size() != maskData.nz) {
+                SIFT3D_ERR("read_dso: DSO has %lu frames but %d segments \n",
+                        ref_instances.size(), maskData.nz);
+                im_free(&maskData);
+                return SIFT3D_FAILURE;
+        }
+
+        // Initialize and zero the mask
+        if (dcm_resize_im(images, mask)) {
+                im_free(&maskData);
+                return SIFT3D_FAILURE;
+        }
+        im_zero(mask);
+
+        // Ensure the x,y dimensions match
+        if (mask->nx != maskData.nx || mask->ny != maskData.ny) {
+                SIFT3D_ERR("read_dso: Mask has frame dimensions [%d x %d] "
+                        "while image volume has dimensions [%d x %d] \n",
+                        maskData.nx, maskData.ny, mask->nx, mask->ny);
+                im_free(&maskData);
+                return SIFT3D_FAILURE;
+        }
+
+        // Copy each frame into the mask
+        for (auto it = ref_instances.begin(); it != ref_instances.end(); 
+                ++it) {
+
+                // Get the SOPInstanceUID
+                OFString ref_uid;
+                status = (*it)->getReferencedSOPInstanceUID(ref_uid);
+                if (status.bad()) {
+                        SIFT3D_ERR("read_dso: Failed to get "
+                                "ReferencedSOPInstanceUID (%s) \n",
+                                status.text());
+                        im_free(&maskData);
+                        return SIFT3D_FAILURE;
+                }
+                const char *ref_uid_str = ref_uid.c_str();
+
+                // Check for a matching UID in the images
+                auto match = std::find_if(
+                        images.begin(), 
+                        images.end(), 
+                        [ref_uid_str] (Dicom &image) {
+                                return image.eqInstance(ref_uid_str);
+                        }
+                );
+                if (match == images.end()) {
+                        SIFT3D_ERR("read_dso: No image found with "
+                                "SOPInstanceUID %s \n", ref_uid_str);
+                        im_free(&maskData);
+                        return SIFT3D_FAILURE;
+                }
+
+                // Get the z offsets
+                const int im_frame_num = std::distance(images.begin(), match);
+                const int dso_frame_num = std::distance(ref_instances.begin(), 
+                                                        it);
+
+                // Copy the frame into the full mask volume
+                int x, y, z;
+                const int x_start = 0;
+                const int y_start = 0;
+                const int z_start = 0;
+                const int y_end = maskData.ny - 1;
+                const int x_end = maskData.nx - 1;
+                const int z_end = 0;
+                SIFT3D_IM_LOOP_LIMITED_START(&maskData, x, y, z, x_start,
+                        x_end, y_start, y_end, z_start, z_end)
+                        SIFT3D_IM_GET_VOX(mask, x, y, im_frame_num, 0) =
+                                SIFT3D_IM_GET_VOX(&maskData, x, y, 
+                                                  dso_frame_num, 0);
+                SIFT3D_IM_LOOP_END
+        }
+
+        // Clean up
+        im_free(&maskData);
+        return SIFT3D_SUCCESS;
+}
+
+/* Helper function to read the metadata from a directory of DICOM files */
+static int read_dcm_dir_meta(const char *path, std::vector<Dicom> &dicoms) {
 
         struct stat st;
         DIR *dir;
         struct dirent *ent;
-        int i, nx, ny, nz, nc, num_files, off_z;
 
         // Verify that the directory exists
 	if (stat(path, &st)) {
@@ -520,8 +759,8 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
                 return SIFT3D_FAILURE;
         }
 
-        // Get all of the .dcm files in the directory
-        std::vector<Dicom> dicoms;
+        // Get all of the .dcm files in the directory, ignoring DSOs
+        dicoms.clear();
         while ((ent = readdir(dir)) != NULL) {
 
                 // Form the full file path
@@ -532,11 +771,15 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
                         continue;
 
                 // Read the file
-                Dicom dicom(fullfile);
+                Dicom dicom(fullfile.c_str());
                 if (!dicom.isValid()) {
                         closedir(dir);
                         return SIFT3D_FAILURE;
                 }
+
+                // Ignore DSOs
+                if (dicom.isDSO())
+                        continue;
 
                 // Add the file to the list
                 dicoms.push_back(dicom);
@@ -545,17 +788,26 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
         // Release the directory
         closedir(dir);
         
-        // Get the number of files
-        num_files = dicoms.size();
-
         // Verify that dicom files were found
-        if (num_files == 0) {
+        if (dicoms.size() == 0) {
                 SIFT3D_ERR("read_dcm_dir_cpp: no DICOM files found in %s \n",
                         path);
                 return SIFT3D_FAILURE;
         }
 
+        // Sort the slices by z position
+        std::sort(dicoms.begin(), dicoms.end()); 
+
+        return SIFT3D_SUCCESS;
+}
+
+/* Resize an image to fit a DICOM series. */
+static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im) {
+
+        int i;
+
         // Check that the files are from the same series
+        const int num_files = dicoms.size();
         const Dicom &first = dicoms[0];
         for (int i = 1; i < num_files; i++) {
 
@@ -564,19 +816,19 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
                 if (!first.eqSeries(dicom)) {
                         SIFT3D_ERR("read_dcm_dir_cpp: file %s is from a "
                                 "different series than file %s \n", 
-                                dicom.name().c_str(), first.name().c_str());
+                                dicom.name(), first.name());
                         return SIFT3D_FAILURE;
                 }
         }
 
         // Initialize the output dimensions
-        nx = first.getNx();
-        ny = first.getNy();
-        nc = first.getNc();
+        int nx = first.getNx();
+        int ny = first.getNy();
+        int nc = first.getNc();
 
         // Verify the dimensions of the other files, counting the total
         // series z-dimension
-        nz = 0;
+        int nz = 0;
         for (i = 0; i < num_files; i++) {
 
                 // Get a slice
@@ -588,9 +840,9 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
                         SIFT3D_ERR("read_dcm_dir_cpp: slice %s "
                                 "(%d, %d, %d) does not match the "
                                 "dimensions of slice %s (%d, %d, %d) \n",
-                                dicom.name().c_str(), dicom.getNx(), 
+                                dicom.name(), dicom.getNx(), 
                                 dicom.getNy(), dicom.getNc(), 
-                                first.name().c_str(), nx, ny, nc);
+                                first.name(), nx, ny, nc);
                         return SIFT3D_FAILURE;
                 }
 
@@ -610,8 +862,46 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
         if (im_resize(im))
                 return SIFT3D_FAILURE;
 
-        // Sort the slices by z position
-        std::sort(dicoms.begin(), dicoms.end()); 
+        return SIFT3D_SUCCESS;
+}
+
+/* Helper function to copy a slice into a larger volume. */
+static int copy_slice(const Image *const slice, const int off_z, 
+        Image *const volume) {
+
+        int x, y, z, c;
+
+        // Verify dimensions
+        if (volume->nz < slice->nz + off_z ||
+                volume->nx != slice->nx ||
+                volume->ny != slice->ny ||
+                volume->nc != slice->nc)
+                return SIFT3D_FAILURE;
+
+        // Copy the data
+        SIFT3D_IM_LOOP_START_C(slice, x, y, z, c)
+
+                SIFT3D_IM_GET_VOX(volume, x, y, z + off_z, c) =
+                        SIFT3D_IM_GET_VOX(slice, x, y, z, c);
+
+        SIFT3D_IM_LOOP_END_C
+
+        return SIFT3D_SUCCESS;
+}
+
+/* Helper function to read a directory of DICOM files using C++ */
+static int read_dcm_dir_cpp(const char *path, Image *const im) {
+
+        int i, off_z;
+
+        // Read the DICOM metadata
+        std::vector<Dicom> dicoms;
+        if (read_dcm_dir_meta(path, dicoms))
+                return SIFT3D_FAILURE;
+
+        // Initialize the image volume
+        if (dcm_resize_im(dicoms, im))
+                return SIFT3D_FAILURE;
 
         // Allocate a temporary image for the slices
         Image slice;
@@ -619,29 +909,18 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
 
         // Read the image data
         off_z = 0;
+        const int num_files = dicoms.size();
         for (i = 0; i < num_files; i++) {
 
-                int x, y, z, c;
-
-                const char *slicename = dicoms[i].name().c_str();
-
-                // Read the slice 
-                if (read_dcm(slicename, &slice)) {
+                // Read and copy the slice data
+                if (read_dcm_img(dicoms[i], &slice) ||
+                        copy_slice(&slice, off_z, im)) {
                         im_free(&slice);
                         return SIFT3D_FAILURE;
                 }
-
-                // Copy the data to the volume
-                SIFT3D_IM_LOOP_START_C(&slice, x, y, z, c)
-
-                        SIFT3D_IM_GET_VOX(im, x, y, z + off_z, c) =
-                                SIFT3D_IM_GET_VOX(&slice, x, y, z, c);
-
-                SIFT3D_IM_LOOP_END_C
-
                 off_z += slice.nz;
         }
-        assert(off_z == nz);
+        assert(off_z == im->nz);
         im_free(&slice);
 
         return SIFT3D_SUCCESS;
