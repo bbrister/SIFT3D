@@ -5,6 +5,7 @@ Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
 # Installing the dependencies
 
 This program requires the following external libraries:
+- [zlib](http://www.zlib.net/)
 - [LAPACK](http://www.netlib.org/lapack/)
 - [DCMTK](http://dicom.offis.de/dcmtk.php.en)
 - [nifticlib](http://sourceforge.net/projects/niftilib/files/nifticlib/)
