@@ -46,8 +46,7 @@ end
 
 units = checkUnits3D(units);
 
-% Scale and convert the image to single-precision
-im = im / (max(im(:)) + eps);
+% Convert the image to single-precision
 im = single(im);
 
 % Check if this is a .gz file being written on Windows
