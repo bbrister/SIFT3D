@@ -49,7 +49,7 @@ static void print_help() {
         " .nii.gz (gzip-compressed nifti-1) \n"
         "\n"
         "Example: \n"
-        " regSift3D --nn_thresh 0.8 --matches matches.csv im1.nii im2.nii \n"
+        " regSift3D --nn_thresh 0.8 --matches matches.csv src.nii ref.nii \n"
         "\n"
         "Output options: \n"
         " --matches [filename] - The feature matches. \n"
