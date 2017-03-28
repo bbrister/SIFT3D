@@ -32,7 +32,7 @@ function [desc, coords] = extractSift3D(keys, im, units)
 %    [im, units] = imRead3D('someFile.dcm');
 %    keys = keypoint3D([0 0 0]);
 %    keys = orientation3D(keys, im, units);
-%    [desc, coords] = extractSift3D(keys);
+%    [desc, coords] = extractSift3D(keys, im, units);
 %
 %  See also:
 %    detectSift3D, imRead3D, keypoint3D, orientation3D, setupSift3D
