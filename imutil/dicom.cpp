@@ -29,6 +29,7 @@
 #include "dcmtk/oflog/oflog.h"           /* for OFLogger */
 
 #include "dcmtk/dcmimgle/dcmimage.h"     /* for DicomImage */
+#include "dcmtk/dcmimgle/diutils.h"     /* for DIPixel */
 #include "dcmtk/dcmimage/diregist.h"     /* include to support color images */
 #include "dcmtk/dcmdata/dcrledrg.h"      /* for DcmRLEDecoderRegistration */
 
@@ -487,8 +488,10 @@ static int read_dcm_cpp(const char *path, Image *const im) {
 /* Helper function to read DICOM image data */
 static int read_dcm_img(const Dicom &dicom, Image *const im) {
 
+        const void *data;
+        const DiMonoPixel *pixels;
 	uint32_t shift;
-	int depth;
+	int x, y, z, depth;
         const int bufNBits = 32;
 
 	// Initialize JPEG decoders
@@ -517,9 +520,57 @@ static int read_dcm_img(const Dicom &dicom, Image *const im) {
         if (im_resize(im))
 		goto read_dcm_img_quit;
 
+        // Get the vendor-independent intermediate pixel data
+        pixels = (const DiMonoPixel *) dicomImage.getInterData();
+        if (pixels == NULL) {
+                SIFT3D_ERR("read_dcm_img: failed to get intermediate data for "
+                        "%s\n", path);
+                goto read_dcm_img_quit;
+        }
+        depth = pixels->getBits();
+
+        // Macro to copy the data
+#define COPY_DATA(type) \
+        SIFT3D_IM_LOOP_START(im, x, y, z) \
+                const int y_stride = im->nx; \
+                const int z_stride = im->nx * im->ny; \
+                SIFT3D_IM_GET_VOX(im, x, y, z, 0) = \
+                        (float) *((type *) data + x + y * y_stride + \
+                                z * z_stride);\
+        SIFT3D_IM_LOOP_END
+
+        // Choose the appropriate data type and copy the data
+        data = pixels->getData(); 
+        switch (pixels->getRepresentation()) {
+        case EPR_Uint8:
+                COPY_DATA(uint8_t)
+                break;
+        case EPR_Uint16:
+                COPY_DATA(uint16_t)
+                break;
+        case EPR_Uint32:
+                COPY_DATA(uint32_t)
+                break;
+        case EPR_Sint8:
+                COPY_DATA(int8_t)
+                break;
+        case EPR_Sint16:
+                COPY_DATA(int16_t)
+                break;
+        case EPR_Sint32:
+                COPY_DATA(int32_t)
+                break;
+        default:
+                SIFT3D_ERR("read_dcm_img: unrecognized pixel representation "
+                        "for %s\n", path);
+                goto read_dcm_img_quit;
+        }
+#undef COPY_DATA
+
+#if 0
         // Get the bit depth of the image
-        depth = dicomImage.getDepth();
-        if (depth > bufNBits) {
+        depth = dicomImage.Depth();
+        if (depth > bufNBits) 
                 SIFT3D_ERR("read_dcm_cpp: buffer is insufficiently wide "
                         "for %d-bit data of image %s \n", depth, path);
 		goto read_dcm_img_quit;
@@ -568,6 +619,7 @@ static int read_dcm_img(const Dicom &dicom, Image *const im) {
 
                 SIFT3D_IM_LOOP_END
         }
+#endif
 
 	// Clean up
 	DJDecoderRegistration::cleanup();

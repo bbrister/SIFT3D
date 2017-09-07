@@ -189,7 +189,7 @@ static int cart2bary(const Cvec * const cart, const Tri * const tri,
 		      Cvec * const bary, float * const k);
 static int scale_Keypoint(const Keypoint *const src, 
         const double *const factors, Keypoint *const dst);
-static int smooth_raw_input(const SIFT3D *const sift3d, const Image *const src,
+static int smooth_scale_raw_input(const SIFT3D *const sift3d, const Image *const src,
         Image *const dst);
 static int verify_keys(const Keypoint_store *const kp, const Image *const im);
 static int keypoint2base(const Keypoint *const src, Keypoint *const dst);
@@ -885,6 +885,9 @@ static int set_im_SIFT3D(SIFT3D *const sift3d, const Image *const im) {
         if (im_copy_data(im, &sift3d->im))
                 return SIFT3D_FAILURE;
 
+        // Scale the input image to [-1, 1]
+        im_scale(&sift3d->im);
+
         // Resize the internal data, if necessary
         if ((data_old == NULL || 
                 memcmp(dims_old, SIFT3D_IM_GET_DIMS(&sift3d->im), 
@@ -1532,8 +1535,8 @@ int SIFT3D_assign_orientations(const SIFT3D *const sift3d,
         if ((*conf = SIFT3D_safe_realloc(*conf, num * sizeof(double))) == NULL)
                 goto assign_orientations_quit;
 
-        // Smooth the input
-        if (smooth_raw_input(sift3d, im, &im_smooth))
+        // Smooth and scale the input
+        if (smooth_scale_raw_input(sift3d, im, &im_smooth))
                 goto assign_orientations_quit;
 
         // Assign each orientation
@@ -1945,8 +1948,8 @@ static int scale_Keypoint(const Keypoint *const src,
         return SIFT3D_SUCCESS;
 }
 
-/* Helper function to smooth a "raw" input image, as if it were processed
- * via SIFT3D_detect_keypoints.
+/* Helper function to smooth and scale a "raw" input image, as if it were 
+ * processed via SIFT3D_detect_keypoints.
  *
  * Parameters:
  *  -sift3d: Stores the parameters sigma_n and sigma0.
@@ -1954,8 +1957,8 @@ static int scale_Keypoint(const Keypoint *const src,
  *  -dst: The output, smoothed image.
  *
  * Return: SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
-static int smooth_raw_input(const SIFT3D *const sift3d, const Image *const src,
-        Image *const dst) {
+static int smooth_scale_raw_input(const SIFT3D *const sift3d, 
+        const Image *const src, Image *const dst) {
 
         Gauss_filter gauss;
 
@@ -1969,14 +1972,17 @@ static int smooth_raw_input(const SIFT3D *const sift3d, const Image *const src,
 
         // Smooth the input
         if (apply_Sep_FIR_filter(src, dst, &gauss.f, unit))
-                goto smooth_raw_input_quit;
+                goto smooth_scale_raw_input_quit;
+
+        // Scale the input to [-1, 1]
+        im_scale(dst);
 
         // Clean up
         cleanup_Gauss_filter(&gauss);
         
         return SIFT3D_SUCCESS;
 
-smooth_raw_input_quit:
+smooth_scale_raw_input_quit:
         cleanup_Gauss_filter(&gauss);
         return SIFT3D_FAILURE;
 }
@@ -2137,7 +2143,7 @@ int SIFT3D_extract_raw_descriptors(SIFT3D *const sift3d,
 
         // Smooth the input image, storing the result in the pyramid
         level = SIFT3D_PYR_IM_GET(&pyr, first_octave, first_level); 
-        if (smooth_raw_input(sift3d, im, level))
+        if (smooth_scale_raw_input(sift3d, im, level))
                 goto extract_raw_descriptors_quit;
 
         // Allocate a temporary copy of the keypoints
@@ -2362,8 +2368,8 @@ int SIFT3D_extract_dense_descriptors(SIFT3D *const sift3d,
 
         //TODO: Interpolate to be isotropic
 
-        // Smooth the input image
-        if (smooth_raw_input(sift3d, in, &in_smooth))
+        // Smooth and scale the input image
+        if (smooth_scale_raw_input(sift3d, in, &in_smooth))
                 goto extract_dense_quit;
 
         // Extract the descriptors

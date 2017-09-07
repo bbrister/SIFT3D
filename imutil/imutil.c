@@ -1233,13 +1233,7 @@ int im_read(const char *path, Image *const im) {
                 ret = SIFT3D_UNSUPPORTED_FILE_TYPE;
         }
 
-        // Return errors, if any
-        if (ret) return ret;
-
-	// Scale the image to [-1, 1]
-	im_scale(im);
-
-        return SIFT3D_SUCCESS;
+        return ret;
 }
 
 /* Helper function to load a file into the specific Image object.
