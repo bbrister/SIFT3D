@@ -1,7 +1,7 @@
 /* -----------------------------------------------------------------------------
  * mexImRead3D.c
  * -----------------------------------------------------------------------------
- * Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
+ * Copyright (c) 2015-2017 Blaine Rister et al., see LICENSE for details.
  * -----------------------------------------------------------------------------
  * Mex interface to read 3D images.
  * -----------------------------------------------------------------------------
@@ -52,14 +52,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                 case SIFT3D_SUCCESS:
                         break;
                 case SIFT3D_FILE_DOES_NOT_EXIST:
-                        im_free(&im);
-                        err_msg("main:dne", "File does not exist");
-                        break;
+                        CLEAN_AND_QUIT("main:dne", "File does not exist", 
+                                SIFT3D_TRUE);
                 case SIFT3D_UNSUPPORTED_FILE_TYPE:
-                        im_free(&im);
-                        err_msg("main:unsupportedType", "Unsupported file "
-                                "type");
-                        break;
+                        CLEAN_AND_QUIT("main:unsupportedType", "Unsupported file "
+                                "type", SIFT3D_TRUE);
+                case SIFT3D_WRAPPER_NOT_COMPILED:
+                        CLEAN_AND_QUIT("main:notCompiled", "Recompile SIFT3D "
+                                "with support for this file type", SIFT3D_TRUE);
                 default:
                         CLEAN_AND_QUIT("main:unexpected", "Unexpected error "
                                 "reading the image", SIFT3D_TRUE);

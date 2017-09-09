@@ -1,12 +1,45 @@
 /* -----------------------------------------------------------------------------
  * dicom.cpp 
  * -----------------------------------------------------------------------------
- * Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
+ * Copyright (c) 2015-2017 Blaine Rister et al., see LICENSE for details.
  * -----------------------------------------------------------------------------
  * C-language wrapper for the DCMTK library.
  * -----------------------------------------------------------------------------
  */
 
+/* SIFT3D includes */
+#include "imutil.h"
+#include "immacros.h"
+#include "dicom.h"
+
+#ifndef SIFT3D_WITH_DICOM
+/* Return error messages if this was not compiled with DICOM support. */ 
+
+static int dcm_error_message() {
+        SIFT3D_ERR("dcm_error_message: SIFT3D was not compiled with DICOM "
+                "support!\n");
+        return SIFT3D_WRAPPER_NOT_COMPILED;
+}
+
+int read_dcm(const char *path, Image *const im) {
+        return dcm_error_message();
+}
+
+int read_dcm_dir(const char *path, Image *const im) {
+        return dcm_error_message();
+}
+
+int write_dcm(const char *path, const Image *const im, 
+        const Dcm_meta *const meta, const float max_val) {
+        return dcm_error_message();
+}
+
+int write_dcm_dir(const char *path, const Image *const im, 
+        const Dcm_meta *const meta) {
+        return dcm_error_message();
+}
+
+#else
 
 /*----------------Include the very picky DCMTK----------------*/
 #include "dcmtk/config/osconfig.h"    /* make sure OS specific configuration is included first */
@@ -54,9 +87,6 @@
 #include <cfloat>
 #include <stdint.h>
 #include <dirent.h>
-#include "imutil.h"
-#include "immacros.h"
-#include "dicom.h"
 
 /* Macro to call a C++ function and catch any exceptions it throws,
  * returning SIFT3D_FAILURE when an exception is caught. The return value is
@@ -1348,3 +1378,4 @@ static int write_dcm_dir_cpp(const char *path, const Image *const im,
         return SIFT3D_SUCCESS;
 }
 
+#endif

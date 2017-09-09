@@ -14,7 +14,7 @@ target_include_directories (sift3D PUBLIC
 install (FILES sift.h DESTINATION ${INSTALL_INCLUDE_DIR})
 
 # If Matlab was found, compile a copy for use with matlab wrappers
-if (${Matlab_FOUND})
+if (BUILD_Matlab)
 
         add_library (mexsift3D SHARED sift.c)
         target_include_directories (mexsift3D PUBLIC

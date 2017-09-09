@@ -19,7 +19,7 @@ install (TARGETS reg EXPORT SIFT3D-targets
 	 ARCHIVE DESTINATION ${INSTALL_LIB_DIR})
 
 # If Matlab was found, compile a copy for use with matlab wrappers
-if (${Matlab_FOUND})
+if (BUILD_Matlab)
 
         add_library (mexreg SHARED reg.c)
         target_link_libraries (mexreg PUBLIC mexsift3D meximutil)

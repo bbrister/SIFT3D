@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
+# Copyright (c) 2015-2017 Blaine Rister et al., see LICENSE for details.
 ################################################################################
 # Build file for the image processing utility library.
 ################################################################################
@@ -22,73 +22,117 @@ endif ()
 
 # Find DCMTK
 find_package (DCMTK QUIET)
-if (NOT DCMTK_FOUND)
-	message (FATAL_ERROR "DCMTK not found. Please set the variable "
-		"DCMTK_DIR to the location of DCMTK on your system.")
-endif ()
+if (DCMTK_FOUND)
 
-# Find NIFTI 
-find_package (NIFTI REQUIRED)
+        # Add platform-specific DCMTK dependencies
+        if (WIN32)
+                # Add ws2_32 
+                list (APPEND DCMTK_LIBRARIES "ws2_32")
+        endif ()
+
+        # Get the base DCMTK include dir. Note that DCMTK_DIR is set incorrectly on 
+        # Linux, so we must add additional paths
+        find_path (DCMTK_BASE_INCLUDE_PARENT_DIR "include/dcmtk"
+                PATHS ${DCMTK_DIR} "${DCMTK_config_INCLUDE_DIR}/../../..")
+        set (DCMTK_BASE_INCLUDE_DIR "${DCMTK_BASE_INCLUDE_PARENT_DIR}/include" 
+                CACHE PATH "DCMTK include directory")
+
+        if (_DCMTK_BASE_INCLUDE_PARENT_DIR STREQUAL
+                "DCMTK_BASE_INCLUDE_PARENT_DIR-NOTFOUND")
+                message (FATAL_ERROR "Failed to find the DCMTK include "
+                        "directory. Please set the variable "
+                        "DCMTK_BASE_INCLUDE_DIR to <DCMTK-INSTALL>/include, "
+                        "or disable DICOM support by setting WITH_DICOM to "
+                        "false.")
+        endif ()
+
+        # Add the base dir to the DCMTK include paths
+        list(APPEND DCMTK_INCLUDE_DIRS ${DCMTK_BASE_INCLUDE_DIR})
+
+        # Check if there is a configuration file for DCMTK
+        find_file(DCMTK_CONFIG_FILE 
+                NAMES "cfunix.h" "cfwin32.h"
+                PATHS ${DCMTK_config_INCLUDE_DIR}
+                NO_CMAKE_PATH
+                NO_CMAKE_ENVIRONMENT_PATH
+                NO_SYSTEM_ENVIRONMENT_PATH)
+        if (DCMTK_CONFIG_FILE STREQUAL "DCMTK_CONFIG_FILE-NOTFOUND")
+                set (DCMTK_HAVE_CONFIG_FILE false)
+        else ()
+                set (DCMTK_HAVE_CONFIG_FILE true)
+        endif ()
+
+        message (STATUS "DCMTK found. Building with DICOM support.")
+
+elseif (WITH_DICOM)
+	message (FATAL_ERROR "DCMTK not found. Please set the variable "
+                "DCMTK_DIR to the location of DCMTK on your system, or disable"
+                "DICOM support by setting WITH_DICOM to false.")
+else ()
+	message (STATUS "DCMTK not found. Compiling without DICOM support. "
+                "To enable DICOM support, set the variable DCMTK_DIR to the "
+                "location of DCMTK on your system.")
+endif ()
+set (WITH_DICOM ${DCMTK_FOUND} CACHE BOOL "Compile DICOM I/O support")
+
+# Optionally find NIFTI 
+find_package (NIFTI QUIET)
+if (NIFTI_FOUND)
+        message (STATUS "NIFTI found. Building with NIFTI support.")
+elseif (WITH_NIFTI)
+	message (FATAL_ERROR "Failed to find nifticlib. Please set the "
+                "variable NIFTI_DIR to the location of DCMTK on your system, "
+                "or disable NIFTI support by setting WITH_NIFTI to false.")
+else()
+	message (STATUS "Failed to find nifticlib. Compiling without NIFTI "
+                "support. To enable NIFTI support, set the variable NIFTI_DIR "
+                "to the location of NIFTI on your system.")
+endif()
+set (WITH_NIFTI ${NIFTI_FOUND} CACHE BOOL "Compile NIFTI I/O support")
 
 # Find iconv on Mac
 if (APPLE)
 	find_library (ICONV_LIBRARY NAMES iconv libiconv libiconv-2 c REQUIRED)
 endif ()
 
-# Add platform-specific DCMTK dependencies
-if (WIN32)
-	# Add ws2_32 
-	list (APPEND DCMTK_LIBRARIES "ws2_32")
-endif ()
-
 # Find MinGW dependencies
 if (MINGW)
-	find_package (MINGW REQUIRED)
+        find_package (MINGW REQUIRED)
 endif ()
 
-# Get the base DCMTK include dir. Note that DCMTK_DIR is set incorrectly on 
-# Linux, so we must add additional paths
-find_path (DCMTK_BASE_INCLUDE_PARENT_DIR "include/dcmtk"
-        PATHS ${DCMTK_DIR} "${DCMTK_config_INCLUDE_DIR}/../../..")
-set (DCMTK_BASE_INCLUDE_DIR "${DCMTK_BASE_INCLUDE_PARENT_DIR}/include" 
-        CACHE PATH "DCMTK include directory")
+# Macro to optionally add DCMTK to a target
+macro (add_DICOM arg)
+        if (WITH_DICOM)
+                target_include_directories(${arg} PRIVATE ${DCMTK_INCLUDE_DIRS})
+                target_link_libraries (${arg} PRIVATE ${DCMTK_LIBRARIES})
+                target_compile_definitions(${arg} PRIVATE "SIFT3D_WITH_DICOM")
+                if (DCMTK_HAVE_CONFIG_FILE)
+                        target_compile_definitions (${arg} PRIVATE 
+                                "HAVE_CONFIG_H")
+                endif ()
+        endif ()
+endmacro ()
 
-if (_DCMTK_BASE_INCLUDE_PARENT_DIR STREQUAL
-	"DCMTK_BASE_INCLUDE_PARENT_DIR-NOTFOUND")
-	message (FATAL_ERROR "Failed to find the DCMTK include directory. Please set the variable DCMTK_BASE_INCLUDE_DIR to <DCMTK-INSTALL>/include")
-endif ()
-
-# Add the base dir to the DCMTK include paths
-list(APPEND DCMTK_INCLUDE_DIRS ${DCMTK_BASE_INCLUDE_DIR})
-
-# Check if there is a configuration file for DCMTK
-find_file(DCMTK_CONFIG_FILE 
-        NAMES "cfunix.h" "cfwin32.h"
-        PATHS ${DCMTK_config_INCLUDE_DIR}
-        NO_CMAKE_PATH
-        NO_CMAKE_ENVIRONMENT_PATH
-        NO_SYSTEM_ENVIRONMENT_PATH)
-if (DCMTK_CONFIG_FILE STREQUAL "DCMTK_CONFIG_FILE-NOTFOUND")
-        set (DCMTK_HAVE_CONFIG_FILE false)
-else ()
-        set (DCMTK_HAVE_CONFIG_FILE true)
-endif ()
+# Macro to optionally add NIFTI to a target
+macro (add_NIFTI arg)
+        if (WITH_NIFTI)
+                target_compile_definitions(${arg} PRIVATE "SIFT3D_WITH_NIFTI")
+                target_include_directories(${arg} PRIVATE ${NIFTI_INCLUDE_DIRS})
+                target_link_libraries (${arg} PRIVATE ${NIFTI_LIBRARIES})
+        endif ()
+endmacro ()
 
 # Compile imutil
-add_library (imutil SHARED imutil.c dicom.cpp)
+add_library (imutil SHARED imutil.c nifti.c dicom.cpp)
 target_include_directories (imutil PUBLIC 
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
 )
-target_link_libraries (imutil PRIVATE ${LAPACK_LIBRARIES} ${DCMTK_LIBRARIES} 
-        ${NIFTI_LIBRARIES})
-target_include_directories(imutil PRIVATE ${DCMTK_INCLUDE_DIRS} 
-        ${NIFTI_INCLUDE_DIRS})
+target_link_libraries (imutil PRIVATE ${LAPACK_LIBRARIES})
 target_compile_definitions (imutil PRIVATE
         "SIFT3D_VERSION_NUMBER=${SIFT3D_VERSION}")
-if (DCMTK_HAVE_CONFIG_FILE)
-        target_compile_definitions (imutil PRIVATE "HAVE_CONFIG_H")
-endif ()
+add_DICOM(imutil)
+add_NIFTI(imutil)
 install (FILES imtypes.h immacros.h imutil.h kernels.cl
         DESTINATION ${INSTALL_INCLUDE_DIR})
 
@@ -111,9 +155,14 @@ install (TARGETS imutil
 if (WIN32)
 
 	# Make a list of all external dependencies
-	set (DEPS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${DCMTK_LIBRARIES} 
-                ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES} ${OpenMP_C_LIBRARIES}
-		${MINGW_LIBRARIES})
+	set (DEPS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${ZLIB_LIBRARIES} 
+                ${OpenMP_C_LIBRARIES} ${MINGW_LIBRARIES})
+        if (WITH_DICOM)
+                list (APPEND DEPS ${DCMTK_LIBRARIES})
+        endif ()
+        if (WITH_NIFTI)
+                list (APPEND DEPS ${NIFTI_LIBRARIES})
+        endif ()
 
 	function (get_runtime_deps ARG_DEPS ARG_RUNTIME_DEPS)
 
@@ -172,9 +221,9 @@ if (WIN32)
 endif ()
 
 # If Matlab was found, compile a copy for use with Matlab libraries
-if (${Matlab_FOUND})
+if (BUILD_Matlab)
 
-        add_library (meximutil SHARED imutil.c dicom.cpp)
+        add_library (meximutil SHARED imutil.c nifti.c dicom.cpp)
         target_compile_definitions (meximutil PUBLIC "SIFT3D_MEX")
         target_compile_definitions (meximutil PRIVATE 
                 "SIFT3D_VERSION_NUMBER=${SIFT3D_VERSION}")
@@ -188,12 +237,12 @@ if (${Matlab_FOUND})
         )
         target_include_directories(meximutil PUBLIC ${Matlab_INCLUDE_DIRS})
         target_include_directories (meximutil PRIVATE 
-                ${DCMTK_INCLUDE_DIRS} ${NIFTI_INCLUDE_DIRS} 
                 ${ZLIB_INCLUDE_DIRS})
         target_link_libraries (meximutil PUBLIC ${Matlab_LIBRARIES})
         target_link_libraries (meximutil PRIVATE ${Matlab_MWLAPACK_LIBRARY} 
-                ${Matlab_MWBLAS_LIBRARY} ${DCMTK_LIBRARIES}
-                ${NIFTI_LIBRARIES} ${ZLIB_LIBRARIES} ${M_LIBRARY})
+                ${Matlab_MWBLAS_LIBRARY} ${ZLIB_LIBRARIES} ${M_LIBRARY})
+        add_DICOM(meximutil)
+        add_NIFTI(meximutil)
 
         set_target_properties (meximutil 
                 PROPERTIES 

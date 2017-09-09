@@ -1,7 +1,7 @@
 /* -----------------------------------------------------------------------------
  * imutil.h
  * -----------------------------------------------------------------------------
- * Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
+ * Copyright (c) 2015-2017 Blaine Rister et al., see LICENSE for details.
  * -----------------------------------------------------------------------------
  * Public header for imutil.c
  * -----------------------------------------------------------------------------
@@ -19,6 +19,9 @@ extern "C" {
 /* Extra return codes for this module */
 #define SIFT3D_FILE_DOES_NOT_EXIST 1 /* The file does not exist */
 #define SIFT3D_UNSUPPORTED_FILE_TYPE 2 /* The file type is not supported */
+#define SIFT3D_WRAPPER_NOT_COMPILED 3 /* The file type is supported, but the 
+                                     * wrapper library was not compiled. */
+#define SIFT3D_SUPPORT
 
 /* Vendor-specific info */
 #define PLATFORM_NAME_NVIDIA "NVIDIA CUDA"

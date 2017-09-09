@@ -61,6 +61,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                 case SIFT3D_UNSUPPORTED_FILE_TYPE:
                         CLEAN_AND_QUIT("main:unsupportedType", "Unsupported file "
                                 "type", SIFT3D_TRUE);
+                case SIFT3D_WRAPPER_NOT_COMPILED:
+                        CLEAN_AND_QUIT("main:notCompiled", "Recompile SIFT3D "
+                                "with support for this file type", SIFT3D_TRUE);
                 default:
                         CLEAN_AND_QUIT("main:unexpected", "Unexpected error "
                                 "writing the image", SIFT3D_TRUE);
