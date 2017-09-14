@@ -70,3 +70,10 @@
 * Ship both MS (.lib) and MinGW (.dll.a) import libraries on Windows
 * Ship with MinGW runtime libraries on Windows
 * Ship with OpenBLAS on Windows
+
+## 1.4.4 September 13, 2017
+
+* Add support for reading Dicom Segmentation Objects (DSOs)
+* Add the option to compile without DCMTK and nifticlib
+* Reading images no longer scales them (im_read, imRead3D)
+* Read DICOM CT scans in Hounsfield units (im_read, imRead3D)
