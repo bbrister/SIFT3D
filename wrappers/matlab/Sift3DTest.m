@@ -1,7 +1,7 @@
 classdef Sift3DTest < TestCase
 %Sift3DTest a test suite for SIFT3D.
 %
-% To run this test suite, you must have installed xUnit. As of August
+% To run this test suite, you must install xUnit. As of August
 % 25th, 2015, xUnit is available at:
 %   http://www.mathworks.com/matlabcentral/fileexchange/22846-matlab-xunit-test-framework
 %
@@ -10,7 +10,7 @@ classdef Sift3DTest < TestCase
 %
 % This test suite can only be run from the build tree.
 %
-% Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
+% Copyright (c) 2015-2017 Blaine Rister et al., see LICENSE for details.
     
     properties (SetAccess = private)
         cd
@@ -407,9 +407,8 @@ classdef Sift3DTest < TestCase
             % The temporary file name
             imName = 'temp.nii.gz';
             
-            % Make random image data, scaled to the range [0, 1]
+            % Make random image data
             imWritten = rand(10, 15, 20);
-            imWritten = imWritten / max(imWritten(:));
             
             % Write the image as a NIFTI file
             imWrite3D(imName, imWritten);
@@ -442,8 +441,9 @@ classdef Sift3DTest < TestCase
             % Write the image as a DICOM file
             imWrite3D(imName, imWritten);
             
-            % Read the image back
+            % Read the image back and scale it
             imRead = imRead3D(imName);
+            imRead = imRead / max(imRead(:));
             
             % Clean up
             delete(imName);
@@ -465,8 +465,9 @@ classdef Sift3DTest < TestCase
             % Write the image as a DICOM file
             imWrite3D(dirName, imWritten);
             
-            % Read the image back
+            % Read the image back and scale it
             imRead = imRead3D(dirName);
+            imRead = imRead / max(imRead(:));
             
             % Clean up
             rmdir(dirName, 's');
@@ -480,9 +481,8 @@ classdef Sift3DTest < TestCase
             % The temporary file name
             imName = 'temp.nii.gz';
             
-            % Make random image data, scaled to the range [0, 1]
+            % Make random image data
             imWritten = rand(20, 15);
-            imWritten = imWritten / max(imWritten(:));
             
             % Write the image as a NIFTI file
             imWrite3D(imName, imWritten);
@@ -507,11 +507,12 @@ classdef Sift3DTest < TestCase
             imWritten = rand(20, 15);
             imWritten = imWritten / max(imWritten(:));
             
-            % Write the image as a NIFTI file
+            % Write the image as a DICOM file
             imWrite3D(imName, imWritten);
             
-            % Read the image back
+            % Read the image back and scale it
             imRead = imRead3D(imName);
+            imRead = imRead / max(imRead(:));
             
             % Clean up
             delete(imName);
