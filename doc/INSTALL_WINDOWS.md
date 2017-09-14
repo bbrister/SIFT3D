@@ -1,6 +1,6 @@
 # SIFT3D Windows Installation Instructions
 
-Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
+Copyright (c) 2015-2017 Blaine Rister et al., see LICENSE for details.
 
 ## Installing from binaries
 
@@ -48,7 +48,7 @@ Please follow the instructions below to compile and install SIFT3D from source.
 		2. "mingw32-make"
 		3. "mingw32-make install" (may require administrator priveleges)
 
-6. Install [nifticlib](http://sourceforge.net/projects/niftilib/files/nifticlib/).
+6. Install [nifticlib](http://sourceforge.net/projects/niftilib/files/nifticlib/). *This step is needed only for NIFTI I/O. Users not needing to read and write NIFTI files can skip this step.*
 	1. Download and extract the newest version
 	2. Generate MinGW Makefiles with CMake
 		1. Set the source folder to the location of nifticlib
@@ -58,7 +58,7 @@ Please follow the instructions below to compile and install SIFT3D from source.
 		2. "mingw32-make"
 		3. "mingw32-make install" (may require administrator priveleges)
 
-7. Install [DCMTK](http://www.dcmtk.org).
+7. Install [DCMTK](http://www.dcmtk.org). *This step is needed only for DICOM I/O. Users not needing to read and write DICOM files can skip this step.* 
 	1. Download and extract the newest version. If there is a binary installer for your version of Windows, you can use that and skip the following sections. As of 10/06/2015, there is no binary for 64-bit Windows, so we compiled DCMTK from source. *Note: We could not compile DCMTK 3.6.0 on Windows with CMake and MinGW. Instead, we used a snapshot of version 3.6.1, retrieved on 09/24/2015.*
 	2. Generate MinGW Makefiles with CMake
 		1. Set the source folder to the location of DCMTK

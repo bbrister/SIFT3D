@@ -1,14 +1,18 @@
 # SIFT3D Linux Installation Instructions
 
-Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
+Copyright (c) 2015-2017 Blaine Rister et al., see LICENSE for details.
 
 # Installing the dependencies
 
 This program requires the following external libraries:
 - [zlib](http://www.zlib.net/)
 - [LAPACK](http://www.netlib.org/lapack/)
+
+In addition, the following libraries add optional support for reading and writing DICOM and NIFTI files:
 - [DCMTK](http://dicom.offis.de/dcmtk.php.en)
 - [nifticlib](http://sourceforge.net/projects/niftilib/files/nifticlib/)
+
+The optional I/O support will be compiled if DMCTK and nifticlib are found on your system. Otherwise, the programs will run as normal, throwing an error if you try to use an unsupported file format.
 
 On Ubuntu 16.04, the following command will install all dependencies:
 

@@ -1,6 +1,6 @@
 # SIFT3D
 
-Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
+Copyright (c) 2015-2017 Blaine Rister et al., see LICENSE for details.
 
 SIFT3D is an analogue of the scale-invariant feature transform (SIFT) for three-dimensional images. It leverages volumetric data and real-world units to detect keypoints and extract a robust description of their content. It can also perform 3D image registration by matching SIFT3D features and fitting geometric transformations with the RANSAC algorithm. All of this is implemented in a cross-platform C library, with wrappers for Matlab.
 
@@ -49,7 +49,7 @@ SIFT3D exports a CMake package to the install directories. Here is an example of
 
 The header files and libraries are installed to "sift3d" subdirectories in your installation tree. On most systems, you will need to add these subdirectories to your include and linker search paths. You will also need to link to the dependencies listed below.
 
-- libimutil - requires linking to nifticlib, DCMTK, LAPACK, BLAS, and zlib
+- libimutil - requires linking to LAPACK, BLAS, and zlib. Linking to DCMTK and nifticlib are optional.
 - libsift3d - requires linking to imutil
 - libreg - requires linking to sift3d and imutil
 
@@ -63,7 +63,7 @@ Please contact me at blaine@stanford.edu if you have any questions or concerns.
 
 If you would like to cite this work, please refer to the following paper:
 
-Rister, Blaine; Reiter, Daniel; Zhang, Hejia; Volz, Daniel; Horowitz, Mark; Gabr, Refaat E.; Cavallaro, Joseph R., "Scale- and orientation-invariant keypoints in higher-dimensional data," in *Image Processing (ICIP), 2015 IEEE International Conference on*, pp.3490-3494, 27-30 Sept. 2015.
-doi: 10.1109/ICIP.2015.7351453
+B. Rister, M. A. Horowitz and D. L. Rubin, "Volumetric Image Registration From Invariant Keypoints," in *IEEE Transactions on Image Processing*, vol. 26, no. 10, pp. 4900-4910, Oct. 2017.
+doi: 10.1109/TIP.2017.2722689
 
-The paper and automatic citations are available [here](http://ieeexplore.ieee.org/xpls/abs_all.jsp?arnumber=7351453).
+The paper and automatic citations are available [here](http://ieeexplore.ieee.org/document/7967757/citations).
