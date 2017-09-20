@@ -138,7 +138,7 @@ install (FILES imtypes.h immacros.h imutil.h kernels.cl
 
 # Link to system libraries
 target_link_libraries(imutil PRIVATE ${ZLIB_LIBRARIES} ${M_LIBRARY})
-target_include_directories(imutil PRIVATE ${ZLIB_INCLUDE_DIRS})
+target_include_directories(imutil PRIVATE ${ZLIB_INCLUDE_DIR})
 if (APPLE)
 	target_link_libraries(imutil PUBLIC ${ICONV_LIBRARY})
 endif ()
@@ -237,7 +237,7 @@ if (BUILD_Matlab)
         )
         target_include_directories(meximutil PUBLIC ${Matlab_INCLUDE_DIRS})
         target_include_directories (meximutil PRIVATE 
-                ${ZLIB_INCLUDE_DIRS})
+                ${ZLIB_INCLUDE_DIR})
         target_link_libraries (meximutil PUBLIC ${Matlab_LIBRARIES})
         target_link_libraries (meximutil PRIVATE ${Matlab_MWLAPACK_LIBRARY} 
                 ${Matlab_MWBLAS_LIBRARY} ${ZLIB_LIBRARIES} ${M_LIBRARY})
