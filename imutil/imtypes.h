@@ -38,14 +38,6 @@ extern "C" {
 #define _MINGW_WINDOWS
 #endif
 
-/* Missing types for MEX */
-#ifdef SIFT3D_MEX
-#ifdef _MINGW_WINDOWS
-// char16_t is not defined in MinGW with default settings
-typedef wchar_t char16_t;
-#endif
-#endif
-
 /* OpenCL type definitions. */
 #ifdef USE_OPENCL
 #ifdef _WINDOWS
