@@ -62,7 +62,7 @@ if (DCMTK_FOUND)
                 set (DCMTK_HAVE_CONFIG_FILE true)
         endif ()
 
-        message (STATUS "DCMTK found. Building with DICOM support.")
+	message (STATUS "Found DCMTK.")
 
 elseif (WITH_DICOM)
 	message (FATAL_ERROR "DCMTK not found. Please set the variable "
@@ -74,11 +74,14 @@ else ()
                 "location of DCMTK on your system.")
 endif ()
 set (WITH_DICOM ${DCMTK_FOUND} CACHE BOOL "Compile DICOM I/O support")
+if (WITH_DICOM)
+	message (STATUS "Building with DICOM support.")
+endif ()
 
 # Optionally find NIFTI 
 find_package (NIFTI QUIET)
 if (NIFTI_FOUND)
-        message (STATUS "NIFTI found. Building with NIFTI support.")
+	message (STATUS "Found NIFTI.")
 elseif (WITH_NIFTI)
 	message (FATAL_ERROR "Failed to find nifticlib. Please set the "
                 "variable NIFTI_DIR to the location of DCMTK on your system, "
@@ -89,6 +92,9 @@ else()
                 "to the location of NIFTI on your system.")
 endif()
 set (WITH_NIFTI ${NIFTI_FOUND} CACHE BOOL "Compile NIFTI I/O support")
+if (WITH_NIFTI)
+	message (STATUS "Building with NIFTI support.")
+endif ()
 
 # Find iconv on Mac
 if (APPLE)
