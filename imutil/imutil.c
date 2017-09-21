@@ -16,6 +16,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <stddef.h>
 #include <float.h>
@@ -51,6 +52,26 @@
 /* Implementation parameters */
 //#define SIFT3D_USE_OPENCL // Use OpenCL acceleration
 #define SIFT3D_RANSAC_REFINE	// Use least-squares refinement in RANSAC
+
+/* Implement strnlen, if it's missing */
+#ifndef SIFT3D_HAVE_STRNLEN
+size_t strnlen(const char *string, size_t maxlen) {
+  const char *end = memchr (string, '\0', maxlen);
+  return end ? end - string : maxlen;
+}
+#endif
+
+/* Implement strndup, if it's missing */
+#ifndef SIFT3D_HAVE_STRNDUP
+char *strndup(const char *s, size_t n) {
+  size_t len = strnlen (s, n);
+  char *new = malloc (len + 1);
+  if (new == NULL)
+    return NULL;
+  new[len] = '\0';
+  return memcpy (new, s, len);
+}
+#endif
 
 /* SIFT3D version message */
 const char version_msg[] =
