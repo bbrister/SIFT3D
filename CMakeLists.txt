@@ -150,6 +150,7 @@ endif ()
 
 # Set up Matlab paths
 if (Matlab_FOUND)
+	message (STATUS "Found Matlab.")
 elseif (BUILD_Matlab)
         message (FATAL_ERROR "Matlab not found. Please set the variable "
                 "Matlab_ROOT_DIR to the location of your Matlab installation, "
@@ -160,7 +161,7 @@ else ()
 endif ()
 set (BUILD_Matlab ${Matlab_FOUND} CACHE BOOL "If ON, builds the Matlab toolbox")
 if (BUILD_Matlab)
-        message (STATUS "Found Matlab. Building the Matlab toolbox.")
+        message (STATUS "Building the Matlab toolbox.")
 
         # Set the name and location of the Matlab toolbox
         set (TOOLBOX_NAME "matlab")

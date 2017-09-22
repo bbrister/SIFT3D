@@ -62,7 +62,7 @@ if (DCMTK_FOUND)
                 set (DCMTK_HAVE_CONFIG_FILE true)
         endif ()
 
-        message (STATUS "DCMTK found. Building with DICOM support.")
+	message (STATUS "Found DCMTK.")
 
 elseif (WITH_DICOM)
 	message (FATAL_ERROR "DCMTK not found. Please set the variable "
@@ -74,11 +74,14 @@ else ()
                 "location of DCMTK on your system.")
 endif ()
 set (WITH_DICOM ${DCMTK_FOUND} CACHE BOOL "Compile DICOM I/O support")
+if (WITH_DICOM)
+	message (STATUS "Building with DICOM support.")
+endif ()
 
 # Optionally find NIFTI 
 find_package (NIFTI QUIET)
 if (NIFTI_FOUND)
-        message (STATUS "NIFTI found. Building with NIFTI support.")
+	message (STATUS "Found NIFTI.")
 elseif (WITH_NIFTI)
 	message (FATAL_ERROR "Failed to find nifticlib. Please set the "
                 "variable NIFTI_DIR to the location of DCMTK on your system, "
@@ -89,6 +92,9 @@ else()
                 "to the location of NIFTI on your system.")
 endif()
 set (WITH_NIFTI ${NIFTI_FOUND} CACHE BOOL "Compile NIFTI I/O support")
+if (WITH_NIFTI)
+	message (STATUS "Building with NIFTI support.")
+endif ()
 
 # Find iconv on Mac
 if (APPLE)
@@ -122,6 +128,19 @@ macro (add_NIFTI arg)
         endif ()
 endmacro ()
 
+# Format the compiler definitions
+set (IMUTIL_DEFINITIONS "SIFT3D_VERSION_NUMBER=${SIFT3D_VERSION}")
+
+# Check if the compiler uses strndup and strnlen
+check_function_exists (strnlen HAVE_STRNLEN)
+if (HAVE_STRNLEN)
+        list (APPEND IMUTIL_DEFINITIONS "SIFT3D_HAVE_STRNLEN")
+endif ()
+check_function_exists (strndup HAVE_STRNDUP)
+if (HAVE_STRNDUP)
+        list (APPEND IMUTIL_DEFINITIONS "SIFT3D_HAVE_STRNDUP")
+endif ()
+
 # Compile imutil
 add_library (imutil SHARED imutil.c nifti.c dicom.cpp)
 target_include_directories (imutil PUBLIC 
@@ -129,8 +148,7 @@ target_include_directories (imutil PUBLIC
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
 )
 target_link_libraries (imutil PRIVATE ${LAPACK_LIBRARIES})
-target_compile_definitions (imutil PRIVATE
-        "SIFT3D_VERSION_NUMBER=${SIFT3D_VERSION}")
+target_compile_definitions (imutil PRIVATE ${IMUTIL_DEFINITIONS})
 add_DICOM(imutil)
 add_NIFTI(imutil)
 install (FILES imtypes.h immacros.h imutil.h kernels.cl
@@ -225,11 +243,7 @@ if (BUILD_Matlab)
 
         add_library (meximutil SHARED imutil.c nifti.c dicom.cpp)
         target_compile_definitions (meximutil PUBLIC "SIFT3D_MEX")
-        target_compile_definitions (meximutil PRIVATE 
-                "SIFT3D_VERSION_NUMBER=${SIFT3D_VERSION}")
-        if (DCMTK_HAVE_CONFIG_FILE)
-                target_compile_definitions (meximutil PRIVATE "HAVE_CONFIG_H")
-        endif ()
+        target_compile_definitions (meximutil PRIVATE  ${IMUTIL_DEFINITIONS})
 
         target_include_directories (meximutil PUBLIC 
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
