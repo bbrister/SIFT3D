@@ -77,3 +77,4 @@
 * Add the option to compile without DCMTK and nifticlib
 * Reading images no longer scales them (im_read, imRead3D)
 * Read DICOM CT scans in Hounsfield units (im_read, imRead3D)
+* Fix header includes for newer builds of MinGW (TDM-GCC)

@@ -76,10 +76,12 @@ Please follow the instructions below to compile and install SIFT3D from source.
 		1. Navigate to SIFT3D
 		2. Select "MinGW Makefiles"
                 3. Configure
-		4. If configuration fails due to DCMTK, set DCMTK_DIR to the install location of DCMTK, and configure again.
-		5. If configuration fails due to NIFTI, set NIFTI_DIR to the install location of nifticlib, and configure again.
-		6. *Note: this step applies only to users compiling the optional Matlab toolbox.* Ensure that the Matlab libraries are .dll's and not .lib's. Manually edit the paths for Matlab_MEX_LIBRARY, Matlab_MX_LIBRARY, MWLAPACK_LIBRARY, and MWBLAS_LIBRARY, so that "libmex.lib" is changed to "libmex.dll", etc. This requires locating these files within your Matlab installation. Check the "bin" directories for .dll's.
-		7. Generate -> MinGW Makefiles
+                4. Configuration may fail if CMake cannot find the dependencies. If so, set the appropriate variables and configure again.
+                        1. If configuration fails due to zlib, set ZLIB_LIBRARY (or ZLIB_LIBRARY_RELEASE) to libzlib.dll and ZLIB_INCLUDE_DIR to the include directory of your zlib installation.
+		        2. If configuration fails due to DCMTK, set DCMTK_DIR to the install location of DCMTK.
+		        3. If configuration fails due to NIFTI, set NIFTI_DIR to the install location of nifticlib.
+		5. *Note: this step applies only to users compiling the optional Matlab toolbox.* Ensure that the Matlab libraries are .dll's and not .lib's. Manually edit the paths for Matlab_MEX_LIBRARY, Matlab_MX_LIBRARY, MWLAPACK_LIBRARY, and MWBLAS_LIBRARY, so that "libmex.lib" is changed to "libmex.dll", etc. This requires locating these files within your Matlab installation. Check the "bin" directories for .dll's.
+		6. Generate -> MinGW Makefiles
 	3. Compile and install with MinGW
 		1. cd to the build directory
 		2. "mingw32-make"
