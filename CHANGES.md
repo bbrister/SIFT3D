@@ -78,3 +78,7 @@
 * Reading images no longer scales them (im_read, imRead3D)
 * Read DICOM CT scans in Hounsfield units (im_read, imRead3D)
 * Fix header includes for newer builds of MinGW (TDM-GCC)
+
+## 1.4.5
+
+* Add wrapper function to match pre-computed descriptors from Matlab (matchSift3D)
