@@ -353,6 +353,37 @@ classdef Sift3DTest < TestCase
                 'absolute', 5);
         end
         
+        % Test matching descriptors against the C version
+        function matchTest(self)
+            
+            if ~self.fullTest
+                return
+            end
+            
+            % Load the images
+            [im1, units1] = imRead3D(self.im1Name);
+            [im2, units2] = imRead3D(self.im2Name);
+            
+            % Register with the C version and get the matches
+            [~, match1, match2] = registerSift3D(im1, im2, ...
+                'srcUnits', units1, 'refUnits', units2);
+            
+            % Extract descriptors from each image
+            keys = detectSift3D(im1, 'units', units1);
+            [desc1, coords1] = extractSift3D(keys);
+            keys = detectSift3D(im2, 'units', units2);
+            [desc2, coords2] = extractSift3D(keys);
+            
+            % Match with the Matlab version and convert to coordinates
+            matches = matchSift3D(desc1, coords1, desc2, coords2);
+            match1M = coords1(matches(:, 1));
+            match2M = coords2(matches(:, 2));
+            
+            assertElementsAlmostEqual(match1M, match1, 'relative', 1E-3);
+            assertElementsAlmostEqual(match2M, match2, 'relative', 1E-3);
+            
+        end
+        
         % Test registration with invalid matching threshold
         function regInvalidMatchTest(self)
             
