@@ -88,6 +88,9 @@ int SIFT3D_Descriptor_coords_to_Mat_rm(
 int SIFT3D_Descriptor_store_to_Mat_rm(const SIFT3D_Descriptor_store *const store, 
 				      Mat_rm *const mat);
 
+int Mat_rm_to_SIFT3D_Descriptor_store(const Mat_rm *const mat, 
+				      SIFT3D_Descriptor_store *const store);
+
 int SIFT3D_matches_to_Mat_rm(SIFT3D_Descriptor_store *d1,
 			     SIFT3D_Descriptor_store *d2,
 			     const int *const matches,

@@ -217,6 +217,8 @@ static void hist2vox(Hist *const hist, const Image *const im, const int x,
         const int y, const int z);
 static int match_desc(const SIFT3D_Descriptor *const desc,
         const SIFT3D_Descriptor_store *const store, const float nn_thresh);
+static int resize_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *const desc,
+        const int num);
 
 /* Initialize geometry tables. */
 static int init_geometry(SIFT3D *sift3d) {
@@ -474,6 +476,27 @@ void init_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *const desc) {
  * cannot be used after calling this function, unless re-initialized. */
 void cleanup_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *const desc) {
         free(desc->buf);
+}
+
+/* Resize a SIFT3D_Descriptor_store to hold n descriptors. Must be initialized
+ * prior to calling this function. num must be positive.
+ *
+ * Returns SIFT3D_SUCCESS on success, SIFT3D_FAILURE otherwise. */
+static int resize_SIFT3D_Descriptor_store(SIFT3D_Descriptor_store *const desc,
+        const int num) {
+
+        if (num < 1) {
+                SIFT3D_ERR("resize_SIFT3D_Descriptor_store: invalid size: %d",
+                        num);
+                return SIFT3D_FAILURE;
+        }
+
+	if ((desc->buf = (SIFT3D_Descriptor *) SIFT3D_safe_realloc(desc->buf, 
+		num * sizeof(SIFT3D_Descriptor))) == NULL)
+                return SIFT3D_FAILURE;
+
+	desc->num = num;
+        return SIFT3D_SUCCESS;
 }
 
 /* Initializes the OpenCL data for this SIFT3D struct. This
@@ -1335,8 +1358,7 @@ static int assign_orientation_thresh(const Image *const im,
  *   -vcenter: The center of the window, in image space.
  *   -sigma: The scale parameter. The width of the window is a constant
  *      multiple of this.
- *   -R: The place to write the rotation matrix. This is 
- *   -R
+ *   -R: The place to write the rotation matrix.
  */
 static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
                           const double sigma, Mat_rm *const R, 
@@ -2202,10 +2224,8 @@ static int _SIFT3D_extract_descriptors(SIFT3D *const sift3d,
 	desc->ny = first_level->ny;	
 	desc->nz = first_level->nz;	
 
-	// Resize the descriptor store (num cannot be zero)
-	desc->num = num;
-	if ((desc->buf = (SIFT3D_Descriptor *) SIFT3D_safe_realloc(desc->buf, 
-		num * sizeof(SIFT3D_Descriptor))) == NULL)
+	// Resize the descriptor store
+        if (resize_SIFT3D_Descriptor_store(desc, num))
                 return SIFT3D_FAILURE;
 
         // Extract the descriptors
@@ -2712,16 +2732,19 @@ int Mat_rm_to_SIFT3D_Descriptor_store(const Mat_rm *const mat,
 
 	// Verify inputs
 	if (num_rows < 1 || num_cols != IM_NDIMS + DESC_NUMEL) {
-		printf("Mat_rm_to_SIFT3D_Descriptor_store: invalid matrix "
+		SIFT3D_ERR("Mat_rm_to_SIFT3D_Descriptor_store: invalid matrix "
 		       "dimensions: [%d X %d] \n", num_rows, num_cols);
 		return SIFT3D_FAILURE;
 	}
-
-	// Resize the descriptor store (num cannot be zero)
-	store->num = num_rows;
-	if ((store->buf = (SIFT3D_Descriptor *) SIFT3D_safe_realloc(store->buf, 
-		num_rows * sizeof(SIFT3D_Descriptor))) == NULL)
+        if (mat->type != SIFT3D_FLOAT) {
+		SIFT3D_ERR("Mat_rm_to_SIFT3D_Descriptor_store: matrix must "
+                        "have type SIFT3D_FLOAT");
 		return SIFT3D_FAILURE;
+        }
+
+        /* Resize the descriptor store */
+        if (resize_SIFT3D_Descriptor_store(store, num_rows))
+                return SIFT3D_FAILURE;
 
 	// Copy the data
 	for (i = 0; i < num_rows; i++) {
@@ -2732,6 +2755,7 @@ int Mat_rm_to_SIFT3D_Descriptor_store(const Mat_rm *const mat,
 		desc->xd = SIFT3D_MAT_RM_GET(mat, i, 0, float);
 		desc->yd = SIFT3D_MAT_RM_GET(mat, i, 1, float);
 		desc->zd = SIFT3D_MAT_RM_GET(mat, i, 2, float);
+                desc->sd = sigma0_default;
 
 		// Copy the feature vector
 		for (j = 0; j < DESC_NUM_TOTAL_HIST; j++) {

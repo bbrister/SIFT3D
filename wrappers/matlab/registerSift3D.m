@@ -14,8 +14,8 @@ function [A, matchSrc, matchRef] = registerSift3D(src, ref, varargin)
 %      respectively. See imRead3D for the format. Units should be provided
 %      when attempting to register images of different resolutions, i.e.
 %      5mm slices to 1mm slices. (Default: [1 1 1])
-%    nnThresh - The matching threshold, in the interval (0, 1].
-%       (Default: 0.8)
+%    nnThresh - The matching threshold, in the interval (0, 1]. See
+%      matchSift3D for details. (Default: 0.8)
 %    errThresh - The RANSAC inlier threshold, in the interval (0, inf).
 %       This is a threshold on the squared Euclidean distance in real-world
 %       units. (Default: 5.0)
@@ -62,7 +62,7 @@ function [A, matchSrc, matchRef] = registerSift3D(src, ref, varargin)
 %
 %
 %  See also:
-%    imRead3D, imWrite3D, setupSift3D
+%    imRead3D, imWrite3D, matchSift3D, setupSift3D
 %
 %  Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
 

@@ -72,7 +72,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                 CLEAN_AND_QUIT("main:convertSrc", "Failed to convert the "
                         "source image.", SIFT3D_TRUE);
         if (mx2imWithUnits(mxRef, mxRefUnits, &ref))
-                CLEAN_AND_QUIT("main:convertSrc", "Failed to convert the "
+                CLEAN_AND_QUIT("main:convertRef", "Failed to convert the "
                         "reference image.", SIFT3D_TRUE);
 
         // Set the options
