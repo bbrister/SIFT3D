@@ -1366,7 +1366,7 @@ static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
 
     Cvec v[2];
     Mat_rm A, L, Q;
-    Cvec vd, vd_win, vdisp, vr;
+    Cvec vd_win, vdisp, vr;
     double d, cos_ang, abs_cos_ang, corner_score;
     float weight, sq_dist, sgn;
     int i, x, y, z, m;
@@ -1403,7 +1403,10 @@ static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
     vd_win.y = 0.0f;
     vd_win.z = 0.0f;
     IM_LOOP_SPHERE_START(im, x, y, z, vcenter, win_radius, &vdisp, sq_dist)
-	// Compute Gaussian weighting, ignoring constant factor
+
+        Cvec vd;
+
+	// Compute Gaussian weighting, ignoring the constant factor
 	weight = expf(-0.5 * sq_dist / (sigma * sigma));		
 
 	// Get the gradient	
@@ -1420,6 +1423,7 @@ static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
 	// Update the window gradient
         SIFT3D_CVEC_SCALE(&vd, weight);
 	SIFT3D_CVEC_OP(&vd_win, &vd, +, &vd_win);
+
     IM_LOOP_SPHERE_END
 
     // Fill in the remaining elements
@@ -1460,13 +1464,13 @@ static int assign_eig_ori(const Image *const im, const Cvec *const vcenter,
 	vr.z = (float) SIFT3D_MAT_RM_GET(&Q, 2, eig_idx, double);
 
 	// Get the directional derivative
-	d = SIFT3D_CVEC_DOT(&vd, &vr);
+	d = SIFT3D_CVEC_DOT(&vd_win, &vr);
 
         // Get the cosine of the angle between the eigenvector and the gradient
-        cos_ang = d / (SIFT3D_CVEC_L2_NORM(&vr) * SIFT3D_CVEC_L2_NORM(&vd));
+        cos_ang = d / (SIFT3D_CVEC_L2_NORM(&vr) * SIFT3D_CVEC_L2_NORM(&vd_win));
         abs_cos_ang = fabs(cos_ang);
 
-        // Reject points not meeting the corner score
+        // Compute the corner confidence score
         corner_score = SIFT3D_MIN(corner_score, abs_cos_ang);
 
 	// Get the sign of the derivative
@@ -3160,10 +3164,15 @@ int write_Keypoint_store(const char *path, const Keypoint_store *const kp) {
                 const Keypoint *const key = kp->buf + i;
                 const Mat_rm *const R = &key->R;
 
+                const double coord_factor = pow(2.0, key->o);
+
                 // Write the coordinates 
-                SIFT3D_MAT_RM_GET(&mat, i, kp_x, double) = key->xd;
-                SIFT3D_MAT_RM_GET(&mat, i, kp_y, double) = key->yd;
-                SIFT3D_MAT_RM_GET(&mat, i, kp_z, double) = key->zd;
+                SIFT3D_MAT_RM_GET(&mat, i, kp_x, double) = key->xd * 
+                        coord_factor;
+                SIFT3D_MAT_RM_GET(&mat, i, kp_y, double) = key->yd * 
+                        coord_factor;
+                SIFT3D_MAT_RM_GET(&mat, i, kp_z, double) = key->zd * 
+                        coord_factor;
                 SIFT3D_MAT_RM_GET(&mat, i, kp_s, double) = key->sd;
 
                 // Write the orientation matrix
