@@ -1219,6 +1219,7 @@ im_format im_get_format(const char *path) {
  * -SIFT3D_UNSUPPORTED_FILE_TYPE - The file type is not supported
  * -SIFT3D_WRAPPER_NOT_COMPILED - The file type is supported, but the wrapper 
  *      library was not compiled.
+ * -SIFT3D_UNEVEN_SPACING 4 - The image slices are unevenly spaced.
  * -SIFT3D_FAILURE - Other error
  */
 int im_read(const char *path, Image *const im) {

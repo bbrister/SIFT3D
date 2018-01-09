@@ -60,6 +60,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                 case SIFT3D_WRAPPER_NOT_COMPILED:
                         CLEAN_AND_QUIT("main:notCompiled", "Recompile SIFT3D "
                                 "with support for this file type", SIFT3D_TRUE);
+                case SIFT3D_UNEVEN_SPACING:
+                        CLEAN_AND_QUIT("main:unevenSpacing", "The series has "
+                        "uneven slice spacing", SIFT3D_TRUE);
                 default:
                         CLEAN_AND_QUIT("main:unexpected", "Unexpected error "
                                 "reading the image", SIFT3D_TRUE);
