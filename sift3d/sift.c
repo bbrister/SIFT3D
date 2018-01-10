@@ -33,7 +33,7 @@
  * the calling appropriate functions. */
 const double peak_thresh_default = 0.1; // DoG peak threshold
 const int num_kp_levels_default = 3; // Number of levels per octave in which keypoints are found
-const double corner_thresh_default = 0.5; // Minimum corner score
+const double corner_thresh_default = 0.4; // Minimum corner score
 const double sigma_n_default = 1.15; // Nominal scale of input data
 const double sigma0_default = 1.6; // Scale of the base octave
 
