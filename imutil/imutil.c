@@ -221,8 +221,7 @@ static int init_List(List ** list, const int num);
 static int List_get(List * list, const int idx, List ** el);
 static void List_remove(List ** list, List * el);
 static void cleanup_List(List * list);
-static int rand_rows(const Mat_rm *const in1, const Mat_rm *const in2, 
-        const int num_rows, Mat_rm *const out1, Mat_rm *const out2);
+static int n_choose_k(const int n, const int k, int **ret);
 static int make_spline_matrix(Mat_rm * src, Mat_rm * src_in, Mat_rm * sp_src,
 			      int K_terms, int *r, int dim);
 static int make_affine_matrix(const Mat_rm *const pts_in, const int dim, 
@@ -4286,88 +4285,53 @@ int copy_Ransac(const Ransac *const src, Ransac *const dst) {
                 set_err_thresh_Ransac(dst, src->err_thresh);
 }
 
-/* Select a random subset of rows, length "num_rows".
- * This function resizes out. 
- * 
- * Returns an error if in->num_rows < num_rows.
- * Both input matrices must have type double and the same dimensions.
+/* Returns an array of k integers, (uniformly) randomly chosen from the 
+ * integers 0 through n - 1.
  *
- * All matrices must be initialized prior to calling 
- * this function.*/
-static int rand_rows(const Mat_rm *const in1, const Mat_rm *const in2, 
-        const int num_rows, Mat_rm *const out1, Mat_rm *const out2)
-{
+ * The value of *ret must either be NULL, or a pointer to a previously
+ * allocated block. On successful return, *ret contains the k random integers.
+ *
+ * Returns SIFT3D_SUCCESS on succes, SIFT3D_FAILURE otherwise. */
+static int n_choose_k(const int n, const int k, int **ret) {
 
-	List *row_indices, *el;
-	int i, j, list_size, idx;
+        int i;
 
-	const int num_rows_in = in1->num_rows;
-	const int num_cols = in1->num_cols;
-	const int num_remove = in1->num_rows - num_rows;
+        // Verify inputs
+        if (n < k || k < 1)
+                goto n_choose_k_fail;
 
-	// Verify inputs
-	if (in2->num_rows != num_rows_in || in2->num_cols != num_cols) {
-		puts("rand_rows; inputs must have the same dimension \n");
-		return SIFT3D_FAILURE;
-	}
-	if (in1->num_rows > RAND_MAX) {
-		puts("rand_rows: input matrix is too large \n");
-		return SIFT3D_FAILURE;
-	}
-	if (num_remove < 0) {
-		puts("rand_rows: not enough rows in the matrix \n");
-		return SIFT3D_FAILURE;
-	}
-	if (in1->type != SIFT3D_DOUBLE || in2->type != SIFT3D_DOUBLE) {
-		puts("rand_rows: inputs must have type int \n");
-		return SIFT3D_FAILURE;
-	}
-	// Resize the outputs
-	out1->type = out2->type = in1->type;
-	out1->num_rows = out2->num_rows = num_rows;
-	out1->num_cols = out2->num_cols = num_cols;
-	if (resize_Mat_rm(out1) || resize_Mat_rm(out2))
-		return SIFT3D_FAILURE;
+        // Allocate the array of n elements
+        if ((*ret = malloc(n * sizeof(int))) == NULL)
+                goto n_choose_k_fail;
 
-	// Initialize a list with all of the row indices
-	if (init_List(&row_indices, num_rows_in))
-		return SIFT3D_FAILURE;
+        // Initialize the array of indices
+        for (i = 0; i < n; i++) {
+                (*ret)[i] = i;
+        }
 
-	for (i = 0; i < num_rows_in; i++) {
-		if (List_get(row_indices, i, &el))
-			return SIFT3D_FAILURE;
-		el->idx = i;
-	}
+        // Randomize the first k indices using Knuth shuffles
+        for (i = 0; i < k; i++) {
 
-	// Remove random rows
-	list_size = num_rows_in;
-	for (i = 0; i < num_remove; i++) {
-		// Draw a random number
-		idx = rand() % list_size;
+                int *const ints = *ret;
+                const int temp = ints[i]; 
+                const int rand_idx = i + rand() % (n - i);
 
-		// Remove that element
-		if (List_get(row_indices, idx, &el))
-			return SIFT3D_FAILURE;
-		List_remove(&row_indices, el);
-		list_size--;
-	}
+                ints[i] = ints[rand_idx];
+                ints[rand_idx] = temp;
+        }
 
-	// Build the output matrices
-	el = row_indices;
-	SIFT3D_MAT_RM_LOOP_START(out1, i, j)
-	                SIFT3D_MAT_RM_GET(out1, i, j, double) =
-	                        SIFT3D_MAT_RM_GET(in1, el->idx, j, double);
-	                SIFT3D_MAT_RM_GET(out2, i, j, double) =
-	                        SIFT3D_MAT_RM_GET(in2, el->idx, j, double);
-	        SIFT3D_MAT_RM_LOOP_COL_END
-	        // Get the next row
-	        el = el->next;
-	SIFT3D_MAT_RM_LOOP_ROW_END
+        // Release unused memory
+        if ((*ret = SIFT3D_safe_realloc(*ret, k * sizeof(int))) == NULL)
+                goto n_choose_k_fail;
 
-	// Clean up
-        cleanup_List(row_indices);
+        return SIFT3D_SUCCESS;
 
-	return SIFT3D_SUCCESS;
+n_choose_k_fail:
+        if (*ret != NULL) {
+                free(*ret);
+                *ret = NULL;
+        }
+        return SIFT3D_FAILURE;
 }
 
 /* Initialize a list of num elements. */
@@ -4750,13 +4714,14 @@ static double tform_err_sq(const void *const tform, const Mat_rm *const src,
 static int ransac(const Mat_rm *const src, const Mat_rm *const ref, 
         const Ransac *const ran, void *tform, int **const cset, int *const len)
 {
-	/* Initialization */
+        int *rand_indices;
 	Mat_rm src_rand, ref_rand;
-	int i, sel_pts, cset_len;
+	int i, j, num_rand, cset_len;
 
 	const double err_thresh = ran->err_thresh;
 	const double err_thresh_sq = err_thresh * err_thresh;
-	const int num_src = src->num_rows;
+	const int num_pts = src->num_rows;
+        const int num_dim = src->num_cols;
 	const tform_type type = tform_get_type(tform);
 
 	// Verify inputs
@@ -4768,26 +4733,39 @@ static int ransac(const Mat_rm *const src, const Mat_rm *const ref,
 		puts("ransac: src and ref must have the same dimensions \n");
 		return SIFT3D_FAILURE;
 	}
-	// Initialize
-	init_Mat_rm(&src_rand, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE);
-	init_Mat_rm(&ref_rand, 0, 0, SIFT3D_DOUBLE, SIFT3D_FALSE);
 
-	/*Fit random points */
-	//number of points it randomly chooses
+        // Get the number of points for this transform
 	switch (type) {
 	case AFFINE:
-		sel_pts = AFFINE_GET_DIM((Affine *const) tform) + 1;
+		num_rand = AFFINE_GET_DIM((Affine *const) tform) + 1;
 		break;
 	default:
 		printf("ransac: unknown transformation type \n");
-		goto RANSAC_FAIL;
+                return SIFT3D_FAILURE;
 	}
 
-	//choose random points
-	if (rand_rows(src, ref, sel_pts, &src_rand, &ref_rand))
-		goto RANSAC_FAIL;
+	// Initialize intermediates
+        rand_indices = NULL;
+	init_Mat_rm(&src_rand, num_rand, num_dim, SIFT3D_DOUBLE, SIFT3D_FALSE);
+	init_Mat_rm(&ref_rand, num_rand, num_dim, SIFT3D_DOUBLE, SIFT3D_FALSE);
 
-	//solve the system
+        // Draw random point indices
+        if (n_choose_k(num_pts, num_rand, &rand_indices))
+                goto RANSAC_FAIL;
+
+        // Copy the random points
+	SIFT3D_MAT_RM_LOOP_START(&src_rand, i, j)
+
+                const int rand_idx = rand_indices[i];
+
+                SIFT3D_MAT_RM_GET(&src_rand, i, j, double) =
+                        SIFT3D_MAT_RM_GET(src, rand_idx, j, double);
+                SIFT3D_MAT_RM_GET(&ref_rand, i, j, double) =
+                        SIFT3D_MAT_RM_GET(ref, rand_idx, j, double);
+
+        SIFT3D_MAT_RM_LOOP_END
+
+        // Fit a transform to the random points
 	switch (solve_system(&src_rand, &ref_rand, tform)) {
 	case SIFT3D_SUCCESS:
 		break;
@@ -4797,11 +4775,9 @@ static int ransac(const Mat_rm *const src, const Mat_rm *const ref,
 		goto RANSAC_FAIL;
 	}
 
-	/*Extract consensus set */
-	//Pointwise transformation to find consensus set
-	//test for each source point
+	// Extract the consensus set
 	cset_len = 0;
-	for (i = 0; i < num_src; i++) {
+	for (i = 0; i < num_pts; i++) {
 
 		// Calculate the error
 		const double err_sq = tform_err_sq(tform, src, ref, i);
@@ -4821,16 +4797,22 @@ static int ransac(const Mat_rm *const src, const Mat_rm *const ref,
 	// Return the new length of cset
 	*len = cset_len;
 
+        if (rand_indices != NULL)
+                free(rand_indices);
 	cleanup_Mat_rm(&src_rand);
 	cleanup_Mat_rm(&ref_rand);
 	return SIFT3D_SUCCESS;
 
- RANSAC_SINGULAR:
+RANSAC_SINGULAR:
+        if (rand_indices != NULL)
+                free(rand_indices);
 	cleanup_Mat_rm(&src_rand);
 	cleanup_Mat_rm(&ref_rand);
 	return SIFT3D_SINGULAR;
 
- RANSAC_FAIL:
+RANSAC_FAIL:
+        if (rand_indices != NULL)
+                free(rand_indices);
 	cleanup_Mat_rm(&src_rand);
 	cleanup_Mat_rm(&ref_rand);
 	return SIFT3D_FAILURE;
@@ -4949,6 +4931,7 @@ int find_tform_ransac(const Ransac *const ran, const Mat_rm *const src,
 	                SIFT3D_MAT_RM_GET(ref, idx, j, double);
 
 	SIFT3D_MAT_RM_LOOP_END
+
 #ifdef SIFT3D_RANSAC_REFINE
 	// Refine with least squares
 	switch (solve_system(&src_cset, &ref_cset, tform_cur)) {
