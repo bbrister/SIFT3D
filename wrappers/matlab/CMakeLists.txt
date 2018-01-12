@@ -69,9 +69,9 @@ set_target_properties (${BINARIES}
 )
 
 # Copy the scripts and test suite to the build tree
-file (COPY ${INSTALL_SCRIPTS} ${TEST_SCRIPTS} 
-        DESTINATION ${BUILD_TOOLBOX_DIR}
-)
+foreach (FILENAME IN LISTS INSTALL_SCRIPTS TEST_SCRIPTS)
+        configure_file (${FILENAME} "${BUILD_TOOLBOX_DIR}/${FILENAME}" COPYONLY)
+endforeach ()
 
 # Install the matlab scripts
 install (FILES ${INSTALL_SCRIPTS} 
