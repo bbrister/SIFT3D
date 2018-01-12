@@ -1,17 +1,17 @@
 classdef Sift3DTest < TestCase
 %Sift3DTest a test suite for SIFT3D.
 %
-% To run this test suite, you must install xUnit. As of August
-% 25th, 2015, xUnit is available at:
-%   http://www.mathworks.com/matlabcentral/fileexchange/22846-matlab-xunit-test-framework
+% To run this test suite, you must install xUnit. As of January
+% 12th, 2017, xUnit is available at:
+% http://www.mathworks.com/matlabcentral/fileexchange/47302-xunit4
 %
 % Run the tests with the following command:
-%   runtests
+%   runxunit
 %
 % This test suite can only be run from the build tree.
 %
 % Copyright (c) 2015-2017 Blaine Rister et al., see LICENSE for details.
-    
+
     properties (SetAccess = private)
         cd
         buildDir
@@ -95,7 +95,8 @@ classdef Sift3DTest < TestCase
             % Check the dimensions
             assertEqual(size(kpCli, 1), length(keys));
             assertEqual(size(kpCli, 2), numel(keys(1).coords) + ...
-                numel(keys(1).scale) + numel(keys(1).ori));
+                numel(keys(1).octave) + numel(keys(1).scale) + ...
+                numel(keys(1).ori));
             
             % Compare the two
             for i = 1 : length(keys)
@@ -107,13 +108,16 @@ classdef Sift3DTest < TestCase
                 assertElementsAlmostEqual(mKey.coords, cliKey(1:3), ...
                     'absolute', self.tolText);
                 
+                % Check the octave
+                assertEqual(mKey.octave, cliKey(4));
+                
                 % Check the scale
-                assertElementsAlmostEqual(mKey.scale, cliKey(4), ...
+                assertElementsAlmostEqual(mKey.scale, cliKey(5), ...
                     'absolute', self.tolText);
                 
                 % Check the orientation
                 assertElementsAlmostEqual(mKey.ori, ...
-                    reshape(cliKey(5:end), size(mKey.ori))', ...
+                    reshape(cliKey(6:end), size(mKey.ori))', ...
                     'absolute', self.tolText);
             end
             
@@ -376,8 +380,8 @@ classdef Sift3DTest < TestCase
             
             % Match with the Matlab version and convert to coordinates
             matches = matchSift3D(desc1, coords1, desc2, coords2);
-            match1M = coords1(matches(:, 1));
-            match2M = coords2(matches(:, 2));
+            match1M = coords1(matches(:, 1), :);
+            match2M = coords2(matches(:, 2), :);
             
             assertElementsAlmostEqual(match1M, match1, 'relative', 1E-3);
             assertElementsAlmostEqual(match2M, match2, 'relative', 1E-3);

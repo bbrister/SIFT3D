@@ -57,15 +57,6 @@ const double trunc_thresh = 0.2f * 128.0f / DESC_NUMEL; // Descriptor truncation
 /* Internal math constants */
 const double gr = 1.6180339887; // Golden ratio
 
-/* Keypoint data format constants */
-const int kp_num_cols = IM_NDIMS * (IM_NDIMS + 1) + 1; // Number of columns
-const int kp_x = 0; // column of x-coordinate
-const int kp_y = 1; // column of y-coordinate
-const int kp_z = 2; // column of z-coordinate
-const int kp_s = 3; // column of s-coordinate
-const int kp_ori = 4; // first column of the orientation matrix
-const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientation elements
-
 /* Get the index of bin j from triangle i */
 #define MESH_GET_IDX(mesh, i, j) \
 	((mesh)->tri[i].idx[j])
@@ -3139,11 +3130,13 @@ draw_matches_quit:
  * (.csv, .csv.gz), where each keypoint is a row. The elements of each row are
  * as follows:
  *
- * x y z s ori11 ori12 ... or1nn
+ * x y z o s ori11 ori12 ... orinn
  *
  * x - the x-coordinate
  * y - the y-coordinate
  * z - the z-coordinate
+ * o - the pyramid octave. To convert to image coordinates, multiply x,y,z by 
+ *      pow(2, o)
  * s - the scale coordinate
  * ori(ij) - the ith row, jth column of the orientation matrix */
 int write_Keypoint_store(const char *path, const Keypoint_store *const kp) {
@@ -3151,10 +3144,20 @@ int write_Keypoint_store(const char *path, const Keypoint_store *const kp) {
         Mat_rm mat;
 	int i, i_R, j_R;
 
+        // Keypoint data format constants
+        const int kp_x = 0; // column of x-coordinate
+        const int kp_y = 1; // column of y-coordinate
+        const int kp_z = 2; // column of z-coordinate
+        const int kp_o = 3; // column of octave index
+        const int kp_s = 4; // column of s-coordinate
+        const int kp_ori = 5; // first column of the orientation matrix
+        const int ori_numel = IM_NDIMS * IM_NDIMS; // Number of orientation 
+                // elements
         const int num_rows = kp->slab.num;
+        const int num_cols = kp_ori + ori_numel;
 
         // Initialize the matrix
-        if (init_Mat_rm(&mat, num_rows, kp_num_cols, SIFT3D_DOUBLE, 
+        if (init_Mat_rm(&mat, num_rows, num_cols, SIFT3D_DOUBLE, 
 		SIFT3D_FALSE))
                 return SIFT3D_FAILURE;
        
@@ -3164,15 +3167,11 @@ int write_Keypoint_store(const char *path, const Keypoint_store *const kp) {
                 const Keypoint *const key = kp->buf + i;
                 const Mat_rm *const R = &key->R;
 
-                const double coord_factor = pow(2.0, key->o);
-
                 // Write the coordinates 
-                SIFT3D_MAT_RM_GET(&mat, i, kp_x, double) = key->xd * 
-                        coord_factor;
-                SIFT3D_MAT_RM_GET(&mat, i, kp_y, double) = key->yd * 
-                        coord_factor;
-                SIFT3D_MAT_RM_GET(&mat, i, kp_z, double) = key->zd * 
-                        coord_factor;
+                SIFT3D_MAT_RM_GET(&mat, i, kp_x, double) = key->xd;
+                SIFT3D_MAT_RM_GET(&mat, i, kp_y, double) = key->yd; 
+                SIFT3D_MAT_RM_GET(&mat, i, kp_z, double) = key->zd; 
+                SIFT3D_MAT_RM_GET(&mat, i, kp_o, double) = key->o; 
                 SIFT3D_MAT_RM_GET(&mat, i, kp_s, double) = key->sd;
 
                 // Write the orientation matrix
