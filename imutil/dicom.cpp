@@ -177,6 +177,11 @@ public:
                 return nc;
         } 
 
+        /* Get the z-position in the patient */
+        double getZ(void) const {
+                return z;
+        }
+
         /* Get the x-spacing */
         double getUx(void) const {
                 return ux;
@@ -903,6 +908,58 @@ static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im) {
                 }
         }
 
+        // Set the z-units of the image volume
+        if (num_files > 1) {
+
+                // If there are multiple slices, compute the slice spacing by 
+                // subtracting the first two images
+                const double first_spacing = fabs(first.getZ() - 
+                        dicoms[1].getZ());
+
+                const double tol_spacing = 5E-2;
+
+                // Ensure all the other spacings agree, else throw an error
+                for (int i = 1; i < num_files - 1; i++) {
+
+                        const Dicom &prev = dicoms[i];
+                        const Dicom &next = dicoms[i + 1];
+
+                        const double spacing = fabs(prev.getZ() - next.getZ());
+
+                        if (fabs(spacing - first_spacing) <= tol_spacing)
+                                continue;
+
+                        SIFT3D_ERR("read_dcm_dir_cpp: files %s and %s are "
+                                "spaced %fmm apart, which does not follow the "
+                                "series spacing of %fmm \n", 
+                                prev.name(), next.name(), spacing, 
+                                first_spacing);
+                        return SIFT3D_UNEVEN_SPACING;
+                }
+
+                // Ensure all the slice thicknesses agree, else print a warning
+                for (int i = 1; i < num_files; i++) {
+
+                        const Dicom &dicom = dicoms[i];
+                        const double thickness = dicom.getUz();
+
+                        if (fabs(first_spacing - thickness) <= tol_spacing)
+                                continue; 
+
+                        SIFT3D_ERR("read_dcm_dir_cpp: WARNING--file %s has "
+                                "a slice thickness of %fmm, which does not "
+                                "agree with the series slice spacing of %fmm\n",
+                                dicom.name(), thickness, first_spacing);
+
+                        // No need for multiple warnings
+                        break;
+                }
+                
+                im->uz = first_spacing;
+        } else {
+                im->uz = first.getUz();
+        }
+
         // Initialize the output dimensions
         int nx = first.getNx();
         int ny = first.getNy();
@@ -939,7 +996,6 @@ static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im) {
         im->nc = nc;
         im->ux = first.getUx(); 
         im->uy = first.getUy();
-        im->uz = first.getUz();
         im_default_stride(im);
         if (im_resize(im))
                 return SIFT3D_FAILURE;
@@ -974,7 +1030,7 @@ static int copy_slice(const Image *const slice, const int off_z,
 /* Helper function to read a directory of DICOM files using C++ */
 static int read_dcm_dir_cpp(const char *path, Image *const im) {
 
-        int i, off_z;
+        int ret, i, off_z;
 
         // Read the DICOM metadata
         std::vector<Dicom> dicoms;
@@ -982,8 +1038,8 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
                 return SIFT3D_FAILURE;
 
         // Initialize the image volume
-        if (dcm_resize_im(dicoms, im))
-                return SIFT3D_FAILURE;
+        if (ret = dcm_resize_im(dicoms, im))
+                return ret;
 
         // Allocate a temporary image for the slices
         Image slice;
