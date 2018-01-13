@@ -151,13 +151,6 @@ const Tform_vtable Tps_vtable = {
 /* Global data */
 CL_data cl_data;
 
-/* Internal types */
-typedef struct _List {
-	struct _List *next;
-	struct _List *prev;
-	int idx;
-} List;
-
 /* LAPACK declarations */
 #ifdef SIFT3D_MEX
 // Set the integer width to Matlab's defined width
@@ -217,10 +210,6 @@ static int compile_cl_program_from_source(cl_program * program,
 					  cl_device_id * devices,
 					  int num_devices, char **src,
 					  int num_str);
-static int init_List(List ** list, const int num);
-static int List_get(List * list, const int idx, List ** el);
-static void List_remove(List ** list, List * el);
-static void cleanup_List(List * list);
 static int n_choose_k(const int n, const int k, int **ret);
 static int make_spline_matrix(Mat_rm * src, Mat_rm * src_in, Mat_rm * sp_src,
 			      int K_terms, int *r, int dim);
@@ -4332,92 +4321,6 @@ n_choose_k_fail:
                 *ret = NULL;
         }
         return SIFT3D_FAILURE;
-}
-
-/* Initialize a list of num elements. */
-static int init_List(List ** list, const int num)
-{
-
-	List *prev, *cur;
-	int i;
-
-	prev = NULL;
-	for (i = 0; i < num; i++) {
-		if ((cur = (List *) malloc(sizeof(List))) == NULL)
-			return SIFT3D_FAILURE;
-
-		if (i == 0)
-			*list = cur;
-
-		cur->next = NULL;
-		cur->prev = prev;
-
-		if (prev != NULL)
-			prev->next = cur;
-
-		prev = cur;
-	}
-
-	return SIFT3D_SUCCESS;
-}
-
-/* Get the element idx in list. Returns a pointer to the element in el.
- * Returns SIFT3D_FAILURE if NULL is reached before idx elements have been 
- * traversed. */
-static int List_get(List * list, const int idx, List ** el)
-{
-
-	int i;
-
-	// Verify inputs
-	if (idx < 0)
-		return SIFT3D_FAILURE;
-
-	// Traverse the list 
-	for (i = 0; i < idx; i++) {
-		list = list->next;
-
-		if (list == NULL)
-			return SIFT3D_FAILURE;
-	}
-
-	*el = list;
-	return SIFT3D_SUCCESS;
-}
-
-/* Remove an element from its list, freeing its memory. */
-static void List_remove(List ** list, List * el)
-{
-	if (list == NULL || el == NULL)
-		return;
-
-	if (el->next != NULL)
-		el->next->prev = el->prev;
-
-	if (el->prev != NULL)
-		el->prev->next = el->next;
-
-	if (*list == el)
-		*list = el->next;
-
-	free(el);
-}
-
-/* Free all of the memory for a list. */
-static void cleanup_List(List * list)
-{
-
-	while (1) {
-		List_remove(&list, list->prev);
-
-		if (list->next == NULL) {
-			List_remove(&list, list);
-			break;
-		}
-
-		list = list->next;
-	}
-
 }
 
 //make the system matrix for spline
