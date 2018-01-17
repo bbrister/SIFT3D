@@ -25,9 +25,9 @@ function keys = detectSift3D(im, varargin)
 %  finished. To release all SIFT3D memory, use 'clear mex'.
 %
 %  Keypoint coordinates are defined in the space of their pyramid level.
-%  To convert them to the input image space, use the following
+%  To convert them to Matlab indices in the input image, use the following
 %  transformation:
-%      key.coords * pow2(-key.octave)
+%      idx = key.coords * pow2(-key.octave) + 1
 %
 %  Examples:
 %      im = rand(50, 50, 50);
@@ -39,7 +39,7 @@ function keys = detectSift3D(im, varargin)
 %  See also:
 %    extractSift3D, imRead3D, imWrite3D, keypoint3D, setupSift3D
 %
-% Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
+% Copyright (c) 2015-2018 Blaine Rister et al., see LICENSE for details.
 
 % Option names
 unitsStr = 'units';

@@ -13,7 +13,10 @@ function [im, units] = imRead3D(path)
 %    im - An [MxNxPxC] array containing the image data. The last dimension 
 %       denotes the channels of the [MxNxP] image. The voxels are indexed 
 %       in (x, y, z, c) order, where c is the channel index and (x, y, z) 
-%       are the spatial coordinates.
+%       are the spatial coordinates. NOTE: This is different from the order in
+%       which Matlab usually stores 3D images, where the x-axis is the second
+%       dimension. You must transpose each XY plane (axial slice) before 
+%       viewing or manipulating it with Matlab's image processing functions.
 %    units - A [3x1] vector of the (x, y, z) real-world units for the
 %       voxels in im.
 %

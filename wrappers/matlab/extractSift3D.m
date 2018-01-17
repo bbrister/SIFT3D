@@ -16,6 +16,8 @@ function [desc, coords] = extractSift3D(keys, im, units)
 %      corresponding to keys(i).
 %    coords - An [n x 3] array of descriptor coordinates, defined in the
 %      space of the input image (see the description of the "im" argument).
+%      Note these coordinates are 0-indexed, so you need to add 1 to get the
+%      equivalent Matlab index. (See detectSift3D.m for more explanation.)
 %
 %  Examples:
 %    % Extract without units
@@ -37,7 +39,7 @@ function [desc, coords] = extractSift3D(keys, im, units)
 %  See also:
 %    detectSift3D, imRead3D, keypoint3D, orientation3D, setupSift3D
 %
-% Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
+% Copyright (c) 2015-2018 Blaine Rister et al., see LICENSE for details.
 
 % Required field dimensions
 coordsSizeReq = [1 3];
