@@ -79,6 +79,11 @@
 * Read DICOM CT scans in Hounsfield units (im_read, imRead3D)
 * Fix header includes for newer builds of MinGW (TDM-GCC)
 
-## 1.4.5
+## 1.4.5 January 17, 2018
 
-* Add wrapper function to match pre-computed descriptors from Matlab (matchSift3D)
+* Fixed a bug in orientation assignment to improve the accuracy of SIFT3D descriptors. Thanks to KinMan for finding this bug.
+  * Change the default value of corner_thresh parameter to 0.4, to get the same number of keypoints as before the fix
+* Add a new Matlab wrapper function to enable matching pre-computed descriptors (matchSift3D.m)
+* Compute the slice spacing of multi-file Dicom series, using this instead of the Slice Thickness metadata. Warn the user if the slice spacing differs from the slice thickness. Throw an error if the slice spacing is inconsistent between pairs of adjacent images.
+* Add keypoint octave indices to kpSift3D output. Thanks to v8korb for this suggestion.
+* Refactor RANSAC code for improved clarity and efficiency. Thanks to cslayers for this suggestion.
