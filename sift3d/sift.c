@@ -1844,10 +1844,11 @@ static int extract_descrip(SIFT3D *const sift3d, const Image *const im,
 	// Compute basic parameters 
         const float sigma = key->sd * desc_sig_fctr;
 	const float win_radius = desc_rad_fctr * sigma;
-	const float desc_hw = win_radius / sqrt(2);
-	const float desc_width = 2.0f * desc_hw;
-	const float desc_bin_fctr = (float) NHIST_PER_DIM / desc_width;
-	const double coord_factor = pow(2.0, key->o);
+	const float desc_half_width = win_radius / sqrt(2);
+	const float desc_width = 2.0f * desc_half_width;
+        const float desc_hist_width = desc_width / NHIST_PER_DIM;
+	const float desc_bin_fctr = 1.0f / desc_hist_width;
+	const double coord_factor = ldexp(1.0, key->o);
 
         // Invert the rotation matrix
         if (init_Mat_rm_p(&Rt, buf, IM_NDIMS, IM_NDIMS, SIFT3D_FLOAT, 
@@ -1871,9 +1872,9 @@ static int extract_descrip(SIFT3D *const sift3d, const Image *const im,
 		SIFT3D_MUL_MAT_RM_CVEC(&Rt, &vim, &vkp);		
 
 		// Compute spatial bins
-		vbins.x = (vkp.x + desc_hw) * desc_bin_fctr;
-		vbins.y = (vkp.y + desc_hw) * desc_bin_fctr;
-		vbins.z = (vkp.z + desc_hw) * desc_bin_fctr;
+		vbins.x = (vkp.x + desc_half_width) * desc_bin_fctr;
+		vbins.y = (vkp.y + desc_half_width) * desc_bin_fctr;
+		vbins.z = (vkp.z + desc_half_width) * desc_bin_fctr;
 
 		// Reject points outside the rectangular descriptor 
 		if (vbins.x < 0 || vbins.y < 0 || vbins.z < 0 ||
@@ -2064,7 +2065,7 @@ static int verify_keys(const Keypoint_store *const kp, const Image *const im) {
 
                 const Keypoint *key = kp->buf + i;
 
-                const double octave_factor = pow(2.0, key->o);
+                const double octave_factor = ldexp(1.0, key->o);
 
                 if (key->xd < 0 ||
                         key->yd < 0 ||
@@ -2095,7 +2096,7 @@ static int keypoint2base(const Keypoint *const src, Keypoint *const dst) {
         double base_factors[IM_NDIMS];
         int j;
 
-        const double octave_factor = pow(2.0, src->o);
+        const double octave_factor = ldexp(1.0, src->o);
 
         // Convert the factors to the base octave
         for (j = 0; j < IM_NDIMS; j++) {
@@ -2612,7 +2613,7 @@ int Keypoint_store_to_Mat_rm(const Keypoint_store *const kp, Mat_rm *const mat) 
         const Keypoint *const key = kp->buf + i;
 
         // Adjust the coordinates to the base octave
-        const double coord_factor = pow(2.0, key->o);
+        const double coord_factor = ldexp(1.0, key->o);
 
 	SIFT3D_MAT_RM_GET(mat, i, 0, double) = coord_factor * key->xd;
 	SIFT3D_MAT_RM_GET(mat, i, 1, double) = coord_factor * key->yd;
