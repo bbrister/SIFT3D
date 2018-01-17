@@ -1,6 +1,6 @@
 # SIFT3D Linux Installation Instructions
 
-Copyright (c) 2015-2017 Blaine Rister et al., see LICENSE for details.
+Copyright (c) 2015-2018 Blaine Rister et al., see LICENSE for details.
 
 # Installing the dependencies
 
@@ -49,3 +49,15 @@ If for some reason CMake cannot find the dependencies, you can specify the paths
 Use the following command to install the files:
 
 	sudo make install
+
+### Packaging
+
+To create your own binary package, invoke CMake with the BUILD_PACKAGE variable set to ON. Then build the 'package' target using the Makefiles. For example,
+
+        cmake .. -DBUILD_PACKAGE=ON
+        make package
+
+### Troubleshooting
+
+If you are using an older version of Ubuntu, then you will need to update [DCMTK](http://dicom.offis.de/dcmtk.php.en) to the latest version before compiling SIFT3D.
+
