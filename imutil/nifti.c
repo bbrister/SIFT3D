@@ -90,11 +90,14 @@ int read_nii(const char *path, Image *const im)
 
 #define IM_COPY_FROM_TYPE(type) \
     SIFT3D_IM_LOOP_START(im, x, y, z)   \
-        SIFT3D_IM_GET_VOX(im, x, y, z, 0) = (float) ((type *)nifti->data)[ \
-        SIFT3D_IM_GET_IDX(im, x, y, z, 0)]; \
+        SIFT3D_IM_GET_VOX(im, x, y, z, 0) = (float) ( \
+                (double) ((type *)nifti->data)[\
+                        SIFT3D_IM_GET_IDX(im, x, y, z, 0)] * \
+                (double) nifti->scl_slope + \
+                (double) nifti->scl_inter); \
     SIFT3D_IM_LOOP_END
 
-	// Copy the data into im
+	// Copy the data into im, applying the slope and intercept
 	switch (nifti->datatype) {
 	case NIFTI_TYPE_UINT8:
 		IM_COPY_FROM_TYPE(uint8_t);
