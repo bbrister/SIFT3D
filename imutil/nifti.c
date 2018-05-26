@@ -47,6 +47,7 @@ int read_nii(const char *path, Image *const im)
 {
 
 	nifti_image *nifti;
+        double slope;
 	int x, y, z, i, dim_counter;
 
 	// Read NIFTI file
@@ -88,13 +89,16 @@ int read_nii(const char *path, Image *const im)
 	im_default_stride(im);
 	im_resize(im);
 
+        // Ignore the slope if it's zero. This is an ill-formatted image.
+        slope = nifti->scl_slope;
+        if (slope == 0.0) slope = 1.0;
+
 #define IM_COPY_FROM_TYPE(type) \
     SIFT3D_IM_LOOP_START(im, x, y, z)   \
         SIFT3D_IM_GET_VOX(im, x, y, z, 0) = (float) ( \
                 (double) ((type *)nifti->data)[\
                         SIFT3D_IM_GET_IDX(im, x, y, z, 0)] * \
-                (double) nifti->scl_slope + \
-                (double) nifti->scl_inter); \
+                (double) slope + (double) nifti->scl_inter); \
     SIFT3D_IM_LOOP_END
 
 	// Copy the data into im, applying the slope and intercept
@@ -170,10 +174,13 @@ int write_nii(const char *path, const Image *const im)
 		return SIFT3D_FAILURE;
 	}
 
-	// Init a nifti struct and allocate memory
-	if ((nifti = nifti_make_new_nim(dims, DT_FLOAT32, 1))
-	    == NULL)
+	// Initialize a nifti struct and allocate memory
+	if ((nifti = nifti_make_new_nim(dims, DT_FLOAT32, 1)) == NULL)
 		goto write_nii_quit;
+
+        // Set the slope and intercept to do nothing
+        nifti->scl_slope = 1.0;
+        nifti->scl_inter = 0.0;
 
         // Copy the units
         nifti->dx = im->ux;
