@@ -39,10 +39,11 @@ Clang/LLVM comes pre-installed. Using [Homebrew](http://brew.sh), the following 
 
 The following commands will generate Makefiles and use them to compile the binaries in a subdirectory called "build":
 
-	mkdir build
+        cd /path/to/SIFT3D # Go to the directory where you downloaded SIFT3D 
+	mkdir build # Make a directory to store the binaries
 	cd build
-	cmake .. -DDCMTK_DIR=/usr/local
-	make
+	cmake .. # Create the Makefiles
+	make # Compile the program
 
 *Note: If you are compiling without DICOM support, leave DCMTK_DIR blank. If you installed DCMTK to some place other than /usr/local, set DCMTK_DIR to that path in the above CMake command.*
 

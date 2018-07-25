@@ -39,10 +39,11 @@ On Ubuntu 16.04, the following command will install CMake and GCC:
 
 The following commands will generate Makefiles and use them to compile the binaries in a subdirectory called "build":
 
-	mkdir build
+        cd /path/to/SIFT3D # Go to the directory where you downloaded SIFT3D 
+	mkdir build # Make a directory to store the binaries
 	cd build
-	cmake ..
-	make
+	cmake .. # Create the Makefiles
+	make # Compile the program
 
 If for some reason CMake cannot find the dependencies, you can specify the paths manually with the CMake GUI. 
 
