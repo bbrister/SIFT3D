@@ -131,6 +131,7 @@ static int read_dcm_cpp(const char *path, Image *const im);
 static int read_dcm_img(const Dicom &dicom, Image *const im);
 static int read_dso(const char *imDir, Dicom &dso, 
                             Image *const mask);
+static int get_nonzero(Cvec v, float *const ret);
 static int read_dcm_dir_meta(const char *path, std::vector<Dicom> &dicoms);
 static int read_dcm_dir_cpp(const char *path, Image *const im);
 static int write_dcm_cpp(const char *path, const Image *const im,
@@ -140,19 +141,23 @@ static int write_dcm_dir_cpp(const char *path, const Image *const im,
 static void set_meta_defaults(const Dcm_meta *const meta, 
         Dcm_meta *const meta_new);
 static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im);
-static int copy_slice(const Image *const slice, const int off_z, 
-        Image *const volume);
+static int write_subvolume(const Dicom &dicom, Image *const main, 
+        const int mainOffset, Image *const sub, const int start, 
+        const int end);
 
 /* Helper class to store DICOM data. */
 class Dicom {
 private:
+        int axes[2]; // Data axes, e.g. {0, 1} means x, y
+        int axisSigns[2]; // Axis signs, negative means go backwards
         std::string filename; // DICOM file name
         std::string classUID;
         std::string seriesUID; // Series UID 
         std::string instanceUID; // Instance UID
-        double z; // z position in the series
+        double sortCoord; // Coordinate by which the series is sorted. Usually z
         double ux, uy, uz; // Voxel spacing in real-world coordinates
         int nx, ny, nz, nc; // Image dimensions
+        int sortAxis; // The axis corresponding to sortCoord
         bool valid; // Data validity 
 
 public:
@@ -167,6 +172,44 @@ public:
 
         /* Get the multiplier to convert a PET image to SUV */
         double PET_SUV_multiplier(void) const;
+
+        /* Get a dimension by index */
+        int getDim(const int idx) const {
+                switch (idx) {
+                case 0:
+                        return getNx();
+                case 1:
+                        return getNy();
+                case 2:
+                        return getNz();
+                }
+
+                return -1;
+        }
+
+        /* Get a unit by index */
+        int getUnit(const int idx) const {
+                switch (idx) {
+                case 0:
+                        return getUx();
+                case 1:
+                        return getUy();
+                case 2:
+                        return getUz();
+                }
+
+                return -1;
+        }
+
+        /* Get the image axis by index */
+        int getAxes(const int idx) const {
+                return idx < 0 || idx > 2 ? -1 : axes[idx];
+        }
+
+        /* Get the axis sign by index */
+        int getAxisSign(const int idx) const {
+                return idx < 0 || idx > 2 ? -1 : axisSigns[idx];
+        }
 
         /* Get the x-dimension */
         int getNx(void) const {
@@ -188,9 +231,19 @@ public:
                 return nc;
         } 
 
-        /* Get the z-position in the patient */
-        double getZ(void) const {
-                return z;
+        /* Get the sorting axis */
+        int getSortAxis(void) const {
+                return sortAxis;
+        }
+
+        /* Get the sorting coordinate (usually z) */
+        double getSortCoord(void) const {
+                return sortCoord;
+        }
+
+        /* Get the units in the sorting dimension */
+        int getSortUnit(void) const {
+                return getUnit(getSortAxis());
         }
 
         /* Get the x-spacing */
@@ -220,7 +273,7 @@ public:
 
         /* Sort by z position */
         bool operator < (const Dicom &dicom) const {
-                return z < dicom.z;
+                return getSortCoord() < dicom.getSortCoord();
         }
 
         /* Check if another DICOM file is from the same series */
@@ -262,6 +315,27 @@ static int load_file(const char *path, DcmFileFormat &fileFormat) {
         }
 
         return SIFT3D_SUCCESS;
+}
+
+/* Get the single non-zero component from a Cvec. Returns the element and 
+ * its position. */
+static int get_nonzero(const Cvec *v, float *const val, int *const pos) {
+        if (v->y == 0 && v->z == 0) {
+                *val = v->x;
+                *pos = 0;
+                return SIFT3D_SUCCESS;
+        } 
+        if (v->x == 0 && v->y == 0) {
+                *val = v->z;
+                *pos = 2;
+                return SIFT3D_SUCCESS;
+        } else if (v->x == 0 && v->z == 0) {
+                *val = v->y;
+                *pos = 1;
+                return SIFT3D_SUCCESS;
+        } 
+
+        return SIFT3D_FAILURE;
 }
 
 /* Load the data from a DICOM file */
@@ -306,11 +380,11 @@ Dicom::Dicom(const char *path) : filename(path), valid(false) {
 
         // Get the z coordinate
         if (getType() == DSO) {
-                // DSOs don't always have z coordinates
-                z = -1;
+                // DSOs don't always have coordinates
+                sortCoord = -1;
 
                 // DSOs don't always have units
-                ux = uy = -1.0;
+                ux = uy = uz = -1.0;
         } else {
 #if 0
                 // Read the patient position
@@ -354,20 +428,72 @@ Dicom::Dicom(const char *path) : filename(path), valid(false) {
                         return;
                 }
 
-                // Parse the image position patient vector to get z
-                double imPosZ;
-                if (sscanf(imPosPatientStr, "%*f\\%*f\\%lf", &imPosZ) != 1) {
+                // Read the image orientation patient vector
+                const char *imOriPatientStr; 
+                status = data->findAndGetString(DCM_ImageOrientationPatient,
+                        imOriPatientStr);
+                if (status.bad() || imOriPatientStr == NULL) {
+                        SIFT3D_ERR("Dicom.Dicom: failed to get "
+                        "ImageOrientationPatient from file %s (%s)\n", path, 
+                        status.text());
+                        return;
+                }
+
+                // Parse the image position patient vector
+                Cvec imPos;
+                if (sscanf(imPosPatientStr, "%f\\%f\\%f", &imPos.x, &imPos.y, 
+                        &imPos.z) != 3) {
                         SIFT3D_ERR("Dicom.Dicom: failed to parse "
                                 "ImagePositionPatient value %s from file %s\n", 
                                 imPosPatientStr, path);
                         return;
                 }
 
-                // Compute the z-location of the upper-left corner, in 
-                // feet-first coordinates
-                z = zSign * imPosZ;
+                // Parse the image orientation patient vectors
+                Cvec imOri1, imOri2;
+                if (sscanf(imOriPatientStr, "%f\\%f\\%f\\%f\\%f\\%f", 
+                        &imOri1.x, &imOri1.y, &imOri1.z, &imOri2.x, &imOri2.y,
+                        &imOri2.z) != 6) {
+                        SIFT3D_ERR("Dicom.Dicom: failed to parse "
+                                "ImageOrientationPatient value %s from file %s\n", 
+                                imOriPatientStr, path);
+                        return;
+                }
+
+                // Take the cross-product of orientation vectors to get the 
+                // image normal
+                Cvec normal; 
+                SIFT3D_CVEC_CROSS(&imOri1, &imOri2, &normal);
+
+                // Project the patient position on the image normal, to get the
+                // sorting coordinate
+                sortCoord = SIFT3D_CVEC_DOT(&imPos, &normal);
+
+                // Get the image axes
+                float oriVals[2];
+                if (get_nonzero(&imOri1, oriVals, axes) || 
+                        get_nonzero(&imOri2, oriVals + 1, axes + 1)) {
+                        SIFT3D_ERR("Dicom.Dicom: unsupported format for "
+                                "imageOrientationPatient %s from file %s\n", 
+                                imOriPatientStr, path);
+                        return;
+                }
+
+                // Get the sorting axis
+                for (int k = 0; k < 3; k++) {
+                        if (axes[0] == k || axes[1] == k)
+                                continue;
+                        sortAxis = k;
+                        break;
+                }
+
+                // Compute the signs of the axes
+                for (int k = 0; k < 2; k++) {
+                        axisSigns[k] = oriVals[k] >= 0 ? 1 : -1;
+                }
 
                 // Read the pixel spacing
+                double spacing[2];
                 const char *pixelSpacingStr;
                 status = data->findAndGetString(DCM_PixelSpacing, 
                                                 pixelSpacingStr);
@@ -376,15 +502,22 @@ Dicom::Dicom(const char *path) : filename(path), valid(false) {
                                 "from file %s (%s)\n", path, status.text());
                         return;
                 }
-                if (sscanf(pixelSpacingStr, "%lf\\%lf", &ux, &uy) != 2) {
+                if (sscanf(pixelSpacingStr, "%lf\\%lf", spacing, 
+                        spacing + 1) != 2) {
                         SIFT3D_ERR("Dicom.Dicom: unable to parse pixel "
                                 "spacing from file %s \n", path);
                         return;
                 }
-                if (ux <= 0.0 || uy <= 0.0) {
+                if (spacing[0] <= 0.0 || spacing[1] <= 0.0) {
                         SIFT3D_ERR("Dicom.Dicom: file %s has invalid pixel "
                                 "spacing [%f, %f]\n", path, ux, uy);
                         return;
+                }
+
+                // Convert the pixel spacing into units based on the image axes
+                double *units = &ux;
+                for (int k = 0; k < 2; k++) {
+                       units[axes[k]] = spacing[k]; 
                 }
 
                 // Read the slice thickness 
@@ -397,14 +530,15 @@ Dicom::Dicom(const char *path) : filename(path), valid(false) {
                                 status.text());
                         return;
                 }
-
-                // Convert to double 
-                uz = sliceThickness;
-                if (uz <= 0.0) {
+                if (sliceThickness <= 0.0) {
                         SIFT3D_ERR("Dicom.Dicom: file %s has invalid slice "
                                 "thickness: %f \n", path, uz);
                         return;
                 }
+
+                // Use the slice thickness as the units for the perpendicular 
+                // axis
+                units[sortAxis] = sliceThickness;
         }
 
         // Load the DicomImage object
@@ -425,9 +559,10 @@ Dicom::Dicom(const char *path) : filename(path), valid(false) {
         nc = 1;
 
         // Read the dimensions
-        nx = dicomImage.getWidth();
-        ny = dicomImage.getHeight();
-        nz = dicomImage.getFrameCount();
+        int *dims = &nx;
+        dims[axes[0]] = dicomImage.getWidth();
+        dims[axes[1]] = dicomImage.getHeight();
+        dims[sortAxis] = dicomImage.getFrameCount();
         if (nx < 1 || ny < 1 || nz < 1) {
                 SIFT3D_ERR("Dicom.Dicom: invalid dimensions for file %s "
                         "(%d, %d, %d)\n", path, nx, ny, nz);
@@ -963,19 +1098,11 @@ static int read_dso(const char *imDir, Dicom &dso,
                                                         it);
 
                 // Copy the frame into the full mask volume
-                int x, y, z;
-                const int x_start = 0;
-                const int y_start = 0;
-                const int z_start = 0;
-                const int y_end = maskData.ny - 1;
-                const int x_end = maskData.nx - 1;
-                const int z_end = 0;
-                SIFT3D_IM_LOOP_LIMITED_START(&maskData, x, y, z, x_start,
-                        x_end, y_start, y_end, z_start, z_end)
-                        SIFT3D_IM_GET_VOX(mask, x, y, im_frame_num, 0) =
-                                SIFT3D_IM_GET_VOX(&maskData, x, y, 
-                                                  dso_frame_num, 0);
-                SIFT3D_IM_LOOP_END
+                if (write_subvolume(*match, mask, im_frame_num, &maskData, 
+                        dso_frame_num, dso_frame_num)) {
+                        im_free(&maskData);
+                        return SIFT3D_FAILURE;
+                }
         }
 
         // Clean up
@@ -1043,7 +1170,7 @@ static int read_dcm_dir_meta(const char *path, std::vector<Dicom> &dicoms) {
                 return SIFT3D_FAILURE;
         }
 
-        // Sort the slices by z position
+        // Sort the slices by their coordinates
         std::sort(dicoms.begin(), dicoms.end()); 
 
         return SIFT3D_SUCCESS;
@@ -1052,11 +1179,12 @@ static int read_dcm_dir_meta(const char *path, std::vector<Dicom> &dicoms) {
 /* Resize an image to fit a DICOM series. */
 static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im) {
 
-        int i;
+        int i, j;
 
         // Check that the files are from the same series
         const int num_files = dicoms.size();
         const Dicom &first = dicoms[0];
+        const int sortAxis = first.getSortAxis();
         for (int i = 1; i < num_files; i++) {
 
                 const Dicom &dicom = dicoms[i];
@@ -1069,13 +1197,18 @@ static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im) {
                 }
         }
 
-        // Set the z-units of the image volume
+        // Initialize the units to those of the first image
+        im->ux = first.getUx(); 
+        im->uy = first.getUy();
+        im->uz = first.getUz();
+
+        // Adjust the units in the sorting dimension
         if (num_files > 1) {
 
                 // If there are multiple slices, compute the slice spacing by 
                 // subtracting the first two images
-                const double first_spacing = fabs(first.getZ() - 
-                        dicoms[1].getZ());
+                const double first_spacing = fabs(first.getSortCoord() - 
+                        dicoms[1].getSortCoord());
 
                 const double tol_spacing = 5E-2;
 
@@ -1085,7 +1218,8 @@ static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im) {
                         const Dicom &prev = dicoms[i];
                         const Dicom &next = dicoms[i + 1];
 
-                        const double spacing = fabs(prev.getZ() - next.getZ());
+                        const double spacing = fabs(prev.getSortCoord() - 
+                                next.getSortCoord());
 
                         if (fabs(spacing - first_spacing) <= tol_spacing)
                                 continue;
@@ -1102,7 +1236,7 @@ static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im) {
                 for (int i = 1; i < num_files; i++) {
 
                         const Dicom &dicom = dicoms[i];
-                        const double thickness = dicom.getUz();
+                        const double thickness = dicom.getSortUnit();
 
                         if (fabs(first_spacing - thickness) <= tol_spacing)
                                 continue; 
@@ -1115,48 +1249,57 @@ static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im) {
                         // No need for multiple warnings
                         break;
                 }
-                
-                im->uz = first_spacing;
-        } else {
-                im->uz = first.getUz();
+               
+                SIFT3D_IM_GET_UNITS(im)[sortAxis] = first_spacing;
         }
 
-        // Initialize the output dimensions
-        int nx = first.getNx();
-        int ny = first.getNy();
+        // Initialize the output dimensions to those of the first image
+        int dims[] = {first.getNx(), first.getNy(), first.getNz()};
         int nc = first.getNc();
 
         // Verify the dimensions of the other files, counting the total
-        // series z-dimension
-        int nz = 0;
+        // number of slices
+        int nSlice = 0;
         for (i = 0; i < num_files; i++) {
 
                 // Get a slice
                 const Dicom &dicom = dicoms[i];        
 
-                // Verify the dimensions
-                if (dicom.getNx() != nx || dicom.getNy() != ny || 
-                        dicom.getNc() != nc) {
+                // Verify the channels
+                if (dicom.getNc() != nc) {
                         SIFT3D_ERR("read_dcm_dir_cpp: slice %s "
-                                "(%d, %d, %d) does not match the "
-                                "dimensions of slice %s (%d, %d, %d) \n",
-                                dicom.name(), dicom.getNx(), 
-                                dicom.getNy(), dicom.getNc(), 
-                                first.name(), nx, ny, nc);
+                                "(%d) does not match the "
+                                "channels of slice %s (%d) \n",
+                                dicom.name(), dicom.getNc(), 
+                                first.name(), nc);
+                }
+
+                // Verify the non-sorting dimensions
+                for (j = 0; j < 2; j++) {
+                        const int firstDim = dims[j];
+                        const int sliceDim = dicom.getDim(j);
+
+                        if (sliceDim == firstDim)
+                                continue;
+
+                        SIFT3D_ERR("read_dcm_dir_cpp: slice %s "
+                                "dimension %d (%d) does not match the "
+                                "dimensions of slice %s (%d) \n",
+                                dicom.name(), sliceDim,  sortAxis, first.name(),
+                                firstDim);
                         return SIFT3D_FAILURE;
                 }
 
-                // Count the z-dimension
-                nz += dicom.getNz();
+                // Count the number of slices
+                nSlice += dicom.getDim(sortAxis);
         }
 
+        // Set the dimension of the sorting axis
+        dims[sortAxis] = nSlice;
+
         // Resize the output
-        im->nx = nx;
-        im->ny = ny;
-        im->nz = nz;
+        memcpy(SIFT3D_IM_GET_DIMS(im), dims, sizeof(dims));
         im->nc = nc;
-        im->ux = first.getUx(); 
-        im->uy = first.getUy();
         im_default_stride(im);
         if (im_resize(im))
                 return SIFT3D_FAILURE;
@@ -1164,24 +1307,75 @@ static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im) {
         return SIFT3D_SUCCESS;
 }
 
-/* Helper function to copy a slice into a larger volume. */
-static int copy_slice(const Image *const slice, const int off_z, 
-        Image *const volume) {
+/* Copy a Dicom sub-volume into a larger volume. start and end are indices into
+ * sub, along the sorting dimension.  */
+static int write_subvolume(const Dicom &dicom, Image *const main, 
+        const int mainOffset, Image *const sub, const int start, 
+        const int end) {
 
-        int x, y, z, c;
+        int starts[] = {0, 0, 0};
+        int ends[] = {sub->nx - 1, sub->ny - 1, sub->nz - 1};
+        int mainOffsets[] = {0, 0, 0};
+        int signs[] = {1, 1, 1};
+        int x, y, z, c, k;
+        
+        const int sortAxis = dicom.getSortAxis();
+        const int mainSortDim = SIFT3D_IM_GET_DIMS(main)[sortAxis];
+        const int subSortDim = SIFT3D_IM_GET_DIMS(sub)[sortAxis];
 
-        // Verify dimensions
-        if (volume->nz < slice->nz + off_z ||
-                volume->nx != slice->nx ||
-                volume->ny != slice->ny ||
-                volume->nc != slice->nc)
+        // Verify the image axis dimensions
+        for (k = 0; k < 2; k++) {
+                const int axisIdx = dicom.getAxes(k);
+                const int mainDim = SIFT3D_IM_GET_DIMS(main)[axisIdx];
+                const int subDim = SIFT3D_IM_GET_DIMS(sub)[axisIdx];
+                if (mainDim != subDim) {
+                        SIFT3D_ERR("write_subvolume: axis %d does not match: "
+                                "%d (main) vs %d (sub)", axisIdx, mainDim, 
+                                subDim);
+                        return SIFT3D_FAILURE;
+                }
+        }
+
+        // Verify the sorting axis dimensions
+        if (start < 0) {
+                SIFT3D_ERR("write_subvolume: invalid start %d\n", start);
                 return SIFT3D_FAILURE;
+        }
+        if (end > subSortDim) {
+                SIFT3D_ERR("write_subvolume: invalid end %d (maximum %d)\n", 
+                        end, subSortDim);
+                return SIFT3D_FAILURE;
+        }
+        if (mainSortDim < mainOffset + end - start) {
+                SIFT3D_ERR("write_subvolume: subvolume range (%d, %d) does "
+                        "not fit into main volume dimension %d, offset %d, "
+                        "axis %d\n", start,  end, mainSortDim, mainOffset, 
+                        sortAxis);
+                return SIFT3D_FAILURE;
+        }
+
+        // Format the offsets and signs for the main volume
+        for (k = 0; k < 2; k++) {
+                if (dicom.getAxisSign(k) > 0) 
+                        continue;
+                const int axisIdx = dicom.getAxes(k);
+                signs[axisIdx] = -1;
+                mainOffsets[axisIdx] = dicom.getDim(axisIdx) - 1;
+        }
+        mainOffsets[sortAxis] = mainOffset;
+
+        // Set the starting and ending indices for the sort axis
+        starts[sortAxis] = start;
+        ends[sortAxis] = end;
 
         // Copy the data
-        SIFT3D_IM_LOOP_START_C(slice, x, y, z, c)
+        SIFT3D_IM_LOOP_LIMITED_START_C(sub, x, y, z, c, starts[0], ends[0],
+                starts[1], ends[1], starts[2], ends[2])
 
-                SIFT3D_IM_GET_VOX(volume, x, y, z + off_z, c) =
-                        SIFT3D_IM_GET_VOX(slice, x, y, z, c);
+                SIFT3D_IM_GET_VOX(main, x * signs[0] + mainOffsets[0], 
+                        y * signs[1] + mainOffsets[1], 
+                        z * signs[2] + mainOffsets[2], 
+                        c) = SIFT3D_IM_GET_VOX(sub, x, y, z, c);
 
         SIFT3D_IM_LOOP_END_C
 
@@ -1191,7 +1385,7 @@ static int copy_slice(const Image *const slice, const int off_z,
 /* Helper function to read a directory of DICOM files using C++ */
 static int read_dcm_dir_cpp(const char *path, Image *const im) {
 
-        int ret, i, off_z;
+        int ret, i, j, sliceCount;
 
         // Read the DICOM metadata
         std::vector<Dicom> dicoms;
@@ -1207,19 +1401,23 @@ static int read_dcm_dir_cpp(const char *path, Image *const im) {
         init_im(&slice);
 
         // Read the image data
-        off_z = 0;
+        sliceCount = 0;
         const int num_files = dicoms.size();
         for (i = 0; i < num_files; i++) {
 
-                // Read and copy the slice data
-                if (read_dcm_img(dicoms[i], &slice) ||
-                        copy_slice(&slice, off_z, im)) {
+                Dicom dicom = dicoms[i];
+
+                // Read the slice data and write it into the volume
+                const int numSlices = dicom.getDim(dicom.getSortAxis());
+                if (read_dcm_img(dicom, &slice) ||
+                        write_subvolume(dicom, im, sliceCount, &slice, 0, 
+                                numSlices - 1)) { 
                         im_free(&slice);
                         return SIFT3D_FAILURE;
                 }
-                off_z += slice.nz;
+
+                sliceCount += numSlices;
         }
-        assert(off_z == im->nz);
         im_free(&slice);
 
         return SIFT3D_SUCCESS;
@@ -1246,7 +1444,7 @@ static int write_dcm_cpp(const char *path, const Image *const im,
         // Ensure the image is monochromatic
         if (im->nc != 1) {
                 SIFT3D_ERR("write_dcm_cpp: image %s has %d channels. "
-                        "Currently only signle-channel images are supported.\n",
+                        "Currently only single-channel images are supported.\n",
                          path, im->nc);
                 return SIFT3D_FAILURE;
         }
