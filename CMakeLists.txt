@@ -25,7 +25,7 @@ endif ()
 project (SIFT3D)
 
 # Project version
-set (SIFT3D_VERSION 1.4.5)
+set (SIFT3D_VERSION 1.4.6)
 
 # Default build type
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)

@@ -87,3 +87,9 @@
 * Compute the slice spacing of multi-file Dicom series, using this instead of the Slice Thickness metadata. Warn the user if the slice spacing differs from the slice thickness. Throw an error if the slice spacing is inconsistent between pairs of adjacent images.
 * Add keypoint octave indices to kpSift3D output. Thanks to v8korb for this suggestion.
 * Refactor RANSAC code for improved clarity and efficiency. Thanks to cslayers for this suggestion.
+
+## 1.4.6
+
+* Improve Nifti-1 image reading to take into account slope and intercept
+* Convert PET scans to SUV
+* Read Dicom series which are stored in unusual orientations (e.g., Y-Z planes instead of X-Y). This is needed for reading 3D mammograms.
