@@ -804,11 +804,17 @@ static int read_dcm_cpp(const char *path, Image *const im) {
 /* Helper function to read DICOM image data */
 static int read_dcm_img(const Dicom &dicom, Image *const im) {
 
+        int offsets[] = {0, 0, 0};
+        int signs[] = {1, 1, 1};
         const void *data;
         const DiMonoPixel *pixels;
 	uint32_t shift;
-	int x, y, z, depth;
+	int x, y, z, depth, k;
         const int bufNBits = 32;
+
+        // Image data strides
+        const int y_stride = dicom.getNx(); 
+        const int z_stride = dicom.getNx() * dicom.getNy();
 
 	// Initialize JPEG decoders
 	DJDecoderRegistration::registerCodecs();
@@ -836,6 +842,15 @@ static int read_dcm_img(const Dicom &dicom, Image *const im) {
         if (im_resize(im))
 		goto read_dcm_img_quit;
 
+        // Format the offsets and signs for the main volume
+        for (k = 0; k < 2; k++) {
+                if (dicom.getAxisSign(k) > 0) 
+                        continue;
+                const int axisIdx = dicom.getAxes(k);
+                signs[axisIdx] = -1;
+                offsets[axisIdx] = dicom.getDim(axisIdx) - 1;
+        }
+
         // Get the vendor-independent intermediate pixel data
         pixels = (const DiMonoPixel *) dicomImage.getInterData();
         if (pixels == NULL) {
@@ -846,14 +861,15 @@ static int read_dcm_img(const Dicom &dicom, Image *const im) {
         depth = pixels->getBits();
 
         // Macro to copy the data
-#define COPY_DATA(type) \
+#define COPY_DATA(type) { \
         SIFT3D_IM_LOOP_START(im, x, y, z) \
-                const int y_stride = im->nx; \
-                const int z_stride = im->nx * im->ny; \
-                SIFT3D_IM_GET_VOX(im, x, y, z, 0) = \
-                        (float) *((type *) data + x + y * y_stride + \
+                SIFT3D_IM_GET_VOX(im, x * signs[0] + offsets[0], \
+                        y * signs[1] + offsets[1], \
+                        z * signs[2] + offsets[2], \
+                        0) = (float) *((type *) data + x + y * y_stride + \
                                 z * z_stride);\
-        SIFT3D_IM_LOOP_END
+        SIFT3D_IM_LOOP_END \
+        }\
 
         // Choose the appropriate data type and copy the data
         data = pixels->getData(); 
@@ -1313,10 +1329,9 @@ static int write_subvolume(const Dicom &dicom, Image *const main,
         const int mainOffset, Image *const sub, const int start, 
         const int end) {
 
+        int mainOffsets[] = {0, 0, 0};
         int starts[] = {0, 0, 0};
         int ends[] = {sub->nx - 1, sub->ny - 1, sub->nz - 1};
-        int mainOffsets[] = {0, 0, 0};
-        int signs[] = {1, 1, 1};
         int x, y, z, c, k;
         
         const int sortAxis = dicom.getSortAxis();
@@ -1354,29 +1369,17 @@ static int write_subvolume(const Dicom &dicom, Image *const main,
                 return SIFT3D_FAILURE;
         }
 
-        // Format the offsets and signs for the main volume
-        for (k = 0; k < 2; k++) {
-                if (dicom.getAxisSign(k) > 0) 
-                        continue;
-                const int axisIdx = dicom.getAxes(k);
-                signs[axisIdx] = -1;
-                mainOffsets[axisIdx] = dicom.getDim(axisIdx) - 1;
-        }
-        mainOffsets[sortAxis] = mainOffset;
-
         // Set the starting and ending indices for the sort axis
         starts[sortAxis] = start;
         ends[sortAxis] = end;
+        mainOffsets[sortAxis] = mainOffset;
 
         // Copy the data
         SIFT3D_IM_LOOP_LIMITED_START_C(sub, x, y, z, c, starts[0], ends[0],
                 starts[1], ends[1], starts[2], ends[2])
-
-                SIFT3D_IM_GET_VOX(main, x * signs[0] + mainOffsets[0], 
-                        y * signs[1] + mainOffsets[1], 
-                        z * signs[2] + mainOffsets[2], 
-                        c) = SIFT3D_IM_GET_VOX(sub, x, y, z, c);
-
+                SIFT3D_IM_GET_VOX(main, x + mainOffsets[0], y + mainOffsets[1],
+                        z + mainOffsets[2], c) = 
+                        SIFT3D_IM_GET_VOX(sub, x, y, z, c);
         SIFT3D_IM_LOOP_END_C
 
         return SIFT3D_SUCCESS;
