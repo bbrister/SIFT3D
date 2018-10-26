@@ -131,7 +131,7 @@ static int read_dcm_cpp(const char *path, Image *const im);
 static int read_dcm_img(const Dicom &dicom, Image *const im);
 static int read_dso(const char *imDir, Dicom &dso, 
                             Image *const mask);
-static int get_nonzero(Cvec v, float *const ret);
+static int cvec_max_abs(const Cvec *v, float *const val, int *const pos);
 static int read_dcm_dir_meta(const char *path, std::vector<Dicom> &dicoms);
 static int read_dcm_dir_cpp(const char *path, Image *const im);
 static int write_dcm_cpp(const char *path, const Image *const im,
@@ -317,25 +317,33 @@ static int load_file(const char *path, DcmFileFormat &fileFormat) {
         return SIFT3D_SUCCESS;
 }
 
-/* Get the single non-zero component from a Cvec. Returns the element and 
- * its position. */
-static int get_nonzero(const Cvec *v, float *const val, int *const pos) {
-        if (v->y == 0 && v->z == 0) {
-                *val = v->x;
-                *pos = 0;
-                return SIFT3D_SUCCESS;
-        } 
-        if (v->x == 0 && v->y == 0) {
-                *val = v->z;
-                *pos = 2;
-                return SIFT3D_SUCCESS;
-        } else if (v->x == 0 && v->z == 0) {
-                *val = v->y;
-                *pos = 1;
-                return SIFT3D_SUCCESS;
-        } 
+/* Get the single maximum component from a Cvec, by absolue value. Returns the 
+ * element and its position. Returns SIFT3D_SUCCESS if the maximum is unique,
+ * SIFT3D_FAILURE otherwise. */
+static int cvec_max_abs(const Cvec *v, float *const val, int *const pos) {
 
-        return SIFT3D_FAILURE;
+        int k;
+        const float vals[] = {v->x, v->y, v->z};
+
+        // Find the maximum
+        float maxDiff = 0.f;
+        float maxAbsVal = -1;
+        for (k = 0; k < 3; k++) {
+
+                const float thisVal = vals[k];
+                const float thisAbsVal = fabsf(thisVal);
+        
+                // Check for maximum. If so, write into val and pos
+                if (thisAbsVal < maxAbsVal)
+                        continue;
+                maxDiff = thisAbsVal - maxAbsVal;
+                maxAbsVal = thisAbsVal;
+                *val = thisVal;
+                *pos = k;
+        }
+
+        // Test for unique maxima
+        return maxDiff > 1e-2 ? SIFT3D_SUCCESS : SIFT3D_FAILURE;
 }
 
 /* Load the data from a DICOM file */
@@ -471,8 +479,8 @@ Dicom::Dicom(const char *path) : filename(path), valid(false) {
 
                 // Get the image axes
                 float oriVals[2];
-                if (get_nonzero(&imOri1, oriVals, axes) || 
-                        get_nonzero(&imOri2, oriVals + 1, axes + 1)) {
+                if (cvec_max_abs(&imOri1, oriVals, axes) || 
+                        cvec_max_abs(&imOri2, oriVals + 1, axes + 1)) {
                         SIFT3D_ERR("Dicom.Dicom: unsupported format for "
                                 "imageOrientationPatient %s from file %s\n", 
                                 imOriPatientStr, path);
@@ -1197,7 +1205,7 @@ static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im) {
 
         int i, j;
 
-        // Check that the files are from the same series
+        // Verify that the files are from the same series, and other metadata
         const int num_files = dicoms.size();
         const Dicom &first = dicoms[0];
         const int sortAxis = first.getSortAxis();
@@ -1205,11 +1213,21 @@ static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im) {
 
                 const Dicom &dicom = dicoms[i];
 
+                // Verify the SOPSeriesUID
                 if (!first.eqSeries(dicom)) {
                         SIFT3D_ERR("read_dcm_dir_cpp: file %s is from a "
                                 "different series than file %s \n", 
                                 dicom.name(), first.name());
                         return SIFT3D_FAILURE;
+                }
+
+                // Verify the sorting axis
+                if (dicom.getSortAxis() != sortAxis) {
+                        SIFT3D_ERR("read_dcm_dir_cpp: file %s (%d) is sorted "
+                                "by a different axis than file %s (%d) \n",
+                                dicom.name(), dicom.getSortAxis(), first.name(),
+                                sortAxis);
+                        return SIFT3D_INCONSISTENT_AXES;
                 }
         }
 
@@ -1218,18 +1236,19 @@ static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im) {
         im->uy = first.getUy();
         im->uz = first.getUz();
 
-        // Adjust the units in the sorting dimension
+        // Compute the spacing between slices
         if (num_files > 1) {
+
+                // Tolerance for spacing discrepancies
+                const double tol_spacing = 5E-2;
 
                 // If there are multiple slices, compute the slice spacing by 
                 // subtracting the first two images
                 const double first_spacing = fabs(first.getSortCoord() - 
                         dicoms[1].getSortCoord());
 
-                const double tol_spacing = 5E-2;
-
                 // Ensure all the other spacings agree, else throw an error
-                for (int i = 1; i < num_files - 1; i++) {
+                for (int i = 0; i < num_files - 1; i++) {
 
                         const Dicom &prev = dicoms[i];
                         const Dicom &next = dicoms[i + 1];
@@ -1237,6 +1256,16 @@ static int dcm_resize_im(const std::vector<Dicom> &dicoms, Image *const im) {
                         const double spacing = fabs(prev.getSortCoord() - 
                                 next.getSortCoord());
 
+                        // Check for duplicates
+                        if (spacing == 0.0) {
+                                SIFT3D_ERR("read_dcm_dir_cpp: files %s and %s "
+                                "have duplicate coordinates in the sorting "
+                                "dimension (%d) \n", prev.name(), next.name(),
+                                prev.getSortAxis());
+                                return SIFT3D_DUPLICATE_SLICES;
+                        }
+
+                        // Check the spacing
                         if (fabs(spacing - first_spacing) <= tol_spacing)
                                 continue;
 

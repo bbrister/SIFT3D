@@ -22,6 +22,9 @@ extern "C" {
 #define SIFT3D_WRAPPER_NOT_COMPILED 3 /* The file type is supported, but the 
                                      * wrapper library was not compiled. */
 #define SIFT3D_UNEVEN_SPACING 4 /* The image slices are not evenly spaced. */
+#define SIFT3D_INCONSISTENT_AXES 5 /* The image slices have inconsistent 
+                                    * axes. */
+#define SIFT3D_DUPLICATE_SLICES 6 /* Multiple slices in the same location. */
 
 /* Vendor-specific info */
 #define PLATFORM_NAME_NVIDIA "NVIDIA CUDA"

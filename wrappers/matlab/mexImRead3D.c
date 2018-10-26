@@ -63,6 +63,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                 case SIFT3D_UNEVEN_SPACING:
                         CLEAN_AND_QUIT("main:unevenSpacing", "The series has "
                         "uneven slice spacing", SIFT3D_TRUE);
+                case SIFT3D_INCONSISTENT_AXES:
+                        CLEAN_AND_QUIT("main:inconsistentAxes", "The series "
+                        "has inconsistent slice axes", SIFT3D_TRUE);
+                case SIFT3D_DUPLICATE_SLICES:
+                        CLEAN_AND_QUIT("main:duplicateSlices", "The series "
+                        "contains slices in duplicate locations", SIFT3D_TRUE);
                 default:
                         CLEAN_AND_QUIT("main:unexpected", "Unexpected error "
                                 "reading the image", SIFT3D_TRUE);
