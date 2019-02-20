@@ -168,7 +168,7 @@ public:
         ~Dicom() {};
 
         /* Load a file */
-        Dicom(const char *filename);
+        Dicom(const char *filename, const int defaults3D=0);
 
         /* Get the multiplier to convert a PET image to SUV */
         double PET_SUV_multiplier(void) const;
@@ -346,8 +346,11 @@ static int cvec_max_abs(const Cvec *v, float *const val, int *const pos) {
         return maxDiff > 1e-2 ? SIFT3D_SUCCESS : SIFT3D_FAILURE;
 }
 
-/* Load the data from a DICOM file */
-Dicom::Dicom(const char *path) : filename(path), valid(false) {
+/* Load the data from a DICOM file. If defaults3D is true, substitute default
+ * values for 3D positioning information. Use this to load a single file even
+ * if key metadata is missing, e.g. for 2D images. */
+Dicom::Dicom(const char *path, const int defaults3D) : filename(path), 
+        valid(false) {
 
         // Read the file
         DcmFileFormat fileFormat;
@@ -431,9 +434,24 @@ Dicom::Dicom(const char *path) : filename(path), valid(false) {
                         imPosPatientStr);
                 if (status.bad() || imPosPatientStr == NULL) {
                         SIFT3D_ERR("Dicom.Dicom: failed to get "
-                        "ImagePositionPatient from file %s (%s)\n", path, 
+                        "ImagePositionPatient from file %s (%s)\n, defaulting"
+                        " to zeros. \n", path, 
                         status.text());
-                        return;
+                        if (defaults3D) {
+                                imPosPatientStr = "0\\0\\0";
+                        } else return;
+                }
+
+                // Parse the image position patient vector
+                Cvec imPos;
+                if (sscanf(imPosPatientStr, "%f\\%f\\%f", &imPos.x, &imPos.y, 
+                        &imPos.z) != 3) {
+                        SIFT3D_ERR("Dicom.Dicom: failed to parse "
+                                "ImagePositionPatient value %s from file %s\n", 
+                                imPosPatientStr, path);
+                        if (defaults3D) {
+                                imPos = {0, 0, 0};
+                        } else return;
                 }
 
                 // Read the image orientation patient vector
@@ -444,16 +462,6 @@ Dicom::Dicom(const char *path) : filename(path), valid(false) {
                         SIFT3D_ERR("Dicom.Dicom: failed to get "
                         "ImageOrientationPatient from file %s (%s)\n", path, 
                         status.text());
-                        return;
-                }
-
-                // Parse the image position patient vector
-                Cvec imPos;
-                if (sscanf(imPosPatientStr, "%f\\%f\\%f", &imPos.x, &imPos.y, 
-                        &imPos.z) != 3) {
-                        SIFT3D_ERR("Dicom.Dicom: failed to parse "
-                                "ImagePositionPatient value %s from file %s\n", 
-                                imPosPatientStr, path);
                         return;
                 }
 
@@ -792,7 +800,7 @@ int write_dcm_dir(const char *path, const Image *const im,
 static int read_dcm_cpp(const char *path, Image *const im) {
 
         // Read the image metadata
-	Dicom dicom(path);
+	Dicom dicom(path, 1);
         if (!dicom.isValid())
                 return SIFT3D_FAILURE;
 
@@ -1170,7 +1178,7 @@ static int read_dcm_dir_meta(const char *path, std::vector<Dicom> &dicoms) {
                         continue;
 
                 // Read the file
-                Dicom dicom(fullfile.c_str());
+                Dicom dicom(fullfile.c_str(), 0);
                 if (!dicom.isValid()) {
                         closedir(dir);
                         return SIFT3D_FAILURE;
