@@ -162,7 +162,7 @@ int mx2im(const mxArray *const mx, Image *const im) {
         } 
 
         // Copy the number of channels, defaulting to 1
-        im->nc = mxNDims == MX_IM_NDIMS ? (int) mxDims[MX_IM_NDIMS] : 1;
+        im->nc = mxNDims == MX_IM_NDIMS ? (int) mxDims[MX_IM_NDIMS - 1] : 1;
 
         // Resize the output                
         im_default_stride(im);
