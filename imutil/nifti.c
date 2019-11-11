@@ -39,6 +39,11 @@ int write_nii(const char *path, const Image *const im) {
 /* Nifti includes */
 #include <nifti1_io.h>
 
+/* Macro returning NIFTI data index for the channel dimension */
+#define SIFT3D_NIM_GET_IDX(im, x, y, z, c) ( \
+        (x) + (y) * (im)->nx + (z) * (im)->nx * (im)->ny + \
+        (c) * (im)->nx * (im)->ny * (im)->nz )
+
 /* Helper function to read a NIFTI image (.nii, .nii.gz).
  * Prior to calling this function, use init_im(im).
  * This function allocates memory.
@@ -48,7 +53,9 @@ int read_nii(const char *path, Image *const im)
 
 	nifti_image *nifti;
         double slope;
-	int x, y, z, i, dim_counter;
+	int x, y, z, c, i, dim_counter;
+
+        const size_t nim_channel_stride = im->nx * im->ny * im->nz;
 
 	// Read NIFTI file
 	if ((nifti = nifti_image_read(path, 1)) == NULL) {
@@ -64,8 +71,9 @@ int read_nii(const char *path, Image *const im)
 		}
 	}
 
-        // Check the dimensionality
-	if (dim_counter > 3) {
+        // Check the dimensionality. 4D is interpreted as a 3D array with
+        // multiple channels.
+	if (dim_counter > 4) {
 		SIFT3D_ERR("read_nii: file %s has unsupported "
 			"dimensionality %d\n", path, dim_counter);
 		goto read_nii_quit;
@@ -85,7 +93,7 @@ int read_nii(const char *path, Image *const im)
 	im->nx = nifti->nx;
 	im->ny = nifti->ny;
 	im->nz = nifti->nz;
-	im->nc = 1;
+	im->nc = dim_counter == 4 ? nifti->nt : 1;
 	im_default_stride(im);
 	im_resize(im);
 
@@ -93,13 +101,14 @@ int read_nii(const char *path, Image *const im)
         slope = nifti->scl_slope;
         if (slope == 0.0) slope = 1.0;
 
+        // Macro to copy the data for each type
 #define IM_COPY_FROM_TYPE(type) \
-    SIFT3D_IM_LOOP_START(im, x, y, z)   \
-        SIFT3D_IM_GET_VOX(im, x, y, z, 0) = (float) ( \
-                (double) ((type *)nifti->data)[\
-                        SIFT3D_IM_GET_IDX(im, x, y, z, 0)] * \
-                (double) slope + (double) nifti->scl_inter); \
-    SIFT3D_IM_LOOP_END
+        SIFT3D_IM_LOOP_START_C(im, x, y, z, c)   \
+                SIFT3D_IM_GET_VOX(im, x, y, z, c) = (float) ( \
+                        (double) ((type *) nifti->data)[\
+                                SIFT3D_NIM_GET_IDX(im, x, y, z, c)] * \
+                                (double) slope + (double) nifti->scl_inter); \
+        SIFT3D_IM_LOOP_END_C
 
 	// Copy the data into im, applying the slope and intercept
 	switch (nifti->datatype) {
@@ -162,17 +171,12 @@ int write_nii(const char *path, const Image *const im)
 {
 
 	nifti_image *nifti;
-	size_t i;
+        int x, y, z, c;
 
-	const int dims[] = { 3, im->nx, im->ny, im->nz, 0, 0, 0, 0 };
-
-	// Verify inputs
-	if (im->nc != 1) {
-		SIFT3D_ERR("write_nii: unsupported number of "
-			"channels: %d. This function only supports single-"
-			"channel images.", im->nc);
-		return SIFT3D_FAILURE;
-	}
+        const size_t nim_channel_stride = im->nx * im->ny * im->nz;
+        const int multi_channel = im->nc > 1;
+	const int dims[] = {multi_channel ? 4 : 3, 
+            im->nx, im->ny, im->nz, multi_channel ? im->nc : 0, 0, 0, 0};
 
 	// Initialize a nifti struct and allocate memory
 	if ((nifti = nifti_make_new_nim(dims, DT_FLOAT32, 1)) == NULL)
@@ -186,11 +190,14 @@ int write_nii(const char *path, const Image *const im)
         nifti->dx = im->ux;
         nifti->dy = im->uy;
         nifti->dz = im->uz;
+        if (multi_channel) 
+            nifti->dt = 0.f; // Channels have no size
 
 	// Copy the data
-	for (i = 0; i < im->size; i++) {
-		((float *)nifti->data)[i] = im->data[i];
-	}
+        SIFT3D_IM_LOOP_START_C(im, x, y, z, c)
+                ((float *) nifti->data)[SIFT3D_NIM_GET_IDX(im, x, y, z, c)] =
+                        SIFT3D_IM_GET_VOX(im, x, y, z, c);
+        SIFT3D_IM_LOOP_END_C
 
 	if (nifti_set_filenames(nifti, path, 0, 1))
 		goto write_nii_quit;

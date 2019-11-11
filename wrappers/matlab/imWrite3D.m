@@ -2,8 +2,7 @@ function imWrite3D(path, im, units)
 %imWrite3D(im) Write a 3D image to a file.
 %  Arguments:
 %    path - The path to the file.
-%    im - An [MxNxP] array containing the image data, where the voxels 
-%       are indexed in (x, y, z) order.
+%    im - An [MxNxPxC] array containing the image data. See imRead3D.
 %    units - (Optional) See imRead3D. Missing values default to 1.
 %
 %  Supported file formats:
@@ -45,7 +44,7 @@ if nargin < 2 || isempty(im)
     error('im not specified')
 end
 
-if ndims(im) > 3
+if ndims(im) > 4
    error(['im has invalid dimensionality: ' num2str(ndims(im))]) 
 end
 
