@@ -4,6 +4,10 @@
 # Build file for the Matlab wrapper toolbox.
 ################################################################################
 
+# There is an issue with MEX compilation for Matlab 2018b that requires a newer 
+# CMake.
+cmake_minimum_required (VERSION 3.15)
+
 # Enumerate the Matlab scripts for testing and installation
 set (INSTALL_SCRIPTS setupSift3D.m imRead3D.m imWrite3D.m detectSift3D.m
         extractSift3D.m orientation3D.m keypoint3D.m registerSift3D.m 
