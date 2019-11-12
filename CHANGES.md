@@ -88,8 +88,10 @@
 * Add keypoint octave indices to kpSift3D output. Thanks to v8korb for this suggestion.
 * Refactor RANSAC code for improved clarity and efficiency. Thanks to cslayers for this suggestion.
 
-## 1.4.6
+## 1.4.6 November 12, 2019
 
+* Fix MEX file compilation for Matlab 2018b and newer
 * Improve Nifti-1 image reading to take into account slope and intercept
 * Convert PET scans to SUV
 * Read Dicom series which are stored in unusual orientations (e.g., Y-Z planes instead of X-Y). This is needed for reading 3D mammograms.
+* Support 4D Nifti files
