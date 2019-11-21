@@ -50,7 +50,7 @@ def im_read(path):
     imNp, units = __im_to_np__(im) 
 
     # Copy the data and free the C memory
-    imNp = np.require(imNp, 'O')
+    imNp = np.require(imNp, requirements='O')
     pySift3D.imFreeFun(ctypes.byref(im))
 
     # Return the converted image, as well as units
