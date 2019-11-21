@@ -1192,6 +1192,29 @@ im_format im_get_format(const char *path) {
         return UNKNOWN;
 }
 
+/* Convert the error code from image reading to a string. */
+const char *im_read_get_error(const int code) {
+        switch (code) {
+        case SIFT3D_SUCCESS:
+                return "";
+        case SIFT3D_FILE_DOES_NOT_EXIST:
+                return "File does not exist";
+        case SIFT3D_UNSUPPORTED_FILE_TYPE:
+                return "Unsupported file type";
+        case SIFT3D_WRAPPER_NOT_COMPILED:
+                return "Recompile SIFT3D with support for this file type";
+        case SIFT3D_UNEVEN_SPACING:
+                return "The series has uneven slice spacing";
+        case SIFT3D_INCONSISTENT_AXES:
+                return "The series has inconsistent slice axes";
+        case SIFT3D_DUPLICATE_SLICES:
+                return "The series contains slices in duplicate locations";
+        }
+
+        // Default return
+        return "Unexpected error reading the image";
+}
+
 /* Read an image from a file. The file extension must match one of the
  * supported formats.
  *

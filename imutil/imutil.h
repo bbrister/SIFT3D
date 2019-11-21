@@ -128,6 +128,8 @@ int draw_lines(const Mat_rm *const points1, const Mat_rm *const points2,
 
 im_format im_get_format(const char *path);
 
+const char *im_read_get_error(const int code);
+
 int im_read(const char *path, Image *const im);
 
 int im_write(const char *path, const Image *const im);

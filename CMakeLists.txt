@@ -193,6 +193,21 @@ if (BUILD_Matlab)
         )
 endif ()
 
+# Configure whether Python is built. This does not require Python to compile
+set (BUILD_Python ON CACHE BOOL "If ON, builds the Python module")
+if (BUILD_Python)
+        message (STATUS "Building the Python module. Set BUILD_Python to override.")
+else ()
+        message (STATUS "Skipping the Python module.")
+endif ()
+
+# Set up Python paths
+if (BUILD_Python) 
+        set (PYTHON_MODULE_NAME "python")
+        set (INSTALL_PYTHON_DIR "${INSTALL_WRAPPERS_DIR}/${PYTHON_MODULE_NAME}"
+                CACHE PATH "Installation directory for the Python module")
+endif ()
+
 # Generate the package configuration files
 set (CMAKE_CONFIG_FILE ${CMAKE_CURRENT_BINARY_DIR}/SIFT3DConfig.cmake)
 set (CMAKE_VERSION_FILE ${CMAKE_CURRENT_BINARY_DIR}/SIFT3DConfigVersion.cmake)
