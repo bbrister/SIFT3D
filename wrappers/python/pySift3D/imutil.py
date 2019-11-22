@@ -26,7 +26,7 @@ def __im_to_np__(im):
     outShape = (nc,) + tuple(dims)
     numel = nc * np.prod(dims)
     imNp = np.ctypeslib.as_array(im.data, shape=(numel,))
-    imNp = imNp.reshape(outShape)
+    imNp = imNp.reshape(outShape, order='F')
 
     # Reorder from (c, x, y, z) to (x, y, z, c)
     imNp = np.moveaxis(imNp, 0, -1)
