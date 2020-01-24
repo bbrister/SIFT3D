@@ -15,7 +15,8 @@
 #include "imutil.h"
 #include "sift.h"
 
-#define BUF_SIZE (1 << 10)
+#define PATH_SIZE (1 << 10)
+#define MSG_SIZE (1 << 11) // Must be larger than PATH_SIZE
 
 /* The log tag */
 const char tag[] = "denseSift3d";
@@ -60,7 +61,7 @@ void err_msgu(const char *msg) {
 
 int main(int argc, char **argv) {
 
-        char out_name[BUF_SIZE], chan_str[BUF_SIZE];
+        char out_name[PATH_SIZE], chan_str[PATH_SIZE];
         Image im, desc, chan;
         SIFT3D sift3d;
         char *in_path, *out_path, *marker;
@@ -99,9 +100,9 @@ int main(int argc, char **argv) {
         /* Read the image */        
         if (im_read(in_path, &im)) {
                 
-                char msg[BUF_SIZE];
+                char msg[MSG_SIZE];
 
-                snprintf(msg, BUF_SIZE, "Failed to read input image \"%s\".",
+                snprintf(msg, MSG_SIZE, "Failed to read input image \"%s\".",
 			in_path);
                 err_msg(msg);
                 return 1;
@@ -116,12 +117,12 @@ int main(int argc, char **argv) {
 
         /* Get the output file name length */
         len = strlen(out_path) + (int) ceil(log10((double) im.nc)) - 1;
-        if (len > BUF_SIZE) {
+        if (len > PATH_SIZE) {
 
-                char msg[BUF_SIZE];
+                char msg[MSG_SIZE];
 
-                snprintf(msg, BUF_SIZE, "Ouput filename cannot exceed %d "
-			"characters.", BUF_SIZE);
+                snprintf(msg, MSG_SIZE, "Ouput filename cannot exceed %d "
+			"characters.", PATH_SIZE);
                 err_msg(msg);
                 return 1;
         }
@@ -144,7 +145,7 @@ int main(int argc, char **argv) {
 
                 /* Form the output file name */
                 out_name[0] = '\0';
-                snprintf(chan_str, BUF_SIZE, "%d", c);
+                snprintf(chan_str, PATH_SIZE, "%d", c);
                 strncat(out_name, out_path, marker_pos);
                 strcat(out_name, chan_str);
                 strcat(out_name, marker + 1);
@@ -152,9 +153,9 @@ int main(int argc, char **argv) {
                 /* Write the channel */
                 if (im_write(out_name, &chan)) {
 
-                        char msg[BUF_SIZE];
+                        char msg[MSG_SIZE];
 
-                        snprintf(msg, BUF_SIZE, "Failed to write output image "
+                        snprintf(msg, MSG_SIZE, "Failed to write output image "
 				"\"%s\".", out_name);
                         err_msg(msg);
                         return 1;
