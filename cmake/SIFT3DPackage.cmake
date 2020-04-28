@@ -75,7 +75,7 @@ elseif (CPACK_GENERATOR STREQUAL "DEB")
         message ("-- Configured Debian package for architecture ${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}")
 
         # Set the standard Debian package dependencies
-        set (CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, zlib1g, libnifti2, libdcmtk5, liblapack3")
+        set (CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, zlib1g, libnifti2, libdcmtk-dev, liblapack-dev")
 
         # Set compiler-specific Debian package dependencies
         if (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR
