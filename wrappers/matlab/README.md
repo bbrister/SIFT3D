@@ -29,6 +29,8 @@ We do not recommend moving the toolbox shared libraries (.so, .dylib, .dll). If 
 
 ### Troubleshooting
 
+#### Matlab not found
+
 When compiling from source, CMake might fail to find Matlab on your system, especially on Mac OSX. In that case, you should see "Matlab not found" after running the cmake command. You can fix this by manually specifying the location of Matlab in the variable Matlab_ROOT_DIR. For example,
 
         cmake .. -DMatlab_ROOT_DIR=/path/to/MATLAB
@@ -38,6 +40,12 @@ or on Mac OSX,
         cmake .. -DMatlab_ROOT_DIR=/path/to/Matlab.app
 
 where /path/to/MATLAB is the location of your Matlab installation.
+
+#### glibcxx version not found
+
+If you compile SIFT3D vith a newer version of G++ than is supported by your version of Matlab, you may receive an error saying that the required version of glibcxx cannot be found. The solution is to compile SIFT3D with a different version of G++. For example, on Ubuntu 20.04, with G++ 7 installed,
+
+        cmake .. -DCMAKE_CXX_COMPILER=/usr/bin/g++-7
 
 ## Usage instructions
 
