@@ -252,7 +252,6 @@ if (BUILD_Matlab)
         target_include_directories(meximutil PUBLIC ${Matlab_INCLUDE_DIRS})
         target_include_directories (meximutil PRIVATE 
                 ${ZLIB_INCLUDE_DIR})
-        target_link_libraries (meximutil PUBLIC ${Matlab_LIBRARIES})
         target_link_libraries (meximutil PRIVATE ${Matlab_MWLAPACK_LIBRARY} 
                 ${Matlab_MWBLAS_LIBRARY} ${ZLIB_LIBRARIES} ${M_LIBRARY})
         add_DICOM(meximutil)

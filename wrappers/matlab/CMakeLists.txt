@@ -22,42 +22,42 @@ target_include_directories (mexutil PUBLIC
                 $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
 )
 target_link_libraries (mexutil PUBLIC mexreg mexsift3D meximutil
-        ${Matlab_LIBRARIES})
+        ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
 
 # Build the mex files
 matlab_add_mex (NAME mexImRead3D
         SRC mexImRead3D.c
-        LINK_TO mexutil ${Matlab_LIBRARIES}
+        LINK_TO mexutil
 )
 
 matlab_add_mex (NAME mexImWrite3D
         SRC mexImWrite3D.c
-        LINK_TO mexutil ${Matlab_LIBRARIES}
+        LINK_TO mexutil 
 )
 
 matlab_add_mex (NAME mexDetectSift3D 
         SRC mexDetectSift3D.c 
-        LINK_TO mexutil ${Matlab_LIBRARIES}
+        LINK_TO mexutil 
 )
 
 matlab_add_mex (NAME mexOrientation3D
         SRC mexOrientation3D.c
-        LINK_TO mexutil ${Matlab_LIBRARIES}
+        LINK_TO mexutil 
 )
 
 matlab_add_mex (NAME mexExtractSift3D
         SRC mexExtractSift3D.c
-        LINK_TO mexutil ${Matlab_LIBRARIES}
+        LINK_TO mexutil 
 )
 
 matlab_add_mex (NAME mexRegisterSift3D
         SRC mexRegisterSift3D.c
-        LINK_TO mexutil ${Matlab_LIBRARIES}
+        LINK_TO mexutil 
 )
 
 matlab_add_mex (NAME mexMatchSift3D
         SRC mexMatchSift3D.c
-        LINK_TO mexutil ${Matlab_LIBRARIES}
+        LINK_TO mexutil 
 )
 
 # Enumerate the binary targets
