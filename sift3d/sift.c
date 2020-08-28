@@ -1,7 +1,7 @@
 /* -----------------------------------------------------------------------------
  * sift.c
  * -----------------------------------------------------------------------------
- * Copyright (c) 2015-2016 Blaine Rister et al., see LICENSE for details.
+ * Copyright (c) 2015-2020 Blaine Rister et al., see LICENSE for details.
  * -----------------------------------------------------------------------------
  * This file contains all routines needed to initialize, delete, 
  * and run the SIFT3D detector and descriptor. It also contains routines for
@@ -2955,9 +2955,9 @@ static int match_desc(const SIFT3D_Descriptor *const desc,
 
 #ifdef SIFT3D_MATCH_MAX_DIST
         // Compute the spatial distance of the match
-        dmatch.x = (float) desc_best->xd - desc1->xd; 
-        dmatch.y = (float) desc_best->yd - desc1->yd; 
-        dmatch.z = (float) desc_best->zd - desc1->zd; 
+        dmatch.x = (float) desc_best->xd - desc->xd; 
+        dmatch.y = (float) desc_best->yd - desc->yd; 
+        dmatch.z = (float) desc_best->zd - desc->zd; 
         dist_match = (double) SIFT3D_CVEC_L2_NORM(&dmatch);
 
         // Reject matches of great distance

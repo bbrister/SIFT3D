@@ -95,3 +95,9 @@
 * Convert PET scans to SUV
 * Read Dicom series which are stored in unusual orientations (e.g., Y-Z planes instead of X-Y). This is needed for reading 3D mammograms.
 * Support 4D Nifti files
+
+## 1.4.7
+
+* Clean up some code not compiled under the default settings
+* Added nascent Python wrapper library
+* Minor bug fixes (thanks to Willam Gandler) 
