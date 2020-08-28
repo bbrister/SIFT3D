@@ -1106,8 +1106,8 @@ int draw_lines(const Mat_rm * const points1, const Mat_rm * const points2,
 		const double p2z = SIFT3D_MAT_RM_GET(&points2_d, i, 2, double);
 
 		// Check the bounds
-		if (!IM_CONTAINS(out, p1x, p1y, p1z) ||
-		    !IM_CONTAINS(out, p2x, p2y, p2z))
+		if (!SIFT3D_IM_CONTAINS(out, p1x, p1y, p1z) ||
+		    !SIFT3D_IM_CONTAINS(out, p2x, p2y, p2z))
 			continue;
 
 		// Get the bounds of the line

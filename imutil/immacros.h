@@ -96,7 +96,7 @@ extern "C" {
 #define SIFT3D_IM_LOOP_END_C SIFT3D_IM_LOOP_END }
 
 /* Check if a point is within the boundaries of an image */
-#define IM_CONTAINS(im, x, y, z) \
+#define SIFT3D_IM_CONTAINS(im, x, y, z) \
         ((x) >= 0 && (y) >= 0 && (z) >= 0 && (x) < (im)->nx && \
          (y) < (im)->ny && (z) < (im)->nz)
 
@@ -318,10 +318,7 @@ extern "C" {
 
 // Evaluates to true (nonzero) if im contains cvec, false otherwise
 #define SIFT3D_IM_CONTAINS_CVEC(im, cvec) ( \
-        (cvec)->x >= 0 || (cvec)->y >= 0 || (cvec)->z >= 0 || \
-        (cvec)->x < (float) (im)->nx || \
-        (cvec)->y < (float) (im)->ny || \
-        (cvec)->z < (float) (im)->nz \
+        SIFT3D_IM_CONTAINS(im, (cvec)->x, (cvec)->y, (cvec)->z) \
 )
 
 /* Computes v_out = mat * v_in. Note that mat must be of FLOAT
